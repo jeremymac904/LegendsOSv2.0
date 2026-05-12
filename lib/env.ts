@@ -41,10 +41,18 @@ function read(name: string, opts?: { optional?: boolean; default?: string }): st
 
 // Supabase publishes new API key names (publishable / secret) alongside the
 // legacy anon / service_role names. We accept either, preferring the new ones.
-const SUPABASE_PUBLISHABLE_KEY = pickFirst(
-  "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
-  "NEXT_PUBLIC_SUPABASE_ANON_KEY"
-);
+//
+// IMPORTANT: Next.js only inlines `process.env.NEXT_PUBLIC_*` into client
+// bundles when the lookup uses a LITERAL property name. A helper like
+// `pickFirst("NEXT_PUBLIC_FOO")` uses a computed key (`process.env[name]`),
+// which the Next.js compiler cannot statically replace — so the value would
+// be `undefined` in the browser even when set at build time. Keep these
+// lookups as literal property accesses or this whole client will throw with
+// "Supabase is not configured".
+const SUPABASE_PUBLISHABLE_KEY =
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  "";
 
 // ---------------------------------------------------------------------------
 // Public values (safe in browser bundles)
