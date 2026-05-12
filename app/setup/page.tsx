@@ -20,7 +20,8 @@ export default function SetupPage() {
           <code className="rounded bg-ink-800 px-1 py-0.5">.env.example</code>{" "}
           to <code className="rounded bg-ink-800 px-1 py-0.5">.env.local</code>{" "}
           and fill in <code>NEXT_PUBLIC_SUPABASE_URL</code> and{" "}
-          <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code>. Then run the migrations in{" "}
+          <code>NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY</code>. Then run the
+          migrations in{" "}
           <code className="rounded bg-ink-800 px-1 py-0.5">supabase/migrations</code>.
         </p>
         <div className="mt-6 grid gap-3 text-sm text-ink-200">
@@ -32,7 +33,7 @@ export default function SetupPage() {
           <Step
             n={2}
             title="Set environment variables"
-            body="Add SUPABASE_URL, SUPABASE_ANON_KEY, and SUPABASE_SERVICE_ROLE_KEY to .env.local."
+            body="Add NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, and SUPABASE_SECRET_KEY to .env.local (legacy NEXT_PUBLIC_SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY are accepted as fallbacks)."
           />
           <Step
             n={3}

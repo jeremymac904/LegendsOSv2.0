@@ -24,10 +24,21 @@ function readNumber(name: string, fallback: number): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
+// Supabase publishes new API key names (publishable / secret) alongside the
+// legacy anon / service_role names. We accept either, preferring the new ones.
+// NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY → fallback NEXT_PUBLIC_SUPABASE_ANON_KEY
+// SUPABASE_SECRET_KEY                  → fallback SUPABASE_SERVICE_ROLE_KEY
+const SUPABASE_PUBLISHABLE_KEY =
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  "";
+
 // Public values (safe in browser bundles) -----------------------------------
 export const PUBLIC_ENV = {
   SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
+  // Exposed as both names so callers using either remain compatible.
+  SUPABASE_PUBLISHABLE_KEY,
+  SUPABASE_ANON_KEY: SUPABASE_PUBLISHABLE_KEY,
   OWNER_EMAIL: process.env.NEXT_PUBLIC_OWNER_EMAIL || "jeremy@mcdonald-mtg.com",
   APP_NAME: process.env.NEXT_PUBLIC_APP_NAME || "LegendsOS",
   APP_URL: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
@@ -41,10 +52,17 @@ export const PUBLIC_ENV = {
 
 // Server values (NEVER reference these in client components) -----------------
 export function getServerEnv() {
+  // Same dual-name pattern for the server-only secret.
+  const secretKey =
+    process.env.SUPABASE_SECRET_KEY ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    "";
   return {
     SUPABASE_URL: PUBLIC_ENV.SUPABASE_URL,
+    SUPABASE_PUBLISHABLE_KEY: PUBLIC_ENV.SUPABASE_PUBLISHABLE_KEY,
     SUPABASE_ANON_KEY: PUBLIC_ENV.SUPABASE_ANON_KEY,
-    SUPABASE_SERVICE_ROLE_KEY: read("SUPABASE_SERVICE_ROLE_KEY", { optional: true }),
+    SUPABASE_SECRET_KEY: secretKey,
+    SUPABASE_SERVICE_ROLE_KEY: secretKey,
     OPENROUTER_API_KEY: read("OPENROUTER_API_KEY", { optional: true }),
     OPENROUTER_DEFAULT_MODEL: read("OPENROUTER_DEFAULT_MODEL", {
       default: "anthropic/claude-3.5-sonnet",
@@ -90,5 +108,5 @@ export function getServerEnv() {
 }
 
 export function isSupabaseConfigured(): boolean {
-  return Boolean(PUBLIC_ENV.SUPABASE_URL && PUBLIC_ENV.SUPABASE_ANON_KEY);
+  return Boolean(PUBLIC_ENV.SUPABASE_URL && PUBLIC_ENV.SUPABASE_PUBLISHABLE_KEY);
 }

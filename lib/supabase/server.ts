@@ -12,7 +12,7 @@ export function getSupabaseServerClient() {
   const cookieStore = cookies();
   return createServerClient(
     PUBLIC_ENV.SUPABASE_URL,
-    PUBLIC_ENV.SUPABASE_ANON_KEY,
+    PUBLIC_ENV.SUPABASE_PUBLISHABLE_KEY,
     {
       cookies: {
         get(name: string) {
@@ -43,12 +43,12 @@ export function getSupabaseServerClient() {
 // reading provider secrets for outbound API calls, owner-level admin reads).
 export function getSupabaseServiceClient() {
   const env = getServerEnv();
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (!env.SUPABASE_SECRET_KEY) {
     throw new Error(
-      "SUPABASE_SERVICE_ROLE_KEY is not set. Add it to .env.local."
+      "SUPABASE_SECRET_KEY is not set. Add it to .env.local (legacy SUPABASE_SERVICE_ROLE_KEY is also accepted)."
     );
   }
-  return createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+  return createClient(env.SUPABASE_URL, env.SUPABASE_SECRET_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 }
