@@ -35,23 +35,27 @@ export async function updateSession(request: NextRequest) {
     PUBLIC_ENV.SUPABASE_PUBLISHABLE_KEY,
     {
       cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value;
+        getAll() {
+          return request.cookies.getAll();
         },
-        set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({ name, value, ...options });
+        setAll(
+          cookiesToSet: { name: string; value: string; options: CookieOptions }[]
+        ) {
+          for (const { name, value } of cookiesToSet) {
+            request.cookies.set(name, value);
+          }
           response = NextResponse.next({ request });
-          response.cookies.set({ name, value, ...options });
-        },
-        remove(name: string, options: CookieOptions) {
-          request.cookies.set({ name, value: "", ...options });
-          response = NextResponse.next({ request });
-          response.cookies.set({ name, value: "", ...options });
+          for (const { name, value, options } of cookiesToSet) {
+            response.cookies.set(name, value, options);
+          }
         },
       },
     }
   );
 
+  // IMPORTANT (per Supabase guidance): do not run other logic between
+  // createServerClient and auth.getUser() — that call refreshes the session
+  // and sets fresh cookies on `response`.
   const {
     data: { user },
   } = await supabase.auth.getUser();

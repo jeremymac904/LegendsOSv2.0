@@ -15,22 +15,19 @@ export function getSupabaseServerClient() {
     PUBLIC_ENV.SUPABASE_PUBLISHABLE_KEY,
     {
       cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
+        getAll() {
+          return cookieStore.getAll();
         },
-        set(name: string, value: string, options: CookieOptions) {
+        setAll(
+          cookiesToSet: { name: string; value: string; options: CookieOptions }[]
+        ) {
           try {
-            cookieStore.set({ name, value, ...options });
+            for (const { name, value, options } of cookiesToSet) {
+              cookieStore.set({ name, value, ...options });
+            }
           } catch {
-            // Set from a Server Component — the response has already been
-            // flushed. Middleware refreshes cookies, so this is a no-op.
-          }
-        },
-        remove(name: string, options: CookieOptions) {
-          try {
-            cookieStore.set({ name, value: "", ...options });
-          } catch {
-            // ignore
+            // Called from a Server Component — middleware refreshes cookies,
+            // so this is a safe no-op.
           }
         },
       },
@@ -66,9 +63,15 @@ export async function getCurrentSession() {
   return session;
 }
 
+// Prefer auth.getUser() over reading session.user — getUser verifies the JWT
+// against Supabase's auth server, while getSession trusts the cookie blob.
 export async function getCurrentUser() {
-  const session = await getCurrentSession();
-  return session?.user ?? null;
+  if (!supabaseReady()) return null;
+  const supabase = getSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user ?? null;
 }
 
 export async function getCurrentProfile(): Promise<Profile | null> {

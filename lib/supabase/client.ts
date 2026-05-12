@@ -15,7 +15,7 @@ export function getSupabaseBrowserClient() {
   if (cached) return cached;
   cached = createBrowserClient(
     PUBLIC_ENV.SUPABASE_URL,
-    PUBLIC_ENV.SUPABASE_ANON_KEY
+    PUBLIC_ENV.SUPABASE_PUBLISHABLE_KEY
   );
   return cached;
 }
