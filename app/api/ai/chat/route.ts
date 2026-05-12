@@ -8,12 +8,14 @@ import { checkDailyCap, logUsage } from "@/lib/usage";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// Accept either undefined OR null for optional ids/strings — the chat client
+// initializes thread_id and assistant_id to null on a fresh conversation.
 const schema = z.object({
-  thread_id: z.string().uuid().optional(),
-  assistant_id: z.string().uuid().optional(),
+  thread_id: z.string().uuid().nullish(),
+  assistant_id: z.string().uuid().nullish(),
   message: z.string().min(1).max(8000),
-  provider: z.enum(["openrouter", "deepseek", "nvidia"]).optional(),
-  model: z.string().optional(),
+  provider: z.enum(["openrouter", "deepseek", "nvidia"]).nullish(),
+  model: z.string().nullish(),
 });
 
 export async function POST(req: Request) {
@@ -106,7 +108,11 @@ export async function POST(req: Request) {
       content: m.content,
     }));
 
-  const result = await runChat({ provider, model, messages });
+  const result = await runChat({
+    provider: provider ?? undefined,
+    model: model ?? undefined,
+    messages,
+  });
 
   // Always log a usage event so the cap is enforced even on failure.
   await logUsage(profile, {

@@ -1,12 +1,15 @@
 import { ImageIcon } from "lucide-react";
 
+import { GeneratedMediaCard } from "@/components/images/GeneratedMediaCard";
 import { ImageStudioClient } from "@/components/images/ImageStudioClient";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { getServerEnv } from "@/lib/env";
-import { getCurrentProfile, getSupabaseServerClient } from "@/lib/supabase/server";
-import { formatRelative } from "@/lib/utils";
+import {
+  getCurrentProfile,
+  getSupabaseServerClient,
+} from "@/lib/supabase/server";
 import type { GeneratedMedia } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -66,31 +69,9 @@ export default async function ImageStudioPage() {
                 }
               />
             ) : (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {media.map((m) => (
-                  <figure
-                    key={m.id}
-                    className="overflow-hidden rounded-xl border border-ink-800 bg-checker"
-                  >
-                    {m.preview_url ? (
-                      <img
-                        src={m.preview_url}
-                        alt={m.prompt}
-                        className="aspect-square w-full object-cover"
-                      />
-                    ) : (
-                      <div className="grid aspect-square place-items-center text-[10px] text-ink-300">
-                        {m.status}
-                      </div>
-                    )}
-                    <figcaption className="p-2 text-[11px] text-ink-300">
-                      <span className="line-clamp-2 text-ink-100">{m.prompt}</span>
-                      <span className="mt-1 flex items-center justify-between">
-                        <StatusPill status={m.status as never} />
-                        <span>{formatRelative(m.created_at)}</span>
-                      </span>
-                    </figcaption>
-                  </figure>
+                  <GeneratedMediaCard key={m.id} media={m} />
                 ))}
               </div>
             )}

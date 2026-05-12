@@ -10,13 +10,13 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const schema = z.object({
-  campaign_id: z.string().uuid().optional(),
+  campaign_id: z.string().uuid().nullish(),
   subject: z.string().min(1).max(300),
-  preview_text: z.string().max(200).optional(),
-  body_html: z.string().optional(),
-  body_text: z.string().optional(),
-  template_key: z.string().optional(),
-  recipient_list: z.string().optional(),
+  preview_text: z.string().max(200).nullish(),
+  body_html: z.string().nullish(),
+  body_text: z.string().nullish(),
+  template_key: z.string().nullish(),
+  recipient_list: z.string().nullish(),
   action: z.enum(["draft", "approve", "request_send"]).default("draft"),
 });
 

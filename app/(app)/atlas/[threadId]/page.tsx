@@ -1,9 +1,8 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
 
-import { AtlasChatClient } from "@/components/atlas/AtlasChatClient";
+import { AtlasWorkspace } from "@/components/atlas/AtlasWorkspace";
 import { SectionHeader } from "@/components/ui/SectionHeader";
+import { StatusPill } from "@/components/ui/StatusPill";
 import { getAIProviderStatuses, getServerEnv } from "@/lib/env";
 import {
   getCurrentProfile,
@@ -23,28 +22,32 @@ export default async function AtlasThreadPage({ params }: PageProps) {
   const supabase = getSupabaseServerClient();
   const env = getServerEnv();
 
-  const [{ data: thread }, { data: messages }, { data: assistants }] =
-    await Promise.all([
-      supabase
-        .from("chat_threads")
-        .select("*")
-        .eq("id", params.threadId)
-        .maybeSingle(),
-      supabase
-        .from("chat_messages")
-        .select("*")
-        .eq("thread_id", params.threadId)
-        .order("created_at", { ascending: true }),
-      supabase
-        .from("atlas_assistants")
-        .select("*")
-        .eq("is_active", true)
-        .order("name"),
-    ]);
+  const [
+    { data: thread },
+    { data: messages },
+    { data: assistants },
+    { data: threads },
+  ] = await Promise.all([
+    supabase.from("chat_threads").select("*").eq("id", params.threadId).maybeSingle(),
+    supabase
+      .from("chat_messages")
+      .select("*")
+      .eq("thread_id", params.threadId)
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("atlas_assistants")
+      .select("*")
+      .eq("is_active", true)
+      .order("name"),
+    supabase
+      .from("chat_threads")
+      .select("id,title,last_message_at,updated_at,assistant_id")
+      .order("last_message_at", { ascending: false, nullsFirst: false })
+      .order("updated_at", { ascending: false })
+      .limit(60),
+  ]);
 
-  if (!thread) {
-    notFound();
-  }
+  if (!thread) notFound();
 
   const textProviders = getAIProviderStatuses().filter((p) =>
     ["openrouter", "deepseek", "nvidia"].includes(p.id)
@@ -101,22 +104,42 @@ export default async function AtlasThreadPage({ params }: PageProps) {
       | undefined) ?? "openrouter";
 
   return (
-    <div className="space-y-5">
-      <Link href="/atlas" className="btn-ghost w-fit text-xs">
-        <ArrowLeft size={14} />
-        All threads
-      </Link>
+    <div className="space-y-4">
       <SectionHeader
         eyebrow="Atlas Chat"
         title={(thread as ChatThread).title}
         description="All messages persist with RLS. Replies are logged as usage events."
+        action={
+          <div className="flex flex-wrap gap-2">
+            {textProviders.map((p) => (
+              <StatusPill
+                key={p.id}
+                status={
+                  p.configured
+                    ? p.enabled
+                      ? "ok"
+                      : "off"
+                    : "missing"
+                }
+                label={`${p.label}: ${
+                  p.configured ? (p.enabled ? "ready" : "off") : "missing"
+                }`}
+              />
+            ))}
+          </div>
+        }
       />
-      <AtlasChatClient
-        initialThreadId={params.threadId}
+      <AtlasWorkspace
+        ownerId={profile.id}
+        threads={
+          (threads ?? []) as Pick<
+            ChatThread,
+            "id" | "title" | "last_message_at" | "updated_at" | "assistant_id"
+          >[]
+        }
+        currentThread={thread as ChatThread}
         initialMessages={(messages ?? []) as ChatMessage[]}
         assistants={(assistants ?? []) as AtlasAssistant[]}
-        ownerId={profile.id}
-        initialAssistantId={(thread as ChatThread).assistant_id ?? null}
         providerCatalog={textProviders.map((p) => ({
           id: p.id as "openrouter" | "deepseek" | "nvidia",
           label: p.label,

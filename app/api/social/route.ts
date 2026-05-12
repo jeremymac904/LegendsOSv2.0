@@ -18,11 +18,12 @@ const channels = [
 ] as const;
 
 const schema = z.object({
-  title: z.string().max(160).optional(),
+  title: z.string().max(160).nullish(),
   body: z.string().min(1).max(8000),
   channels: z.array(z.enum(channels)).min(1).max(channels.length),
-  media_id: z.string().uuid().nullable().optional(),
-  scheduled_at: z.string().datetime().nullable().optional(),
+  media_id: z.string().uuid().nullish(),
+  media_ids: z.array(z.string().uuid()).nullish(),
+  scheduled_at: z.string().datetime().nullish(),
   action: z.enum(["draft", "schedule"]).default("draft"),
 });
 
@@ -50,6 +51,11 @@ export async function POST(req: Request) {
   const supabase = getSupabaseServerClient();
   const env = getServerEnv();
 
+  // Pick the first attached media as the primary; persist any extras in
+  // metadata.media_ids so the composer can re-render the full list later.
+  const mediaIds = (data.media_ids ?? []).filter(Boolean);
+  const primaryMediaId = data.media_id ?? mediaIds[0] ?? null;
+
   // Persist the post.
   const { data: post, error: insErr } = await supabase
     .from("social_posts")
@@ -59,9 +65,10 @@ export async function POST(req: Request) {
       title: data.title ?? null,
       body: data.body,
       channels: data.channels as SocialChannel[],
-      media_id: data.media_id ?? null,
+      media_id: primaryMediaId,
       scheduled_at: data.scheduled_at ?? null,
       status: data.action === "schedule" ? "scheduled" : "draft",
+      metadata: mediaIds.length > 0 ? { media_ids: mediaIds } : {},
     })
     .select("*")
     .single();
