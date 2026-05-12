@@ -40,10 +40,10 @@
 8. **Provider keys.** Add `OPENROUTER_API_KEY` (text) and `FAL_KEY` (images).
    Flip `ALLOW_PAID_TEXT_GENERATION=true` and
    `ALLOW_PAID_IMAGE_GENERATION=true` once billing is confirmed.
-9. **n8n workflows.** Stand up the workflows described in `docs/AUTOMATION.md`
-   on Jeremy's n8n instance. Configure `N8N_WEBHOOK_SECRET` and per-workflow
-   URLs. Keep `ALLOW_LIVE_*` flags off until end-to-end test posts confirm
-   correctness.
+9. **n8n workflows.** Sandbox workflows are live on Jeremy's n8n instance
+   (https://n8n.srv1124745.hstgr.cloud/webhook/legendsos/*). HMAC removed —
+   plain JSON POSTs accepted. Keep `ALLOW_LIVE_*` flags off until end-to-end
+   test posts confirm correctness.
 10. **Atlas knowledge attach.** Add server logic to inject the top
     `retrieval_references` for the current thread into the chat system prompt.
     Tables and policies already support it.

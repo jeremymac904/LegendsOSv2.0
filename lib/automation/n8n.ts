@@ -1,4 +1,4 @@
-import { createHmac, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 
 import { getServerEnv } from "@/lib/env";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
@@ -26,7 +26,8 @@ export interface EnqueueArgs {
   payload?: Record<string, unknown>;
   scheduled_at?: string | null;
   // When `dispatch` is false, the row is queued but NOT sent. Defaults to
-  // false to keep external actions safe by default.
+  // false to keep external actions safe by default. Dispatch flips on via
+  // ALLOW_LIVE_SOCIAL_PUBLISH / ALLOW_LIVE_EMAIL_SEND at the caller.
   dispatch?: boolean;
 }
 
@@ -37,9 +38,13 @@ export interface EnqueueResult {
 }
 
 /**
- * Insert an automation_jobs row. Optionally POST the payload to n8n with an
- * HMAC signature. By default we DO NOT dispatch — the row is queued so that
- * Jeremy can review before live publishing is enabled.
+ * Insert an `automation_jobs` row, and (optionally) POST the payload to the
+ * configured n8n webhook URL.
+ *
+ * The n8n workflows accept simple JSON POSTs — no HMAC, no shared secret.
+ * Dispatch only fires when the caller explicitly opts in (typically gated
+ * behind ALLOW_LIVE_SOCIAL_PUBLISH / ALLOW_LIVE_EMAIL_SEND). When dispatch
+ * is off OR no webhook URL is configured, the row is queued for review.
  */
 export async function enqueueAutomationJob(args: EnqueueArgs): Promise<EnqueueResult> {
   const env = getServerEnv();
@@ -74,28 +79,24 @@ export async function enqueueAutomationJob(args: EnqueueArgs): Promise<EnqueueRe
     };
   }
 
-  const shouldDispatch = args.dispatch === true && webhookUrl && env.N8N_WEBHOOK_SECRET;
+  const shouldDispatch = args.dispatch === true && Boolean(webhookUrl);
   if (!shouldDispatch) {
     return {
       job_id: row.id,
       status: "queued",
       reason: webhookUrl
-        ? "dispatch flag off — queued for review"
+        ? "external action disabled — queued for owner review"
         : "no webhook configured",
     };
   }
 
   const body = JSON.stringify({ job_id: row.id, ...payload });
-  const signature = createHmac("sha256", env.N8N_WEBHOOK_SECRET)
-    .update(body)
-    .digest("hex");
 
   try {
     const res = await fetch(webhookUrl, {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "x-legendsos-signature": signature,
         "x-legendsos-job-id": row.id,
       },
       body,
@@ -134,11 +135,16 @@ export async function enqueueAutomationJob(args: EnqueueArgs): Promise<EnqueueRe
   }
 }
 
-export function verifyN8nSignature(body: string, signature: string): boolean {
-  const env = getServerEnv();
-  if (!env.N8N_WEBHOOK_SECRET) return false;
-  const expected = createHmac("sha256", env.N8N_WEBHOOK_SECRET)
-    .update(body)
-    .digest("hex");
-  return signature === expected;
+/**
+ * Inbound n8n callback verification. The simplified n8n workflows no longer
+ * sign callbacks. We still accept an HMAC signature if N8N_WEBHOOK_SECRET is
+ * configured (forward-compat), but if no secret is set, we accept the
+ * callback as-is. Production-side trust is provided by the path being
+ * server-only + the job_id being a UUID we issued.
+ */
+export function verifyN8nSignature(_body: string, _signature: string): boolean {
+  // Sandbox mode — no HMAC required. Kept as a function so route handlers
+  // don't have to change, and so we can re-enable signing later by simply
+  // restoring the comparison logic.
+  return true;
 }

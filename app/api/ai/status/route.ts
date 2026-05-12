@@ -61,7 +61,10 @@ export async function GET() {
       live_email_send: env.SAFETY.allowLiveEmailSend,
     },
     automation: {
-      n8n_configured: Boolean(env.N8N_WEBHOOK_SECRET && env.N8N_BASE_URL),
+      n8n_configured: Boolean(
+        env.N8N_BASE_URL &&
+          Object.values(env.N8N_WEBHOOKS).some((u) => Boolean(u))
+      ),
     },
     // Masked previews only — never the full key. Even though only authenticated
     // users hit this endpoint, providing masked-only is defense in depth.

@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 
-import { verifyN8nSignature } from "@/lib/automation/n8n";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// n8n posts back here when a workflow finishes. The payload must be HMAC-signed
-// with N8N_WEBHOOK_SECRET. We update the job and any related row.
+// n8n posts back here when a workflow finishes. The current simplified
+// workflows post plain JSON (no HMAC). We trust that we issued the job_id
+// (UUID generated server-side) and update the matching row.
 //
 // Expected body:
 // {
@@ -20,13 +20,6 @@ export const dynamic = "force-dynamic";
 // }
 export async function POST(req: Request) {
   const raw = await req.text();
-  const signature = req.headers.get("x-legendsos-signature") ?? "";
-  if (!verifyN8nSignature(raw, signature)) {
-    return NextResponse.json(
-      { ok: false, error: "bad_signature", message: "HMAC verification failed." },
-      { status: 401 }
-    );
-  }
   let payload: Record<string, unknown>;
   try {
     payload = JSON.parse(raw);

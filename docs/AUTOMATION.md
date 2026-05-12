@@ -1,20 +1,21 @@
 # n8n Automation contracts
 
-The app talks to n8n via signed HTTP webhooks. All requests carry:
+The app talks to n8n via plain JSON HTTP webhooks. The current workflows are
+sandbox-mode (no live sending, no Gmail, no real social publishing). HMAC
+signing and the shared `N8N_WEBHOOK_SECRET` have been removed — the only
+trust boundary is the server-issued UUID `job_id` we include in the payload.
 
 ```
 POST <webhook_url>
 Content-Type: application/json
-X-Legendsos-Signature: <hex hmac-sha256 of body using N8N_WEBHOOK_SECRET>
 X-Legendsos-Job-Id: <automation_jobs.id>
 ```
 
-n8n must verify the signature and post results back to:
+n8n posts results back to:
 
 ```
 POST <APP_URL>/api/automation/callback
 Content-Type: application/json
-X-Legendsos-Signature: <hex hmac-sha256 of body>
 
 {
   "job_id": "uuid",
@@ -26,8 +27,11 @@ X-Legendsos-Signature: <hex hmac-sha256 of body>
 }
 ```
 
-Without `N8N_WEBHOOK_SECRET` set on both sides, dispatch is refused and the
-callback returns 401.
+The callback updates the `automation_jobs` row by id and propagates status
+to `social_posts` / `email_campaigns` as applicable. External actions stay
+gated by `ALLOW_LIVE_SOCIAL_PUBLISH` and `ALLOW_LIVE_EMAIL_SEND`; with both
+off, the app saves drafts and queues `automation_jobs` rows but never calls
+n8n.
 
 ## Workflows
 

@@ -65,11 +65,9 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
               }
             />
             <StatusPill
-              status={
-                env.N8N_BASE_URL && env.N8N_WEBHOOK_SECRET ? "ok" : "warn"
-              }
+              status={env.N8N_WEBHOOKS.social_publish ? "ok" : "warn"}
               label={
-                env.N8N_BASE_URL && env.N8N_WEBHOOK_SECRET
+                env.N8N_WEBHOOKS.social_publish
                   ? "n8n connected"
                   : "n8n not configured"
               }

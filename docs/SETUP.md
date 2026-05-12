@@ -32,7 +32,7 @@ Optional but recommended:
 
 - `NEXT_PUBLIC_OWNER_EMAIL` (defaults to `jeremy@mcdonald-mtg.com`)
 - AI provider keys: `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, `FAL_KEY`
-- `N8N_BASE_URL`, `N8N_WEBHOOK_SECRET`, and per-workflow URLs
+- `N8N_WEBHOOK_BASE_URL` plus per-workflow URLs (`N8N_WEBHOOK_SOCIAL_PUBLISH`, `N8N_WEBHOOK_EMAIL_SEND`, etc.). HMAC has been removed — plain JSON POSTs.
 
 Safety flags default to `false` — flip them only when you are ready for live
 external actions:

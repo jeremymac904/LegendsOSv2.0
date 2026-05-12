@@ -70,19 +70,30 @@ export async function GET() {
     };
   });
 
+  // n8n is "configured" when we have at least the base URL AND at least one
+  // active webhook path. HMAC signing was removed — the simplified workflows
+  // accept plain JSON.
+  const activeWebhooks = Object.entries(env.N8N_WEBHOOKS).filter(
+    ([, url]) => Boolean(url)
+  );
   const automation = [
     {
       id: "n8n",
       label: "n8n",
-      configured: Boolean(env.N8N_BASE_URL && env.N8N_WEBHOOK_SECRET),
+      configured: Boolean(env.N8N_BASE_URL && activeWebhooks.length > 0),
       enabled: Boolean(env.N8N_BASE_URL),
       source: env.N8N_BASE_URL ? "env" : "missing",
       env_var_names: [
         "N8N_WEBHOOK_BASE_URL",
-        "N8N_BASE_URL",
-        "N8N_WEBHOOK_SECRET",
+        "N8N_WEBHOOK_SOCIAL_PUBLISH",
+        "N8N_WEBHOOK_EMAIL_SEND",
+        "N8N_WEBHOOK_DAILY_USAGE",
+        "N8N_WEBHOOK_PROVIDER_HEALTH",
+        "N8N_WEBHOOK_CONTENT_REMINDER",
+        "N8N_WEBHOOK_FAILED_PUBLISH_RECOVERY",
       ],
-      masked_preview: maskedKeyPreview(env.N8N_WEBHOOK_SECRET) || null,
+      masked_preview: null,
+      active_webhook_count: activeWebhooks.length,
       updated_at: storedByProvider.get("n8n")?.updated_at ?? null,
       stored_status: storedByProvider.get("n8n")?.status ?? "missing",
     },
