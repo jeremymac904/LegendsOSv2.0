@@ -9,6 +9,8 @@ import { canSee } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import type { Profile } from "@/types/database";
 
+import { SidebarAtlasThreads } from "./SidebarAtlasThreads";
+
 export function Sidebar({ profile }: { profile: Profile }) {
   const pathname = usePathname();
 
@@ -80,6 +82,7 @@ export function Sidebar({ profile }: { profile: Profile }) {
                           )}
                         />
                       </Link>
+                      {item.href === "/atlas" && <SidebarAtlasThreads />}
                     </li>
                   );
                 })}

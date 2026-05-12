@@ -23,7 +23,14 @@ function isPublicPath(pathname: string): boolean {
 }
 
 export async function updateSession(request: NextRequest) {
-  let response = NextResponse.next({ request });
+  // Propagate the current pathname to server components via the request
+  // headers. Layouts read it via `headers().get("x-pathname")` to make
+  // route-aware rendering decisions (e.g. the Atlas full-bleed layout).
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-pathname", request.nextUrl.pathname);
+  let response = NextResponse.next({
+    request: { headers: requestHeaders },
+  });
 
   if (!isSupabaseConfigured()) {
     // Supabase not wired up yet — let the not-configured page render.
@@ -44,7 +51,9 @@ export async function updateSession(request: NextRequest) {
           for (const { name, value } of cookiesToSet) {
             request.cookies.set(name, value);
           }
-          response = NextResponse.next({ request });
+          response = NextResponse.next({
+            request: { headers: requestHeaders },
+          });
           for (const { name, value, options } of cookiesToSet) {
             response.cookies.set(name, value, options);
           }
