@@ -1,0 +1,139 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+
+import { getServerEnv } from "@/lib/env";
+import { enqueueAutomationJob } from "@/lib/automation/n8n";
+import { getCurrentProfile, getSupabaseServerClient } from "@/lib/supabase/server";
+import { logUsage, recordAudit } from "@/lib/usage";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const schema = z.object({
+  campaign_id: z.string().uuid().optional(),
+  subject: z.string().min(1).max(300),
+  preview_text: z.string().max(200).optional(),
+  body_html: z.string().optional(),
+  body_text: z.string().optional(),
+  template_key: z.string().optional(),
+  recipient_list: z.string().optional(),
+  action: z.enum(["draft", "approve", "request_send"]).default("draft"),
+});
+
+export async function POST(req: Request) {
+  const profile = await getCurrentProfile();
+  if (!profile) {
+    return NextResponse.json(
+      { ok: false, error: "unauthenticated", message: "Sign in first." },
+      { status: 401 }
+    );
+  }
+  const body = await req.json().catch(() => null);
+  const parsed = schema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "bad_request",
+        message: parsed.error.issues.map((i) => i.message).join("; "),
+      },
+      { status: 400 }
+    );
+  }
+  const data = parsed.data;
+  const supabase = getSupabaseServerClient();
+  const env = getServerEnv();
+
+  const status =
+    data.action === "request_send"
+      ? "approved"
+      : data.action === "approve"
+      ? "approved"
+      : "draft";
+
+  let row;
+  if (data.campaign_id) {
+    const { data: updated, error: upErr } = await supabase
+      .from("email_campaigns")
+      .update({
+        subject: data.subject,
+        preview_text: data.preview_text ?? null,
+        body_html: data.body_html ?? null,
+        body_text: data.body_text ?? null,
+        template_key: data.template_key ?? null,
+        recipient_list: data.recipient_list ?? null,
+        status,
+      })
+      .eq("id", data.campaign_id)
+      .select("*")
+      .single();
+    if (upErr || !updated) {
+      return NextResponse.json(
+        { ok: false, error: "internal_error", message: upErr?.message ?? "update failed" },
+        { status: 500 }
+      );
+    }
+    row = updated;
+  } else {
+    const { data: inserted, error: insErr } = await supabase
+      .from("email_campaigns")
+      .insert({
+        user_id: profile.id,
+        organization_id: profile.organization_id,
+        subject: data.subject,
+        preview_text: data.preview_text ?? null,
+        body_html: data.body_html ?? null,
+        body_text: data.body_text ?? null,
+        template_key: data.template_key ?? null,
+        recipient_list: data.recipient_list ?? null,
+        status,
+      })
+      .select("*")
+      .single();
+    if (insErr || !inserted) {
+      return NextResponse.json(
+        { ok: false, error: "internal_error", message: insErr?.message ?? "insert failed" },
+        { status: 500 }
+      );
+    }
+    row = inserted;
+  }
+
+  await logUsage(profile, {
+    module: "email",
+    event_type:
+      data.action === "request_send"
+        ? "campaign_send_requested"
+        : data.action === "approve"
+        ? "campaign_approved"
+        : "campaign_drafted",
+    metadata: { campaign_id: row.id },
+  });
+
+  let job: { job_id: string; status: string; reason?: string } | null = null;
+  if (data.action === "request_send") {
+    job = await enqueueAutomationJob({
+      profile,
+      job_type: "email_send",
+      module: "email",
+      target_table: "email_campaigns",
+      target_id: row.id,
+      webhook_key: "email_send",
+      payload: {
+        campaign_id: row.id,
+        subject: row.subject,
+        recipient_list: row.recipient_list,
+      },
+      dispatch: env.SAFETY.allowLiveEmailSend,
+    });
+    await recordAudit({
+      actor: profile,
+      action: "email_send_requested",
+      target_type: "email_campaigns",
+      target_id: row.id,
+      metadata: { dispatch: env.SAFETY.allowLiveEmailSend, job_id: job.job_id },
+    });
+  }
+
+  return NextResponse.json({ ok: true, campaign: row, job });
+}
