@@ -287,3 +287,91 @@ export interface ProviderCredentialPublic {
   is_enabled: boolean;
   updated_at: string;
 }
+
+// ---------------------------------------------------------------------------
+// Newsletter audience system (mortgage realtor newsletter targeting)
+// ---------------------------------------------------------------------------
+
+export type NewsletterContactStatus =
+  | "active"
+  | "unsubscribed"
+  | "bounced"
+  | "do_not_email"
+  | "archived";
+
+export type NewsletterImportStatus =
+  | "queued"
+  | "processing"
+  | "succeeded"
+  | "failed"
+  | "partial";
+
+export interface NewsletterAudience {
+  id: string;
+  organization_id: string | null;
+  owner_user_id: string;
+  name: string;
+  description: string | null;
+  metadata: Record<string, unknown>;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NewsletterContactImport {
+  id: string;
+  organization_id: string | null;
+  owner_user_id: string;
+  audience_id: string | null;
+  source_file_name: string | null;
+  total_rows: number;
+  inserted_count: number;
+  updated_count: number;
+  duplicate_count: number;
+  missing_email_count: number;
+  error_count: number;
+  status: NewsletterImportStatus;
+  errors: Array<{ row: number; reason: string; email?: string | null }>;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NewsletterContact {
+  id: string;
+  organization_id: string | null;
+  owner_user_id: string;
+  audience_id: string | null;
+  full_name: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
+  email_2: string | null;
+  phone: string | null;
+  phone_2: string | null;
+  office_phone: string | null;
+  office_name: string | null;
+  city: string | null;
+  state: string | null;
+  state_license: string | null;
+  facebook_url: string | null;
+  instagram_url: string | null;
+  linkedin_url: string | null;
+  x_url: string | null;
+  youtube_url: string | null;
+  tiktok_url: string | null;
+  zillow_url: string | null;
+  other_links: string | null;
+  transaction_count: number | null;
+  total_volume: number | null;
+  buyer_volume: number | null;
+  buyer_units: number | null;
+  source_file_name: string | null;
+  source_import_id: string | null;
+  status: NewsletterContactStatus;
+  tags: string[];
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}

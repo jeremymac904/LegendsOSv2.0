@@ -14,12 +14,24 @@ import {
 import { cn } from "@/lib/utils";
 import type { EmailCampaign } from "@/types/database";
 
+export interface AudienceOption {
+  id: string;
+  name: string;
+  total: number;
+  active: number;
+}
+
 interface Props {
   initialDraft?: EmailCampaign | null;
   liveSendEnabled?: boolean;
+  audiences?: AudienceOption[];
 }
 
-export function EmailComposer({ initialDraft, liveSendEnabled }: Props) {
+export function EmailComposer({
+  initialDraft,
+  liveSendEnabled,
+  audiences = [],
+}: Props) {
   const router = useRouter();
   const [campaignId, setCampaignId] = useState<string | null>(
     initialDraft?.id ?? null
@@ -134,13 +146,38 @@ export function EmailComposer({ initialDraft, liveSendEnabled }: Props) {
             onChange={(e) => setPreviewText(e.target.value)}
             maxLength={200}
           />
-          <input
-            className="input"
-            placeholder="Recipient list key (e.g. all-leads)"
-            value={recipients}
-            onChange={(e) => setRecipients(e.target.value)}
-            maxLength={120}
-          />
+          <div>
+            {audiences.length > 0 ? (
+              <select
+                className="input"
+                value={
+                  recipients.startsWith("audience:") ? recipients : ""
+                }
+                onChange={(e) => setRecipients(e.target.value)}
+                aria-label="Recipient audience"
+              >
+                <option value="">— Select an audience —</option>
+                {audiences.map((a) => (
+                  <option key={a.id} value={`audience:${a.id}`}>
+                    {a.name} · {a.active}/{a.total}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                className="input"
+                placeholder="Recipient list (e.g. all-leads) — import a CSV under Audiences to switch to a list picker"
+                value={recipients}
+                onChange={(e) => setRecipients(e.target.value)}
+                maxLength={120}
+              />
+            )}
+            {audiences.length === 0 && (
+              <p className="mt-1 text-[10px] text-ink-300">
+                No audiences yet. Open Audiences (top-right) to import a CSV.
+              </p>
+            )}
+          </div>
           <textarea
             className="textarea min-h-[260px] font-mono text-[13px]"
             placeholder={`Markdown supported. Examples:

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Mail } from "lucide-react";
+import { Mail, Users2 } from "lucide-react";
 
 import { EmailComposer } from "@/components/email/EmailComposer";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -11,7 +11,7 @@ import {
   getSupabaseServerClient,
 } from "@/lib/supabase/server";
 import { formatRelative, truncate } from "@/lib/utils";
-import type { EmailCampaign } from "@/types/database";
+import type { EmailCampaign, NewsletterAudience } from "@/types/database";
 
 export const dynamic = "force-dynamic";
 
@@ -25,11 +25,34 @@ export default async function EmailStudioPage({
   const supabase = getSupabaseServerClient();
   const env = getServerEnv();
 
-  const { data } = await supabase
-    .from("email_campaigns")
-    .select("*")
-    .order("updated_at", { ascending: false });
-  const campaigns = (data ?? []) as EmailCampaign[];
+  const [{ data: campaignRows }, { data: audienceRows }, { data: contactCounts }] =
+    await Promise.all([
+      supabase
+        .from("email_campaigns")
+        .select("*")
+        .order("updated_at", { ascending: false }),
+      supabase
+        .from("newsletter_audiences")
+        .select("*")
+        .eq("is_active", true)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("newsletter_contacts")
+        .select("audience_id,status"),
+    ]);
+  const campaigns = (campaignRows ?? []) as EmailCampaign[];
+  const audiences = (audienceRows ?? []) as NewsletterAudience[];
+  const audienceCounts = new Map<string, { total: number; active: number }>();
+  for (const c of (contactCounts ?? []) as {
+    audience_id: string | null;
+    status: string;
+  }[]) {
+    if (!c.audience_id) continue;
+    const t = audienceCounts.get(c.audience_id) ?? { total: 0, active: 0 };
+    t.total++;
+    if (c.status === "active") t.active++;
+    audienceCounts.set(c.audience_id, t);
+  }
   const initial = searchParams?.id
     ? campaigns.find((c) => c.id === searchParams.id) ?? null
     : null;
@@ -41,14 +64,24 @@ export default async function EmailStudioPage({
         title="Newsletters and campaigns"
         description="Compose with Markdown, preview the inbox layout, and save without sending. External sending is owner-controlled."
         action={
-          <StatusPill
-            status={env.SAFETY.allowLiveEmailSend ? "ok" : "warn"}
-            label={
-              env.SAFETY.allowLiveEmailSend
-                ? "external sending enabled"
-                : "external sending disabled"
-            }
-          />
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/email/audiences"
+              className="btn px-3 py-1.5 text-xs"
+              title="Manage audiences / import CSV"
+            >
+              <Users2 size={13} />
+              Audiences ({audiences.length})
+            </Link>
+            <StatusPill
+              status={env.SAFETY.allowLiveEmailSend ? "ok" : "warn"}
+              label={
+                env.SAFETY.allowLiveEmailSend
+                  ? "external sending enabled"
+                  : "external sending disabled"
+              }
+            />
+          </div>
         }
       />
 
@@ -56,6 +89,12 @@ export default async function EmailStudioPage({
         <EmailComposer
           initialDraft={initial}
           liveSendEnabled={env.SAFETY.allowLiveEmailSend}
+          audiences={audiences.map((a) => ({
+            id: a.id,
+            name: a.name,
+            total: audienceCounts.get(a.id)?.total ?? 0,
+            active: audienceCounts.get(a.id)?.active ?? 0,
+          }))}
         />
         <aside className="card-padded">
           <div className="section-title">
