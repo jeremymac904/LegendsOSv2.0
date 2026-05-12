@@ -1,12 +1,15 @@
 import Link from "next/link";
-import { MessageCircle, Plus, Sparkles } from "lucide-react";
+import { MessageCircle, Sparkles } from "lucide-react";
 
 import { AtlasChatClient } from "@/components/atlas/AtlasChatClient";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatusPill } from "@/components/ui/StatusPill";
-import { getServerEnv } from "@/lib/env";
-import { getCurrentProfile, getSupabaseServerClient } from "@/lib/supabase/server";
+import { getAIProviderStatuses, getServerEnv } from "@/lib/env";
+import {
+  getCurrentProfile,
+  getSupabaseServerClient,
+} from "@/lib/supabase/server";
 import { formatRelative } from "@/lib/utils";
 import type { AtlasAssistant, ChatThread } from "@/types/database";
 
@@ -38,25 +41,71 @@ export default async function AtlasIndexPage() {
   >[];
   const assistantList = (assistants ?? []) as AtlasAssistant[];
 
-  const providerStatus = [
-    { id: "openrouter", configured: Boolean(env.OPENROUTER_API_KEY) },
-    { id: "deepseek", configured: Boolean(env.DEEPSEEK_API_KEY) },
-    { id: "nvidia", configured: Boolean(env.NVIDIA_API_KEY) },
-  ];
+  // Only show text providers in the Atlas header.
+  const textProviders = getAIProviderStatuses().filter((p) =>
+    ["openrouter", "deepseek", "nvidia"].includes(p.id)
+  );
+
+  // Model lists used by the chat client. Empty array if provider missing.
+  const models = {
+    openrouter: env.OPENROUTER_API_KEY
+      ? [
+          { id: env.OPENROUTER_DEFAULT_MODEL, label: `default — ${env.OPENROUTER_DEFAULT_MODEL}` },
+          ...env.OPENROUTER_FREE_MODELS.map((m) => ({ id: m, label: `free — ${m}` })),
+        ]
+      : [],
+    deepseek: env.DEEPSEEK_API_KEY
+      ? [{ id: env.DEEPSEEK_DEFAULT_MODEL, label: `default — ${env.DEEPSEEK_DEFAULT_MODEL}` }]
+      : [],
+    nvidia: env.NVIDIA_API_KEY
+      ? [
+          env.NVIDIA_MODELS.kimi_k2_5
+            ? { id: env.NVIDIA_MODELS.kimi_k2_5, label: `Kimi K2 5 — ${env.NVIDIA_MODELS.kimi_k2_5}` }
+            : null,
+          env.NVIDIA_MODELS.nemotron_super_120b
+            ? {
+                id: env.NVIDIA_MODELS.nemotron_super_120b,
+                label: `Nemotron Super 120B — ${env.NVIDIA_MODELS.nemotron_super_120b}`,
+              }
+            : null,
+          env.NVIDIA_MODELS.mistral_small_4_119b
+            ? {
+                id: env.NVIDIA_MODELS.mistral_small_4_119b,
+                label: `Mistral Small 4 119B — ${env.NVIDIA_MODELS.mistral_small_4_119b}`,
+              }
+            : null,
+        ].filter((m): m is { id: string; label: string } => m !== null)
+      : [],
+  };
+
+  const defaultProvider =
+    (textProviders.find((p) => p.configured && p.enabled)?.id as
+      | "openrouter"
+      | "deepseek"
+      | "nvidia"
+      | undefined) ?? "openrouter";
 
   return (
     <div className="space-y-6">
       <SectionHeader
         eyebrow="Atlas Chat"
-        title="Hermes-style internal assistant"
-        description="Source-grounded, role-aware, and logged. Pick an assistant on the right or start a fresh thread below."
+        title="Source-grounded internal assistant"
+        description="Pick a provider and model on the right or use the configured defaults. All messages are persisted and logged."
         action={
           <div className="flex flex-wrap gap-2">
-            {providerStatus.map((p) => (
+            {textProviders.map((p) => (
               <StatusPill
                 key={p.id}
-                status={p.configured ? "configured" : "missing"}
-                label={`${p.id}: ${p.configured ? "ready" : "missing"}`}
+                status={
+                  p.configured
+                    ? p.enabled
+                      ? "configured"
+                      : "disabled"
+                    : "missing"
+                }
+                label={`${p.label}: ${
+                  p.configured ? (p.enabled ? "ready" : "disabled") : "missing"
+                }`}
               />
             ))}
           </div>
@@ -99,17 +148,25 @@ export default async function AtlasIndexPage() {
           <div className="section-title">
             <div>
               <h2>New conversation</h2>
-              <p>Pick an assistant or use the default Atlas profile.</p>
+              <p>Pick an assistant, provider, and model.</p>
             </div>
             <span className="chip-info">
               <Sparkles size={12} />
-              Compliance line auto-applied
+              Branding line auto-applied
             </span>
           </div>
           <AtlasChatClient
             initialThreadId={null}
             assistants={assistantList}
             ownerId={profile.id}
+            providerCatalog={textProviders.map((p) => ({
+              id: p.id as "openrouter" | "deepseek" | "nvidia",
+              label: p.label,
+              configured: p.configured,
+              enabled: p.enabled,
+            }))}
+            modelCatalog={models}
+            defaultProvider={defaultProvider}
           />
         </section>
       </div>

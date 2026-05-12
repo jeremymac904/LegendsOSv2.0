@@ -64,7 +64,7 @@ export function EmailComposer() {
       <div className="section-title">
         <div>
           <h2>Compose newsletter</h2>
-          <p>Approval gate is required before any send is dispatched.</p>
+          <p>Drafts save instantly. External sending only runs when the owner enables it.</p>
         </div>
       </div>
       <input
@@ -115,7 +115,7 @@ export function EmailComposer() {
           disabled={isPending || !body.trim()}
         >
           <CheckCircle size={14} />
-          Approve
+          Mark ready
         </button>
         <button
           className="btn-primary"
@@ -123,11 +123,11 @@ export function EmailComposer() {
           disabled={isPending || !body.trim()}
         >
           <Send size={14} />
-          Request send
+          Queue send
         </button>
         <span className="ml-auto inline-flex items-center gap-1 text-[11px] text-ink-300">
           <Mail size={12} />
-          No email is sent until <code>ALLOW_LIVE_EMAIL_SEND=true</code>.
+          External sending is owner-controlled.
         </span>
       </div>
     </section>

@@ -36,11 +36,11 @@ export default async function ImageStudioPage() {
           <div className="flex flex-wrap gap-2">
             <StatusPill
               status={falConfigured ? "configured" : "missing"}
-              label={falConfigured ? "Fal.ai ready" : "FAL_KEY missing"}
-            />
-            <StatusPill
-              status={env.SAFETY.allowPaidImageGeneration ? "ok" : "warn"}
-              label={env.SAFETY.allowPaidImageGeneration ? "billing on" : "billing off"}
+              label={
+                falConfigured
+                  ? "Fal.ai ready"
+                  : "FAL_KEY or FAL_API_KEY missing"
+              }
             />
           </div>
         }

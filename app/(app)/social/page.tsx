@@ -30,16 +30,28 @@ export default async function SocialStudioPage() {
       <SectionHeader
         eyebrow="Social Studio"
         title="Multi-channel drafts"
-        description="Compose once, target multiple channels. Live publishing is gated by ALLOW_LIVE_SOCIAL_PUBLISH and a configured n8n webhook."
+        description="Compose once, target multiple channels. External publishing is owner-controlled; drafts always save."
         action={
-          <StatusPill
-            status={env.SAFETY.allowLiveSocialPublish ? "ok" : "warn"}
-            label={
-              env.SAFETY.allowLiveSocialPublish
-                ? "live publishing on"
-                : "live publishing off"
-            }
-          />
+          <div className="flex flex-wrap gap-2">
+            <StatusPill
+              status={env.SAFETY.allowLiveSocialPublish ? "ok" : "warn"}
+              label={
+                env.SAFETY.allowLiveSocialPublish
+                  ? "external publishing enabled"
+                  : "external publishing disabled"
+              }
+            />
+            <StatusPill
+              status={
+                env.N8N_BASE_URL && env.N8N_WEBHOOK_SECRET ? "ok" : "warn"
+              }
+              label={
+                env.N8N_BASE_URL && env.N8N_WEBHOOK_SECRET
+                  ? "n8n connected"
+                  : "n8n not configured"
+              }
+            />
+          </div>
         }
       />
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[2fr_1fr]">

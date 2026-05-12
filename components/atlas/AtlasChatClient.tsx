@@ -2,12 +2,26 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Paperclip, Send, Sparkles, Trash2 } from "lucide-react";
+import { Paperclip, Send, Trash2 } from "lucide-react";
 
 import { StatusPill } from "@/components/ui/StatusPill";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn, formatRelative, truncate } from "@/lib/utils";
 import type { AtlasAssistant, ChatMessage } from "@/types/database";
+
+type ProviderId = "openrouter" | "deepseek" | "nvidia";
+
+interface ProviderEntry {
+  id: ProviderId;
+  label: string;
+  configured: boolean;
+  enabled: boolean;
+}
+
+interface ModelEntry {
+  id: string;
+  label: string;
+}
 
 interface AtlasChatClientProps {
   initialThreadId: string | null;
@@ -15,7 +29,16 @@ interface AtlasChatClientProps {
   assistants: AtlasAssistant[];
   ownerId: string;
   initialAssistantId?: string | null;
+  providerCatalog?: ProviderEntry[];
+  modelCatalog?: Record<ProviderId, ModelEntry[]>;
+  defaultProvider?: ProviderId;
 }
+
+const FALLBACK_PROVIDERS: ProviderEntry[] = [
+  { id: "openrouter", label: "OpenRouter", configured: false, enabled: true },
+  { id: "deepseek", label: "DeepSeek", configured: false, enabled: true },
+  { id: "nvidia", label: "NVIDIA", configured: false, enabled: true },
+];
 
 export function AtlasChatClient({
   initialThreadId,
@@ -23,6 +46,9 @@ export function AtlasChatClient({
   assistants,
   ownerId,
   initialAssistantId,
+  providerCatalog,
+  modelCatalog,
+  defaultProvider = "openrouter",
 }: AtlasChatClientProps) {
   const router = useRouter();
   const [threadId, setThreadId] = useState<string | null>(initialThreadId);
@@ -31,9 +57,9 @@ export function AtlasChatClient({
   const [assistantId, setAssistantId] = useState<string | null>(
     initialAssistantId ?? assistants[0]?.id ?? null
   );
-  const [provider, setProvider] = useState<"openrouter" | "deepseek" | "nvidia">(
-    "openrouter"
-  );
+  const catalog = providerCatalog ?? FALLBACK_PROVIDERS;
+  const [provider, setProvider] = useState<ProviderId>(defaultProvider);
+  const [model, setModel] = useState<string>("");
   const [attachments, setAttachments] = useState<File[]>([]);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -49,6 +75,23 @@ export function AtlasChatClient({
       ),
     [assistants, ownerId]
   );
+
+  const providerEntry = catalog.find((p) => p.id === provider);
+  const models = useMemo(
+    () => modelCatalog?.[provider] ?? [],
+    [modelCatalog, provider]
+  );
+
+  // Auto-pick the first available model when switching provider.
+  useEffect(() => {
+    if (models.length === 0) {
+      setModel("");
+      return;
+    }
+    if (!models.some((m) => m.id === model)) {
+      setModel(models[0].id);
+    }
+  }, [provider, models, model]);
 
   useEffect(() => {
     if (scrollerRef.current) {
@@ -95,6 +138,18 @@ export function AtlasChatClient({
 
   async function send() {
     if (!input.trim() || isPending) return;
+    if (providerEntry && !providerEntry.configured) {
+      setError(
+        `${providerEntry.label} is not configured. Owner: add the matching env var.`
+      );
+      return;
+    }
+    if (providerEntry && !providerEntry.enabled) {
+      setError(
+        `${providerEntry.label} is disabled by the owner (AI_ENABLE_${provider.toUpperCase()}=false).`
+      );
+      return;
+    }
     setError(null);
     const userText = input.trim();
     setInput("");
@@ -120,6 +175,7 @@ export function AtlasChatClient({
             thread_id: threadId,
             assistant_id: assistantId,
             provider,
+            model: model || undefined,
             message:
               uploaded.length > 0
                 ? `${userText}\n\n[attached files: ${uploaded.join(", ")}]`
@@ -171,20 +227,31 @@ export function AtlasChatClient({
     }
   }
 
+  function providerChipStatus(p: ProviderEntry) {
+    if (!p.configured) return "missing" as const;
+    if (!p.enabled) return "disabled" as const;
+    return "ok" as const;
+  }
+
+  function providerChipLabel(p: ProviderEntry) {
+    if (!p.configured) return "missing";
+    if (!p.enabled) return "disabled";
+    return "ready";
+  }
+
   return (
     <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_240px]">
       <div className="card flex h-[640px] flex-col">
-        <div className="flex items-center justify-between border-b border-ink-800 px-4 py-2 text-xs text-ink-300">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ink-800 px-4 py-2 text-xs text-ink-300">
           <div className="flex items-center gap-2">
-            <Sparkles size={12} className="text-accent-gold" />
-            <span>
+            <span className="text-ink-100">
               {assistantId
                 ? visibleAssistants.find((a) => a.id === assistantId)?.name ?? "Atlas"
                 : "Default Atlas profile"}
             </span>
           </div>
           <span className="text-[10px] uppercase tracking-[0.18em] text-ink-400">
-            Provider · {provider}
+            Provider · {provider} {model ? `· ${truncate(model, 36)}` : ""}
           </span>
         </div>
         <div
@@ -287,35 +354,64 @@ export function AtlasChatClient({
         <div className="card-padded">
           <p className="label">Provider</p>
           <div className="mt-2 grid grid-cols-3 gap-1">
-            {(["openrouter", "deepseek", "nvidia"] as const).map((p) => (
+            {catalog.map((p) => (
               <button
-                key={p}
-                onClick={() => setProvider(p)}
+                key={p.id}
+                onClick={() => setProvider(p.id)}
                 className={cn(
                   "rounded-lg border px-2 py-1 text-xs",
-                  provider === p
+                  provider === p.id
                     ? "border-accent-gold/40 bg-accent-gold/10 text-accent-gold"
                     : "border-ink-700 text-ink-300 hover:border-ink-600"
                 )}
+                title={`${p.label} — ${providerChipLabel(p)}`}
               >
-                {p}
+                {p.label.toLowerCase()}
               </button>
+            ))}
+          </div>
+          <div className="mt-2 space-y-1 text-[11px]">
+            {catalog.map((p) => (
+              <div key={p.id} className="flex items-center justify-between">
+                <span className="capitalize text-ink-200">{p.label}</span>
+                <StatusPill
+                  status={providerChipStatus(p)}
+                  label={providerChipLabel(p)}
+                />
+              </div>
             ))}
           </div>
         </div>
         <div className="card-padded">
-          <p className="label">Safety</p>
+          <p className="label">Model</p>
+          {models.length === 0 ? (
+            <p className="mt-2 text-[11px] text-ink-300">
+              No model env vars set for this provider. Atlas uses the provider's
+              default endpoint.
+            </p>
+          ) : (
+            <select
+              className="input mt-2"
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+            >
+              {models.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+        <div className="card-padded">
+          <p className="label">Notes</p>
           <div className="mt-2 space-y-1 text-xs">
-            <div className="flex items-center justify-between">
-              <span>Live text gen</span>
-              <StatusPill status="warn" label="needs ALLOW flag" />
-            </div>
             <div className="flex items-center justify-between">
               <span>Usage logging</span>
               <StatusPill status="ok" label="on" />
             </div>
             <div className="flex items-center justify-between">
-              <span>Compliance line</span>
+              <span>Branding line</span>
               <StatusPill status="info" label="auto" />
             </div>
           </div>

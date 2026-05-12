@@ -12,7 +12,7 @@ const PRESETS = [
     id: "rate_drop",
     label: "Rate-drop alert",
     prompt:
-      "Premium cinematic banner: bold orange-gold gradient, modern home in soft focus, large overlay text 'Rates Just Dropped', subtle Legends Mortgage Team mark, no compliance text overlay.",
+      "Premium cinematic banner: bold orange-gold gradient, modern home in soft focus, large overlay text 'Rates Just Dropped', subtle Legends Mortgage Team mark. Do not bake any NMLS branding line into the image — that text is added separately at composition time.",
   },
   {
     id: "first_time_buyer",

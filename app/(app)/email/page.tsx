@@ -28,11 +28,15 @@ export default async function EmailStudioPage() {
       <SectionHeader
         eyebrow="Email Studio"
         title="Newsletters and campaigns"
-        description="Draft, preview, and approve. Sending is gated by ALLOW_LIVE_EMAIL_SEND and the email_send n8n workflow."
+        description="Draft and preview newsletters here. External sending is owner-controlled; drafts always save."
         action={
           <StatusPill
             status={env.SAFETY.allowLiveEmailSend ? "ok" : "warn"}
-            label={env.SAFETY.allowLiveEmailSend ? "live send on" : "live send off"}
+            label={
+              env.SAFETY.allowLiveEmailSend
+                ? "external sending enabled"
+                : "external sending disabled"
+            }
           />
         }
       />

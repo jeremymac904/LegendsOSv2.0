@@ -15,7 +15,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatCard } from "@/components/ui/StatCard";
 import { StatusPill } from "@/components/ui/StatusPill";
-import { PUBLIC_ENV } from "@/lib/env";
+import { getAIProviderStatuses, PUBLIC_ENV } from "@/lib/env";
 import { isOwner } from "@/lib/permissions";
 import {
   getCurrentProfile,
@@ -56,7 +56,7 @@ const QUICK_LAUNCH = [
   {
     href: "/email",
     label: "Compose Newsletter",
-    description: "Email Studio with approval gate.",
+    description: "Email Studio drafts that always save.",
     icon: Mail,
   },
   {
@@ -144,6 +144,7 @@ export default async function DashboardPage() {
     "id" | "prompt" | "preview_url" | "status" | "created_at"
   >[];
   const providerRows = (providers ?? []) as ProviderCredentialPublic[];
+  const liveProviderStatuses = getAIProviderStatuses();
   const events = (usage24h ?? []) as Pick<
     UsageEvent,
     "module" | "event_type" | "created_at"
@@ -192,7 +193,7 @@ export default async function DashboardPage() {
           <StatCard
             label="Email events (24h)"
             value={events.filter((e) => e.module === "email").length}
-            hint="Drafts + approval requests"
+            hint="Drafts + send requests"
             icon={Mail}
           />
         </div>
@@ -274,33 +275,42 @@ export default async function DashboardPage() {
           <div className="section-title">
             <div>
               <h2>Provider status</h2>
-              <p>Server-side gateway connections.</p>
+              <p>Live env detection.</p>
             </div>
             <Link href="/settings" className="btn-ghost text-xs">
               Settings
             </Link>
           </div>
           <ul className="mt-4 space-y-2">
-            {providerRows.length === 0 ? (
-              <li className="text-xs text-ink-300">
-                Run migrations to seed provider rows.
+            {liveProviderStatuses.map((p) => (
+              <li
+                key={p.id}
+                className="flex items-center justify-between rounded-lg border border-ink-800 bg-ink-900/50 px-3 py-2 text-sm"
+              >
+                <div>
+                  <p className="font-medium text-ink-100">{p.label}</p>
+                  <p className="text-[11px] text-ink-300">
+                    {p.envVarNames.join(" / ")}
+                  </p>
+                </div>
+                <StatusPill
+                  status={
+                    p.configured
+                      ? p.enabled
+                        ? "ok"
+                        : "off"
+                      : "missing"
+                  }
+                  label={
+                    p.configured
+                      ? p.enabled
+                        ? "connected"
+                        : "disabled"
+                      : "missing"
+                  }
+                />
               </li>
-            ) : (
-              providerRows.map((p) => (
-                <li
-                  key={p.id}
-                  className="flex items-center justify-between rounded-lg border border-ink-800 bg-ink-900/50 px-3 py-2 text-sm"
-                >
-                  <div>
-                    <p className="font-medium capitalize text-ink-100">
-                      {p.provider}
-                    </p>
-                    <p className="text-[11px] text-ink-300">{p.env_var_name}</p>
-                  </div>
-                  <StatusPill status={p.status} />
-                </li>
-              ))
-            )}
+            ))}
           </ul>
         </section>
       </div>

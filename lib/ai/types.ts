@@ -34,10 +34,12 @@ export interface GatewayError {
     | "provider_disabled"
     | "rate_limited"
     | "cap_exceeded"
+    | "external_action_disabled"
     | "live_action_blocked"
     | "bad_request"
     | "provider_error"
-    | "internal_error";
+    | "internal_error"
+    | "unauthenticated";
   provider?: ProviderId | string;
   message: string;
   env_var?: string;

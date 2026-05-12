@@ -97,7 +97,7 @@ export function SocialComposer() {
       />
       <textarea
         className="textarea min-h-[180px]"
-        placeholder="What do you want to post? Compliance line is added by Atlas if you use the auto-fill assistant."
+        placeholder="What do you want to post? Add the team's NMLS branding line if needed; Atlas can fill it in automatically when you generate copy."
         value={body}
         onChange={(e) => setBody(e.target.value)}
         maxLength={8000}
@@ -133,8 +133,8 @@ export function SocialComposer() {
           />
         </div>
         <div className="self-end text-[11px] text-ink-300">
-          Live publishing is gated by{" "}
-          <code>ALLOW_LIVE_SOCIAL_PUBLISH</code> and a configured n8n webhook.
+          Drafts always save. External publishing is owner-controlled and only
+          runs when n8n is configured.
         </div>
       </div>
       {error && (
@@ -166,7 +166,7 @@ export function SocialComposer() {
         </button>
         <span className="ml-auto inline-flex items-center gap-1 text-[11px] text-ink-300">
           <Send size={12} />
-          No post is published without an explicit confirmation gate.
+          External publishing only fires when the owner enables it.
         </span>
       </div>
     </section>
