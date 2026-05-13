@@ -43,12 +43,18 @@ export default async function AtlasThreadPage({ params }: PageProps) {
     ["openrouter", "deepseek", "nvidia"].includes(p.id)
   );
   const models = buildAtlasModelCatalog(env);
+  const envDefault = env.AI_DEFAULT_TEXT_PROVIDER as
+    | "openrouter"
+    | "deepseek"
+    | "nvidia"
+    | undefined;
+  const envDefaultStatus = textProviders.find((p) => p.id === envDefault);
+  const fallback = textProviders.find((p) => p.configured && p.enabled);
   const defaultProvider =
-    (textProviders.find((p) => p.configured && p.enabled)?.id as
-      | "openrouter"
-      | "deepseek"
-      | "nvidia"
-      | undefined) ?? "openrouter";
+    (envDefaultStatus?.configured && envDefaultStatus?.enabled
+      ? envDefault
+      : (fallback?.id as "openrouter" | "deepseek" | "nvidia" | undefined)) ??
+    "openrouter";
 
   return (
     <AtlasShell

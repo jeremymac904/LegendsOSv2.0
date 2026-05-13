@@ -40,6 +40,9 @@ netlify-production-import.env
 # typescript
 *.tsbuildinfo
 
+# tool noise (this project uses Node + npm, not Deno)
+deno.lock
+
 # supabase
 supabase/.branches
 supabase/.temp

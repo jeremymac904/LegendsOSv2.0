@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   FileText,
@@ -5,6 +6,7 @@ import {
   Search,
   Users2,
   Video,
+  X,
 } from "lucide-react";
 
 import { AssetUploadCard } from "@/components/admin/AssetUploadCard";
@@ -112,39 +114,78 @@ export default async function AssetLibraryPage({ searchParams }: PageProps) {
 
       <AssetUploadCard />
 
-      <form className="card-padded flex flex-wrap items-end gap-3">
-        <label className="flex-1 min-w-[200px]">
-          <span className="label flex items-center gap-1">
-            <Search size={11} />
+      <div className="card-padded space-y-3">
+        <form className="flex flex-wrap items-end gap-3">
+          <label className="flex-1 min-w-[200px]">
+            <span className="label flex items-center gap-1">
+              <Search size={11} />
+              Search
+            </span>
+            <input
+              type="search"
+              name="q"
+              defaultValue={searchParams.q ?? ""}
+              placeholder="name, file, tag…"
+              className="input mt-1"
+            />
+          </label>
+          {activeCat && (
+            <input type="hidden" name="cat" value={activeCat} />
+          )}
+          <button type="submit" className="btn-primary">
             Search
+          </button>
+          {(searchParams.q || searchParams.cat) && (
+            <Link href="/admin/assets" className="btn">
+              Reset
+            </Link>
+          )}
+        </form>
+
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[10px] uppercase tracking-[0.18em] text-ink-300">
+            Category
           </span>
-          <input
-            type="search"
-            name="q"
-            defaultValue={searchParams.q ?? ""}
-            placeholder="name, file, tag…"
-            className="input mt-1"
+          <CategoryChip
+            label="All"
+            count={merged.length}
+            href={searchParams.q ? `/admin/assets?q=${encodeURIComponent(searchParams.q)}` : "/admin/assets"}
+            active={!activeCat}
           />
-        </label>
-        <label>
-          <span className="label">Category</span>
-          <select
-            name="cat"
-            defaultValue={searchParams.cat ?? ""}
-            className="input mt-1"
-          >
-            <option value="">All categories</option>
-            {(Object.keys(CATEGORY_LABEL) as AssetCategory[]).map((k) => (
-              <option key={k} value={k}>
-                {CATEGORY_LABEL[k]} ({counts[k] ?? 0})
-              </option>
-            ))}
-          </select>
-        </label>
-        <button type="submit" className="btn-primary">
-          Apply
-        </button>
-      </form>
+          {(Object.keys(CATEGORY_LABEL) as AssetCategory[])
+            .filter((k) => (counts[k] ?? 0) > 0)
+            .map((k) => {
+              const params = new URLSearchParams();
+              if (searchParams.q) params.set("q", searchParams.q);
+              params.set("cat", k);
+              return (
+                <CategoryChip
+                  key={k}
+                  label={CATEGORY_LABEL[k]}
+                  count={counts[k] ?? 0}
+                  href={`/admin/assets?${params.toString()}`}
+                  active={activeCat === k}
+                />
+              );
+            })}
+          {activeCat && (
+            <Link
+              href={searchParams.q ? `/admin/assets?q=${encodeURIComponent(searchParams.q)}` : "/admin/assets"}
+              className="inline-flex items-center gap-1 rounded-full border border-ink-700 px-2 py-1 text-[11px] text-ink-300 transition hover:border-status-err/40 hover:text-status-err"
+              title="Clear category filter"
+            >
+              <X size={10} />
+              Clear
+            </Link>
+          )}
+        </div>
+      </div>
+
+      <p className="text-[11px] text-ink-300">
+        Showing {assets.length} of {merged.length} assets
+        {activeCat && ` · category: ${CATEGORY_LABEL[activeCat as AssetCategory] ?? activeCat}`}
+        {q && ` · search: "${q}"`}
+      </p>
 
       {assets.length === 0 ? (
         <EmptyState
@@ -224,5 +265,39 @@ export default async function AssetLibraryPage({ searchParams }: PageProps) {
         </section>
       )}
     </div>
+  );
+}
+
+function CategoryChip({
+  label,
+  count,
+  href,
+  active,
+}: {
+  label: string;
+  count: number;
+  href: string;
+  active: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={
+        active
+          ? "inline-flex items-center gap-1 rounded-full border border-accent-gold/50 bg-accent-gold/10 px-2.5 py-1 text-[11px] font-medium text-accent-gold"
+          : "inline-flex items-center gap-1 rounded-full border border-ink-700 bg-ink-900/40 px-2.5 py-1 text-[11px] text-ink-200 transition hover:border-ink-500 hover:text-ink-100"
+      }
+    >
+      {label}
+      <span
+        className={
+          active
+            ? "rounded-full bg-accent-gold/20 px-1.5 text-[10px] tabular-nums"
+            : "rounded-full bg-ink-800 px-1.5 text-[10px] tabular-nums text-ink-300"
+        }
+      >
+        {count}
+      </span>
+    </Link>
   );
 }

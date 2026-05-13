@@ -320,6 +320,12 @@ export function AtlasShell({
             <EmptyChat
               provider={provider}
               configured={Boolean(providerEntry?.configured)}
+              onPick={(prompt) => {
+                setInput(prompt);
+                // Defer focus until after state flushes so the textarea
+                // shows the new value before we drop the cursor in it.
+                setTimeout(() => composerRef.current?.focus(), 0);
+              }}
             />
           )}
           {messages.map((m) => (
@@ -415,32 +421,55 @@ export function AtlasShell({
   );
 }
 
+const STARTER_PROMPTS = [
+  "Write a Facebook post for a first-time homebuyer in Florida.",
+  "Draft a 30-second video script explaining FHA vs conventional loans.",
+  "Outline a 4-email newsletter sequence for past clients about refinancing.",
+  "Explain DTI in plain language for a borrower with a 720 credit score.",
+];
+
 function EmptyChat({
   provider,
   configured,
+  onPick,
 }: {
   provider: ProviderId;
   configured: boolean;
+  onPick: (prompt: string) => void;
 }) {
   return (
     <div className="grid place-items-center py-16">
-      <div className="w-full max-w-md rounded-2xl border border-ink-800 bg-ink-900/40 p-6 text-center">
-        <div className="mx-auto grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-accent-gold via-accent-gold to-accent-orange text-ink-950">
-          <Sparkles size={16} />
-        </div>
-        <h2 className="mt-3 text-base font-semibold text-ink-100">
-          Start a conversation
-        </h2>
-        <p className="mt-1 text-xs text-ink-300">
-          Ask Atlas for marketing copy, mortgage explainers, or anything in
-          your daily workflow.
-        </p>
-        {!configured && (
-          <p className="mt-3 text-[11px] text-status-warn">
-            {provider} is not configured — open Chat settings to switch
-            provider.
+      <div className="w-full max-w-xl rounded-2xl border border-ink-800 bg-ink-900/40 p-6">
+        <div className="flex flex-col items-center text-center">
+          <div className="grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-accent-gold via-accent-gold to-accent-orange text-ink-950">
+            <Sparkles size={16} />
+          </div>
+          <h2 className="mt-3 text-base font-semibold text-ink-100">
+            Start a conversation
+          </h2>
+          <p className="mt-1 text-xs text-ink-300">
+            Ask Atlas for marketing copy, mortgage explainers, or anything in
+            your daily workflow.
           </p>
-        )}
+          {!configured && (
+            <p className="mt-3 text-[11px] text-status-warn">
+              {provider} is not configured — open Chat settings to switch
+              provider.
+            </p>
+          )}
+        </div>
+        <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {STARTER_PROMPTS.map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => onPick(p)}
+              className="rounded-xl border border-ink-700 bg-ink-950/50 px-3 py-2 text-left text-[12px] text-ink-200 transition hover:border-accent-gold/40 hover:bg-accent-gold/5 hover:text-ink-100"
+            >
+              {p}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );

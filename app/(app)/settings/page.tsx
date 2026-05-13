@@ -146,6 +146,21 @@ export default async function SettingsPage() {
               Secrets never leave the server — only masked previews shown below.
             </p>
           </div>
+          <div className="flex flex-wrap items-center gap-2 text-[11px] text-ink-300">
+            <span className="uppercase tracking-[0.18em] text-[10px]">
+              Atlas default:
+            </span>
+            <span className="rounded-full border border-accent-gold/40 bg-accent-gold/10 px-2 py-0.5 text-accent-gold">
+              {env.AI_DEFAULT_TEXT_PROVIDER || "openrouter"}
+            </span>
+            <span className="text-ink-400">·</span>
+            <span className="uppercase tracking-[0.18em] text-[10px]">
+              Image:
+            </span>
+            <span className="rounded-full border border-accent-gold/40 bg-accent-gold/10 px-2 py-0.5 text-accent-gold">
+              {env.AI_DEFAULT_IMAGE_PROVIDER || "fal"}
+            </span>
+          </div>
         </div>
         <div className="mt-4 overflow-hidden rounded-xl border border-ink-800">
           <table className="w-full text-left text-sm">
@@ -159,9 +174,24 @@ export default async function SettingsPage() {
               </tr>
             </thead>
             <tbody>
-              {merged.map((p) => (
+              {merged.map((p) => {
+                const isTextDefault =
+                  p.id === env.AI_DEFAULT_TEXT_PROVIDER &&
+                  ["openrouter", "deepseek", "nvidia"].includes(p.id);
+                const isImageDefault =
+                  p.id === env.AI_DEFAULT_IMAGE_PROVIDER && p.id === "fal";
+                return (
                 <tr key={p.id} className="border-t border-ink-800">
-                  <td className="px-3 py-2 text-ink-100">{p.label}</td>
+                  <td className="px-3 py-2 text-ink-100">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span>{p.label}</span>
+                      {(isTextDefault || isImageDefault) && (
+                        <span className="rounded-full border border-accent-gold/40 bg-accent-gold/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-accent-gold">
+                          {isTextDefault ? "default chat" : "default image"}
+                        </span>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-3 py-2 text-ink-300">
                     {p.envVarNames.join(" / ")}
                   </td>
@@ -196,7 +226,8 @@ export default async function SettingsPage() {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
