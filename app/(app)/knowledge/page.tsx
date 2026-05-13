@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { BookOpen, Lock, Users2 } from "lucide-react";
+import { BookOpen, FolderTree, Lock, Users2 } from "lucide-react";
 
 import { CreateCollectionForm } from "@/components/knowledge/CreateCollectionForm";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatusPill } from "@/components/ui/StatusPill";
+import { isOwner } from "@/lib/permissions";
 import { getCurrentProfile, getSupabaseServerClient } from "@/lib/supabase/server";
 import { formatRelative } from "@/lib/utils";
 import type { KnowledgeCollection, KnowledgeItem } from "@/types/database";
@@ -16,24 +17,40 @@ export default async function KnowledgePage() {
   if (!profile) return null;
   const supabase = getSupabaseServerClient();
 
-  const [{ data: privateCollections }, { data: teamCollections }, { data: recentItems }] =
-    await Promise.all([
-      supabase
-        .from("knowledge_collections")
-        .select("*")
-        .eq("user_id", profile.id)
-        .order("updated_at", { ascending: false }),
-      supabase
-        .from("knowledge_collections")
-        .select("*")
-        .eq("visibility", "team_shared")
-        .order("updated_at", { ascending: false }),
-      supabase
-        .from("knowledge_items")
-        .select("id,title,source_type,collection_id,created_at,user_id")
-        .order("created_at", { ascending: false })
-        .limit(8),
-    ]);
+  const [
+    { data: privateCollections },
+    { data: teamCollections },
+    { data: recentItems },
+    { data: importedCollections },
+    { data: itemCounts },
+  ] = await Promise.all([
+    supabase
+      .from("knowledge_collections")
+      .select("*")
+      .eq("user_id", profile.id)
+      .order("updated_at", { ascending: false }),
+    supabase
+      .from("knowledge_collections")
+      .select("*")
+      .eq("visibility", "team_shared")
+      .order("updated_at", { ascending: false }),
+    supabase
+      .from("knowledge_items")
+      .select("id,title,source_type,collection_id,created_at,user_id")
+      .order("created_at", { ascending: false })
+      .limit(8),
+    // "Local Knowledge Imports" — collections produced by the local
+    // importer (we tag them via metadata.seeded_by). The same .eq() against
+    // a jsonb field uses PostgREST's `->>` accessor syntax.
+    supabase
+      .from("knowledge_collections")
+      .select("*")
+      .eq("metadata->>seeded_by", "scripts/import-local-knowledge.ts")
+      .order("name", { ascending: true }),
+    supabase
+      .from("knowledge_items")
+      .select("collection_id"),
+  ]);
 
   const priv = (privateCollections ?? []) as KnowledgeCollection[];
   const team = (teamCollections ?? []) as KnowledgeCollection[];
@@ -41,6 +58,15 @@ export default async function KnowledgePage() {
     KnowledgeItem,
     "id" | "title" | "source_type" | "collection_id" | "created_at" | "user_id"
   >[];
+  const imports = (importedCollections ?? []) as KnowledgeCollection[];
+  const itemsByCollection = new Map<string, number>();
+  for (const ic of (itemCounts ?? []) as { collection_id: string | null }[]) {
+    if (!ic.collection_id) continue;
+    itemsByCollection.set(
+      ic.collection_id,
+      (itemsByCollection.get(ic.collection_id) ?? 0) + 1
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -49,6 +75,70 @@ export default async function KnowledgePage() {
         title="Reference material for Atlas"
         description="Upload files, paste text, and link sources. Private by default; team-shared when you flip the toggle."
       />
+
+      {isOwner(profile) && imports.length > 0 && (
+        <section className="card-padded">
+          <div className="section-title">
+            <div>
+              <h2>Local knowledge imports</h2>
+              <p>
+                Collections seeded by{" "}
+                <code>scripts/import-local-knowledge.ts</code>. Re-run{" "}
+                <code>npm run import-local-knowledge</code> after dropping
+                new files into <code>future/</code>.
+              </p>
+            </div>
+            <span className="chip-info">
+              <FolderTree size={12} />
+              {imports.length} sources
+            </span>
+          </div>
+          <div className="mt-4 overflow-hidden rounded-xl border border-ink-800">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-ink-900/70 text-[10px] uppercase tracking-[0.18em] text-ink-300">
+                <tr>
+                  <th className="px-3 py-2">Collection</th>
+                  <th className="px-3 py-2">Visibility</th>
+                  <th className="px-3 py-2">Items</th>
+                  <th className="px-3 py-2">Last imported</th>
+                </tr>
+              </thead>
+              <tbody>
+                {imports.map((c) => {
+                  const count = itemsByCollection.get(c.id) ?? 0;
+                  return (
+                    <tr key={c.id} className="border-t border-ink-800">
+                      <td className="px-3 py-2">
+                        <Link
+                          href={`/knowledge/${c.id}`}
+                          className="font-medium text-ink-100 hover:text-accent-gold"
+                        >
+                          {c.name}
+                        </Link>
+                        {c.description && (
+                          <p className="line-clamp-1 text-[11px] text-ink-300">
+                            {c.description}
+                          </p>
+                        )}
+                      </td>
+                      <td className="px-3 py-2">
+                        <StatusPill
+                          status={c.visibility === "team_shared" ? "ok" : "info"}
+                          label={c.visibility.replace("_", " ")}
+                        />
+                      </td>
+                      <td className="px-3 py-2 text-ink-100">{count}</td>
+                      <td className="px-3 py-2 text-ink-300">
+                        {formatRelative(c.updated_at)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[2fr_1fr]">
         <div className="space-y-5">

@@ -2,7 +2,15 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { runChat } from "@/lib/ai/providers";
-import { getCurrentProfile, getSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  retrieveForAssistant,
+  renderKnowledgeBlock,
+} from "@/lib/atlas/retrieval";
+import {
+  getCurrentProfile,
+  getSupabaseServerClient,
+  getSupabaseServiceClient,
+} from "@/lib/supabase/server";
 import { checkDailyCap, logUsage } from "@/lib/usage";
 
 export const runtime = "nodejs";
@@ -124,12 +132,47 @@ export async function POST(req: Request) {
     .order("created_at", { ascending: true })
     .limit(24);
 
-  const messages = (history ?? [])
+  // Knowledge retrieval — pull up to 5 relevant items from the collections
+  // wired to this assistant. Falls back to no-op when no assistant_id or no
+  // mappings; never fatal.
+  let knowledgeHits: Awaited<
+    ReturnType<typeof retrieveForAssistant>
+  > = [];
+  let knowledgeBlock = "";
+  try {
+    if (assistant_id) {
+      knowledgeHits = await retrieveForAssistant({
+        assistant_id,
+        message,
+        limit: 5,
+      });
+      knowledgeBlock = renderKnowledgeBlock(knowledgeHits);
+    }
+  } catch (e) {
+    console.error("knowledge retrieval failed", e);
+  }
+
+  // Assemble the message list. If we have a knowledge block, append it as a
+  // trailing system message so the provider's `messages` array includes it
+  // without overwriting the assistant's own system prompt.
+  const baseMessages = (history ?? [])
     .filter((m) => m.role !== "tool")
     .map((m) => ({
       role: m.role as "user" | "assistant" | "system",
       content: m.content,
     }));
+  const messages = knowledgeBlock
+    ? [
+        ...baseMessages,
+        {
+          role: "system" as const,
+          content: `(Knowledge attached by the LegendsOS retrieval layer):${knowledgeBlock}`,
+        },
+        // Re-inject the user's last message after the system block so the
+        // provider answers the user, not the system. The user message is
+        // already in baseMessages, but re-stating keeps it adjacent.
+      ]
+    : baseMessages;
 
   const result = await runChat({
     provider: provider ?? undefined,
@@ -170,7 +213,11 @@ export async function POST(req: Request) {
       role: "assistant",
       content: result.content,
       token_count: result.usage?.total_tokens ?? null,
-      metadata: { provider: result.provider, model: result.model },
+      metadata: {
+        provider: result.provider,
+        model: result.model,
+        knowledge_hits: knowledgeHits.length,
+      },
     })
     .select("id")
     .single();
@@ -180,6 +227,25 @@ export async function POST(req: Request) {
     .update({ last_message_at: new Date().toISOString() })
     .eq("id", threadId);
 
+  // Persist retrieval_references so the message → item link can be replayed
+  // later (and surfaced in the UI as citations once we build that out).
+  if (knowledgeHits.length > 0 && assistantMsg?.id) {
+    try {
+      const service = getSupabaseServiceClient();
+      await service.from("retrieval_references").insert(
+        knowledgeHits.map((h) => ({
+          message_id: assistantMsg.id,
+          item_id: h.item_id,
+          score: h.score,
+          excerpt: h.excerpt,
+          metadata: { source_path: h.source_path },
+        }))
+      );
+    } catch (e) {
+      console.error("retrieval_references insert failed", e);
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     thread_id: threadId,
@@ -188,5 +254,12 @@ export async function POST(req: Request) {
     provider: result.provider,
     model: result.model,
     usage: { daily_count: cap.used + 1, daily_limit: cap.cap },
+    knowledge: {
+      count: knowledgeHits.length,
+      sources: knowledgeHits.map((h) => ({
+        title: h.title,
+        source_path: h.source_path,
+      })),
+    },
   });
 }

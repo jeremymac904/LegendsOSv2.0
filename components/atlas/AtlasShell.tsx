@@ -228,7 +228,12 @@ export function AtlasShell({
             user_id: ownerId,
             role: "assistant",
             content: data.content as string,
-            metadata: { provider: data.provider, model: data.model },
+            metadata: {
+              provider: data.provider,
+              model: data.model,
+              knowledge_hits: data.knowledge?.count ?? 0,
+              knowledge_sources: data.knowledge?.sources ?? [],
+            },
             token_count: null,
             created_at: new Date().toISOString(),
           },
@@ -413,6 +418,11 @@ function EmptyChat({
 function MessageRow({ message }: { message: ChatMessage }) {
   const isUser = message.role === "user";
   const isSystem = message.role === "system";
+  const meta = (message.metadata ?? {}) as {
+    knowledge_hits?: number;
+    knowledge_sources?: { title: string; source_path: string | null }[];
+  };
+  const khits = meta.knowledge_hits ?? 0;
   return (
     <div
       className={cn(
@@ -431,6 +441,16 @@ function MessageRow({ message }: { message: ChatMessage }) {
         )}
       >
         {message.content}
+        {!isUser && !isSystem && khits > 0 && (
+          <p
+            className="mt-2 inline-flex max-w-full items-center gap-1 truncate rounded-full border border-accent-gold/30 bg-accent-gold/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-accent-gold"
+            title={(meta.knowledge_sources ?? [])
+              .map((s) => s.title + (s.source_path ? ` (${s.source_path})` : ""))
+              .join("\n")}
+          >
+            Using {khits} knowledge source{khits === 1 ? "" : "s"}
+          </p>
+        )}
         <p
           className={cn(
             "mt-1.5 text-[10px] uppercase tracking-[0.18em]",

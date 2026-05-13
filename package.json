@@ -12,7 +12,8 @@
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install --with-deps chromium",
     "index-assets": "tsx scripts/index-local-assets.ts",
-    "seed-assistants": "tsx scripts/seed-atlas-assistants-from-local.ts"
+    "seed-assistants": "tsx scripts/seed-atlas-assistants-from-local.ts",
+    "import-local-knowledge": "tsx scripts/import-local-knowledge.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",

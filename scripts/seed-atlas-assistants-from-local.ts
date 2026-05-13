@@ -96,6 +96,20 @@ const KITS: KitMeta[] = [
   },
 ];
 
+// Sibling kits sourced from outside the Loan_Factory_AI_Assistants tree.
+const EXTERNAL_KITS: { rootRelative: string; meta: KitMeta }[] = [
+  {
+    rootRelative: "future/LoanFactory_Social_Media_Assistant_ELITE_v1",
+    meta: {
+      folder: "LoanFactory_Social_Media_Assistant_ELITE_v1",
+      name: "Loan Factory Social Media / Content Assistant",
+      description:
+        "Voice-on-brand social-media and long-form content copilot — channels, content cadence, prompt library.",
+      visibility: "team_shared",
+    },
+  },
+];
+
 function safeRead(path: string): string {
   try {
     return readFileSync(path, "utf-8");
@@ -287,6 +301,58 @@ async function main() {
     );
     console.log(`  ${action.toUpperCase()} ${kit.name} (visibility=${kit.visibility}, prompt_chars=${promptText.length})`);
   }
+
+  // External kits — same shape, but for kits that don't ship a master
+  // prompt (the Elite social-media kit only has topical .md files), we
+  // synthesize a system prompt from brand.md + system.md if they exist.
+  for (const { rootRelative, meta } of EXTERNAL_KITS) {
+    const folderPath = resolve(REPO_ROOT, rootRelative);
+    if (!existsSync(folderPath) || !statSync(folderPath).isDirectory()) {
+      console.log(`  SKIP ${meta.name} (folder missing)`);
+      continue;
+    }
+    let promptText = "";
+    const promptFile = pickPromptFile(folderPath);
+    if (promptFile) {
+      promptText = safeRead(promptFile).trim();
+    } else {
+      // Synthesize from common pieces of the elite social kit.
+      const parts: string[] = [];
+      const candidates = [
+        "01_BRAND_AND_POSITIONING/brand.md",
+        "03_CONTENT_STRATEGY_SYSTEM/system.md",
+        "02_COMPLIANCE_AND_DO_NOT_SAY/compliance.md",
+      ];
+      for (const c of candidates) {
+        const p = resolve(folderPath, c);
+        if (existsSync(p)) {
+          parts.push(`# ${c}\n\n${safeRead(p).trim()}`);
+        }
+      }
+      if (parts.length > 0) {
+        promptText = [
+          `You are the ${meta.name}. Use the brand voice, content strategy,`,
+          `and compliance rules below as your operating instructions.`,
+          "",
+          parts.join("\n\n---\n\n"),
+        ].join("\n");
+      }
+    }
+    if (!promptText) {
+      console.log(`  SKIP ${meta.name} (no usable system prompt could be synthesized)`);
+      continue;
+    }
+    const config = loadConfig(folderPath);
+    const { action } = await upsertAssistant(
+      organization_id,
+      owner_user_id,
+      meta,
+      promptText,
+      config
+    );
+    console.log(`  ${action.toUpperCase()} ${meta.name} (visibility=${meta.visibility}, prompt_chars=${promptText.length})`);
+  }
+
   console.log("done.");
 }
 
