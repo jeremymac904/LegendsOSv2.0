@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 
 import {
   getAIProviderStatuses,
@@ -8,7 +9,9 @@ import {
 import {
   getCurrentProfile,
   getSupabaseServerClient,
+  getSupabaseServiceClient,
 } from "@/lib/supabase/server";
+import { recordAudit } from "@/lib/usage";
 import type { ProviderCredentialPublic } from "@/types/database";
 
 export const runtime = "nodejs";
@@ -56,16 +59,20 @@ export async function GET() {
   const providers = getAIProviderStatuses().map((p) => {
     const stored = storedByProvider.get(p.id);
     const preview = maskedKeyPreview(previewLookup[p.id] ?? "");
+    // A provider is considered enabled when BOTH the env flag is not
+    // disabled AND the stored is_enabled flag (default true) is true.
+    const ownerToggleOn = stored?.is_enabled !== false;
     return {
       id: p.id,
       label: p.label,
       configured: p.configured,
-      enabled: p.enabled,
+      enabled: p.enabled && ownerToggleOn,
+      env_enabled: p.enabled,
+      owner_toggle_on: ownerToggleOn,
       source: p.source,
       env_var_names: p.envVarNames,
       masked_preview: preview || stored?.masked_preview || null,
       updated_at: stored?.updated_at ?? null,
-      // Reconcile env state with the stored placeholder row's status field.
       stored_status: stored?.status ?? "missing",
     };
   });
@@ -112,5 +119,85 @@ export async function GET() {
       live_social_publish: env.SAFETY.allowLiveSocialPublish,
       live_email_send: env.SAFETY.allowLiveEmailSend,
     },
+  });
+}
+
+// PATCH /api/admin/providers
+// Body: { provider: "openrouter" | "deepseek" | ..., enabled: boolean }
+//
+// Toggles `provider_credentials.is_enabled` for the current org's row. Only
+// the owner role may call this. Never accepts or returns key material.
+const patchSchema = z.object({
+  provider: z.string().min(1).max(64),
+  enabled: z.boolean(),
+});
+
+export async function PATCH(req: Request) {
+  const profile = await getCurrentProfile();
+  if (!profile || profile.role !== "owner") {
+    return NextResponse.json(
+      { ok: false, error: "forbidden", message: "Owner-only endpoint." },
+      { status: 403 }
+    );
+  }
+  if (!profile.organization_id) {
+    return NextResponse.json(
+      { ok: false, error: "no_org", message: "Owner is not linked to an organization." },
+      { status: 400 }
+    );
+  }
+
+  const body = await req.json().catch(() => null);
+  const parsed = patchSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "bad_request",
+        message: parsed.error.issues.map((i) => i.message).join("; "),
+      },
+      { status: 400 }
+    );
+  }
+  const { provider, enabled } = parsed.data;
+
+  // Upsert by (organization_id, provider). The bootstrap migration seeds
+  // rows for the standard providers, but we upsert defensively so the
+  // toggle works even if a row is missing.
+  const service = getSupabaseServiceClient();
+  const { data, error } = await service
+    .from("provider_credentials")
+    .upsert(
+      {
+        organization_id: profile.organization_id,
+        provider,
+        is_enabled: enabled,
+        // Don't touch status / encrypted_secret here.
+      },
+      { onConflict: "organization_id,provider" }
+    )
+    .select("id,provider,is_enabled,updated_at")
+    .single();
+
+  if (error || !data) {
+    return NextResponse.json(
+      { ok: false, error: "internal_error", message: error?.message ?? "update failed" },
+      { status: 500 }
+    );
+  }
+
+  await recordAudit({
+    actor: profile,
+    action: enabled ? "provider_enabled" : "provider_disabled",
+    target_type: "provider_credentials",
+    target_id: data.id,
+    metadata: { provider },
+  });
+
+  return NextResponse.json({
+    ok: true,
+    provider: data.provider,
+    is_enabled: data.is_enabled,
+    updated_at: data.updated_at,
   });
 }

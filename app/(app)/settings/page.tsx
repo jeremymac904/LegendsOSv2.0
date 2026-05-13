@@ -1,3 +1,4 @@
+import { ProviderToggle } from "@/components/settings/ProviderToggle";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatusPill } from "@/components/ui/StatusPill";
 import {
@@ -42,10 +43,18 @@ export default async function SettingsPage() {
   // timestamp and the env var name).
   const merged = liveStatuses.map((s) => {
     const stored = storedByProvider.get(s.id);
+    // Owner-controlled toggle is stored on provider_credentials.is_enabled.
+    // Default to enabled when there is no row yet (most common pre-import
+    // state). The Atlas gateway respects this flag at runtime.
+    const ownerToggleOn = stored?.is_enabled !== false;
     return {
       ...s,
       preview: maskedKeyPreview(previewLookup[s.id] ?? "") || stored?.masked_preview || "",
       updated_at: stored?.updated_at ?? null,
+      ownerToggleOn,
+      // The "is this provider actually usable right now" decision combines
+      // the env flag and the owner toggle.
+      effectiveEnabled: s.enabled && ownerToggleOn,
     };
   });
 
@@ -145,9 +154,8 @@ export default async function SettingsPage() {
                 <th className="px-3 py-2">Provider</th>
                 <th className="px-3 py-2">Env var(s)</th>
                 <th className="px-3 py-2">Masked preview</th>
-                <th className="px-3 py-2">Source</th>
                 <th className="px-3 py-2">Status</th>
-                <th className="px-3 py-2">Updated</th>
+                <th className="px-3 py-2 text-right">Toggle</th>
               </tr>
             </thead>
             <tbody>
@@ -160,27 +168,32 @@ export default async function SettingsPage() {
                   <td className="px-3 py-2 font-mono text-[11px] text-ink-300">
                     {p.preview || "—"}
                   </td>
-                  <td className="px-3 py-2 text-ink-300">{p.source}</td>
                   <td className="px-3 py-2">
                     <StatusPill
                       status={
                         p.configured
-                          ? p.enabled
+                          ? p.effectiveEnabled
                             ? "ok"
                             : "off"
                           : "missing"
                       }
                       label={
                         p.configured
-                          ? p.enabled
+                          ? p.effectiveEnabled
                             ? "connected"
                             : "disabled"
                           : "missing"
                       }
                     />
                   </td>
-                  <td className="px-3 py-2 text-ink-300">
-                    {formatRelative(p.updated_at)}
+                  <td className="px-3 py-2">
+                    <div className="flex justify-end">
+                      <ProviderToggle
+                        provider={p.id}
+                        initialEnabled={p.ownerToggleOn}
+                        canEdit={owner}
+                      />
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -188,9 +201,10 @@ export default async function SettingsPage() {
           </table>
         </div>
         <p className="mt-3 text-[11px] text-ink-300">
-          To configure a provider, set its env var in <code>.env.local</code>{" "}
-          locally or in your hosting platform's environment. Toggle a provider
-          off with <code>AI_ENABLE_&lt;NAME&gt;=false</code>.
+          The toggle disables the provider for everyone in the org without
+          touching the env var. To <em>add</em> a new provider key, set its
+          env var (e.g. <code>OPENROUTER_API_KEY</code>) on the hosting
+          platform and redeploy — keys never travel through the browser.
         </p>
       </section>
 

@@ -19,10 +19,12 @@ body {
 }
 
 body {
+  /* Gold-forward ambient glow per the walkthrough. Orange is retained as a
+     secondary highlight; both decay quickly so the page reads as dark. */
   background-image:
-    radial-gradient(60% 50% at 30% 10%, rgba(255, 138, 31, 0.10) 0%, rgba(255, 138, 31, 0) 60%),
-    radial-gradient(50% 50% at 90% 30%, rgba(245, 180, 0, 0.08) 0%, rgba(245, 180, 0, 0) 60%),
-    radial-gradient(60% 60% at 50% 100%, rgba(56, 189, 248, 0.06) 0%, rgba(56, 189, 248, 0) 60%);
+    radial-gradient(60% 50% at 30% 10%, rgba(245, 180, 0, 0.12) 0%, rgba(245, 180, 0, 0) 60%),
+    radial-gradient(50% 50% at 90% 30%, rgba(255, 138, 31, 0.06) 0%, rgba(255, 138, 31, 0) 60%),
+    radial-gradient(60% 60% at 50% 100%, rgba(56, 189, 248, 0.05) 0%, rgba(56, 189, 248, 0) 60%);
   background-attachment: fixed;
 }
 
@@ -37,7 +39,8 @@ body {
     @apply inline-flex items-center justify-center gap-2 rounded-xl border border-ink-700 bg-ink-800/80 px-4 py-2 text-sm font-medium text-ink-100 transition-all hover:bg-ink-700/80 disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-primary {
-    @apply btn border-accent-gold/30 bg-gradient-to-br from-accent-orange via-accent-orange to-accent-gold text-ink-950 shadow-glow hover:from-accent-gold hover:to-accent-orange;
+    /* Gold-forward primary: starts on gold and warms into orange on hover. */
+    @apply btn border-accent-gold/40 bg-gradient-to-br from-accent-gold via-accent-gold to-accent-orange text-ink-950 shadow-glow hover:from-accent-orange hover:to-accent-gold;
   }
   .btn-ghost {
     @apply btn border-transparent bg-transparent text-ink-200 hover:bg-ink-800/60;

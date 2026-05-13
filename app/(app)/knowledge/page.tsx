@@ -45,7 +45,7 @@ export default async function KnowledgePage() {
   return (
     <div className="space-y-6">
       <SectionHeader
-        eyebrow="Source Knowledge"
+        eyebrow="Knowledge Sources"
         title="Reference material for Atlas"
         description="Upload files, paste text, and link sources. Private by default; team-shared when you flip the toggle."
       />

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PlayCircle } from "lucide-react";
 
 import { LoginForm } from "@/components/auth/LoginForm";
 import { PUBLIC_ENV, isSupabaseConfigured } from "@/lib/env";
@@ -10,6 +11,12 @@ export default function LoginPage({
 }: {
   searchParams: { from?: string; error?: string; message?: string };
 }) {
+  // When NEXT_PUBLIC_WELCOME_VIDEO_URL is set, we render an embedded video
+  // in the left pane. Otherwise we show a clean placeholder card. No more
+  // "feature bullets" — Jeremy explicitly removed those from the sign-in
+  // page in the walkthrough.
+  const welcomeVideoUrl = process.env.NEXT_PUBLIC_WELCOME_VIDEO_URL || "";
+
   return (
     <main className="grid min-h-screen lg:grid-cols-[1.05fr_1fr]">
       <section className="hidden lg:flex flex-col justify-between border-r border-ink-800 bg-ember-radial p-12">
@@ -30,16 +37,30 @@ export default function LoginPage({
             </span>
             .
           </h1>
-          <p className="mt-4 max-w-md text-sm text-ink-300">
-            Atlas chat, source-grounded knowledge, image studio, social, email,
-            and calendar — unified, role-aware, and audited from day one.
-          </p>
         </div>
-        <div className="grid grid-cols-2 gap-3 text-xs text-ink-300">
-          <Bullet>Single sign-on via Supabase Auth</Bullet>
-          <Bullet>Row-level security on every table</Bullet>
-          <Bullet>Server-side AI provider gateway</Bullet>
-          <Bullet>n8n automation jobs with safety gate</Bullet>
+        <div className="mt-6 max-w-md">
+          {welcomeVideoUrl ? (
+            <div className="aspect-video overflow-hidden rounded-2xl border border-ink-800 bg-ink-950 shadow-card">
+              <iframe
+                src={welcomeVideoUrl}
+                title="LegendsOS welcome"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+                className="h-full w-full"
+              />
+            </div>
+          ) : (
+            <div className="card flex aspect-video flex-col items-center justify-center gap-2 p-6 text-center text-ink-300">
+              <PlayCircle size={28} className="text-accent-gold" />
+              <p className="text-sm font-medium text-ink-100">
+                Welcome video coming soon
+              </p>
+              <p className="text-xs text-ink-300">
+                Drop the URL into <code>NEXT_PUBLIC_WELCOME_VIDEO_URL</code>{" "}
+                and it embeds here automatically.
+              </p>
+            </div>
+          )}
         </div>
       </section>
       <section className="flex items-center justify-center px-6 py-12">
@@ -89,17 +110,8 @@ export default function LoginPage({
 
 function Logo() {
   return (
-    <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-accent-orange to-accent-gold text-base font-black text-ink-950 shadow-glow">
+    <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-accent-gold via-accent-gold to-accent-orange text-base font-black text-ink-950 shadow-glow">
       L
-    </div>
-  );
-}
-
-function Bullet({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="card flex items-start gap-2 p-3">
-      <span className="mt-1 h-1.5 w-1.5 rounded-full bg-accent-gold" />
-      <span>{children}</span>
     </div>
   );
 }

@@ -44,7 +44,7 @@ export const NAV_ITEMS: NavItem[] = [
   {
     section: "core",
     href: "/knowledge",
-    label: "Source Knowledge",
+    label: "Knowledge Sources",
     description: "Collections and retrieval",
     icon: BookOpen,
   },

@@ -37,6 +37,27 @@ export async function POST(req: Request) {
   }
   const { prompt, aspect_ratio, model } = parsed.data;
 
+  // Respect the owner's per-org Fal toggle in Settings.
+  {
+    const sb = getSupabaseServerClient();
+    const { data: row } = await sb
+      .from("provider_credentials_public")
+      .select("provider,is_enabled")
+      .eq("provider", "fal")
+      .maybeSingle();
+    if (row && row.is_enabled === false) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "provider_disabled",
+          message: "Fal.ai is disabled by the owner. Re-enable it in Settings → AI Provider Gateway.",
+          provider: "fal",
+        },
+        { status: 200 }
+      );
+    }
+  }
+
   const cap = await checkDailyCap(profile, "images", "images");
   if (!cap.allowed) {
     return NextResponse.json(

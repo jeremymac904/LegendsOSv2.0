@@ -389,7 +389,7 @@ function EmptyChat({
   return (
     <div className="grid place-items-center py-16">
       <div className="w-full max-w-md rounded-2xl border border-ink-800 bg-ink-900/40 p-6 text-center">
-        <div className="mx-auto grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-accent-orange to-accent-gold text-ink-950">
+        <div className="mx-auto grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-accent-gold via-accent-gold to-accent-orange text-ink-950">
           <Sparkles size={16} />
         </div>
         <h2 className="mt-3 text-base font-semibold text-ink-100">
@@ -399,14 +399,12 @@ function EmptyChat({
           Ask Atlas for marketing copy, mortgage explainers, or anything in
           your daily workflow.
         </p>
-        <p className="mt-3 text-[11px] text-ink-400">
-          Provider: <span className="text-ink-200">{provider}</span>{" "}
-          {configured ? (
-            <span className="text-status-ok">· ready</span>
-          ) : (
-            <span className="text-status-warn">· not configured</span>
-          )}
-        </p>
+        {!configured && (
+          <p className="mt-3 text-[11px] text-status-warn">
+            {provider} is not configured — open Chat settings to switch
+            provider.
+          </p>
+        )}
       </div>
     </div>
   );

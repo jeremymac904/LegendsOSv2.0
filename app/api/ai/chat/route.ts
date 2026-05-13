@@ -41,6 +41,29 @@ export async function POST(req: Request) {
   }
   const { thread_id, assistant_id, message, provider, model } = parsed.data;
 
+  // Owner can disable a provider org-wide via Settings without touching
+  // env vars. Check the toggle first so a disabled provider never even
+  // reaches the gateway.
+  if (provider) {
+    const sb = getSupabaseServerClient();
+    const { data: row } = await sb
+      .from("provider_credentials_public")
+      .select("provider,is_enabled")
+      .eq("provider", provider)
+      .maybeSingle();
+    if (row && row.is_enabled === false) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "provider_disabled",
+          message: `${provider} is disabled by the owner. Re-enable it in Settings → AI Provider Gateway.`,
+          provider,
+        },
+        { status: 200 }
+      );
+    }
+  }
+
   // Daily cap.
   const cap = await checkDailyCap(profile, "atlas", "chat");
   if (!cap.allowed) {

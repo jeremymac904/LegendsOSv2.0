@@ -15,7 +15,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatCard } from "@/components/ui/StatCard";
 import { StatusPill } from "@/components/ui/StatusPill";
-import { getAIProviderStatuses, PUBLIC_ENV } from "@/lib/env";
+import { PUBLIC_ENV } from "@/lib/env";
 import { isOwner } from "@/lib/permissions";
 import {
   getCurrentProfile,
@@ -24,10 +24,8 @@ import {
 import { formatRelative } from "@/lib/utils";
 import type {
   AutomationJob,
-  ChatThread,
   EmailCampaign,
   GeneratedMedia,
-  ProviderCredentialPublic,
   SocialPost,
   UsageEvent,
 } from "@/types/database";
@@ -79,20 +77,15 @@ export default async function DashboardPage() {
   const supabase = getSupabaseServerClient();
   const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
+  // Recent-chats card + Provider-status card were removed per the
+  // walkthrough. We now skip those reads on the dashboard.
   const [
-    { data: threads },
     { data: socialDrafts },
     { data: emailDrafts },
     { data: media },
-    { data: providers },
     { data: usage24h },
     { data: recentJobs },
   ] = await Promise.all([
-    supabase
-      .from("chat_threads")
-      .select("id,title,last_message_at,updated_at")
-      .order("updated_at", { ascending: false })
-      .limit(5),
     supabase
       .from("social_posts")
       .select("id,title,body,channels,status,scheduled_at,updated_at")
@@ -111,10 +104,6 @@ export default async function DashboardPage() {
       .order("created_at", { ascending: false })
       .limit(6),
     supabase
-      .from("provider_credentials_public")
-      .select("*")
-      .order("provider"),
-    supabase
       .from("usage_events")
       .select("module,event_type,created_at")
       .gte("created_at", since24h)
@@ -127,10 +116,6 @@ export default async function DashboardPage() {
       .limit(5),
   ]);
 
-  const chats = (threads ?? []) as Pick<
-    ChatThread,
-    "id" | "title" | "last_message_at" | "updated_at"
-  >[];
   const drafts = (socialDrafts ?? []) as Pick<
     SocialPost,
     "id" | "title" | "body" | "channels" | "status" | "scheduled_at" | "updated_at"
@@ -143,8 +128,6 @@ export default async function DashboardPage() {
     GeneratedMedia,
     "id" | "prompt" | "preview_url" | "status" | "created_at"
   >[];
-  const providerRows = (providers ?? []) as ProviderCredentialPublic[];
-  const liveProviderStatuses = getAIProviderStatuses();
   const events = (usage24h ?? []) as Pick<
     UsageEvent,
     "module" | "event_type" | "created_at"
@@ -228,92 +211,6 @@ export default async function DashboardPage() {
           ))}
         </div>
       </section>
-
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[2fr_1fr]">
-        <section className="card-padded">
-          <div className="section-title">
-            <div>
-              <h2>Recent Atlas chats</h2>
-              <p>Continue or audit your latest threads.</p>
-            </div>
-            <Link href="/atlas" className="btn-ghost text-xs">
-              View all
-            </Link>
-          </div>
-          <div className="mt-4 space-y-2">
-            {chats.length === 0 ? (
-              <EmptyState
-                icon={MessageCircle}
-                title="No chats yet"
-                description="Open Atlas Chat and ask your assistant anything. Usage is logged."
-                action={
-                  <Link href="/atlas" className="btn-primary">
-                    Start a chat
-                  </Link>
-                }
-              />
-            ) : (
-              chats.map((thread) => (
-                <Link
-                  key={thread.id}
-                  href={`/atlas/${thread.id}`}
-                  className="flex items-center justify-between rounded-xl border border-ink-800 bg-ink-900/40 px-3 py-2 text-sm transition hover:border-accent-gold/30"
-                >
-                  <span className="truncate text-ink-100">{thread.title}</span>
-                  <span className="text-xs text-ink-300">
-                    {formatRelative(
-                      thread.last_message_at ?? thread.updated_at
-                    )}
-                  </span>
-                </Link>
-              ))
-            )}
-          </div>
-        </section>
-
-        <section className="card-padded">
-          <div className="section-title">
-            <div>
-              <h2>Provider status</h2>
-              <p>Live env detection.</p>
-            </div>
-            <Link href="/settings" className="btn-ghost text-xs">
-              Settings
-            </Link>
-          </div>
-          <ul className="mt-4 space-y-2">
-            {liveProviderStatuses.map((p) => (
-              <li
-                key={p.id}
-                className="flex items-center justify-between rounded-lg border border-ink-800 bg-ink-900/50 px-3 py-2 text-sm"
-              >
-                <div>
-                  <p className="font-medium text-ink-100">{p.label}</p>
-                  <p className="text-[11px] text-ink-300">
-                    {p.envVarNames.join(" / ")}
-                  </p>
-                </div>
-                <StatusPill
-                  status={
-                    p.configured
-                      ? p.enabled
-                        ? "ok"
-                        : "off"
-                      : "missing"
-                  }
-                  label={
-                    p.configured
-                      ? p.enabled
-                        ? "connected"
-                        : "disabled"
-                      : "missing"
-                  }
-                />
-              </li>
-            ))}
-          </ul>
-        </section>
-      </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <section className="card-padded">
