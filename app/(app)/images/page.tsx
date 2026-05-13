@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { imageLibrary } from "@/lib/assets";
+import { loadOrgUploadedImageAssets } from "@/lib/admin/orgAssets";
 import { getServerEnv } from "@/lib/env";
 import { isOwner } from "@/lib/permissions";
 import {
@@ -23,21 +24,30 @@ export default async function ImageStudioPage() {
   const supabase = getSupabaseServerClient();
   const env = getServerEnv();
 
-  const { data } = await supabase
-    .from("generated_media")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(40);
+  const [{ data }, uploadedImages] = await Promise.all([
+    supabase
+      .from("generated_media")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(40),
+    loadOrgUploadedImageAssets(),
+  ]);
   const media = (data ?? []) as GeneratedMedia[];
 
   const falConfigured = Boolean(env.FAL_KEY);
 
   // Asset library entries (logos, team photos, social refs) curated by the
   // local indexer. Owner-only items are filtered out for non-owners.
+  // The owner-uploaded assets join the same gallery — they're already
+  // filtered to images-only and respect the visibility chosen at upload.
   const owner = isOwner(profile);
-  const assetRefs = imageLibrary().filter(
+  const manifestRefs = imageLibrary().filter(
     (a) => owner || a.default_visibility === "team_shared"
   );
+  const uploadedRefs = uploadedImages.filter(
+    (a) => owner || a.default_visibility === "team_shared"
+  );
+  const assetRefs = [...uploadedRefs, ...manifestRefs];
 
   return (
     <div className="space-y-6">
@@ -128,9 +138,12 @@ export default async function ImageStudioPage() {
             )}
           </div>
           <p className="mt-3 text-[11px] text-ink-300">
-            Hosted from <code>public/assets/</code>. Re-run{" "}
-            <code>npm run index-assets</code> after dropping new files into
-            the local <code>images/</code> folder.
+            Shows owner-uploaded assets (from{" "}
+            <Link href="/admin/assets" className="text-accent-gold">
+              Asset Library
+            </Link>
+            ) plus anything in <code>public/assets/</code> via{" "}
+            <code>npm run index-assets</code>.
           </p>
         </section>
       )}

@@ -189,7 +189,10 @@ export function AtlasShell({
         const uploaded = threadId ? await uploadAttachments(threadId) : [];
         const res = await fetch("/api/ai/chat", {
           method: "POST",
-          headers: { "content-type": "application/json" },
+          headers: {
+            "content-type": "application/json",
+            accept: "application/json",
+          },
           body: JSON.stringify({
             thread_id: threadId,
             assistant_id: assistantId,
@@ -201,9 +204,37 @@ export function AtlasShell({
                 : userText,
           }),
         });
+
+        // Defensive parsing — if the server returned HTML (a login redirect,
+        // a 500 page, a CDN error page), we MUST NOT call `res.json()` on it.
+        // That throws "Unexpected token '<'" and confuses Jeremy. Instead,
+        // surface a plain English message based on the status code.
+        const contentType = res.headers.get("content-type") ?? "";
+        if (!contentType.includes("application/json")) {
+          if (res.status === 401) {
+            setError(
+              "Your session expired. Refresh the page and sign in again."
+            );
+          } else {
+            setError(
+              "Atlas received a non JSON response. Please refresh and try again."
+            );
+          }
+          return;
+        }
+
         const data = await res.json();
         if (!data.ok) {
-          setError(`${data.error}: ${data.message}`);
+          // Friendly mapping for the common cases.
+          let friendly = `${data.error}: ${data.message}`;
+          if (data.error === "unauthenticated") {
+            friendly = "Your session expired. Refresh and sign in again.";
+          } else if (data.error === "cap_exceeded") {
+            friendly = data.message;
+          } else if (data.error === "provider_disabled") {
+            friendly = data.message;
+          }
+          setError(friendly);
           setMessages((m) => [
             ...m,
             {

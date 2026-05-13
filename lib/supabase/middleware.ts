@@ -78,8 +78,31 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Not logged in and accessing a protected path → bounce to login.
+  // Not logged in and accessing a protected path → behavior depends on whether
+  // the caller expects HTML (a page) or JSON (an API route or fetch call).
+  //
+  // For API routes (or anything that asks for JSON via the Accept header) we
+  // MUST return a JSON 401. Returning a 302 to /login causes the browser to
+  // follow the redirect, fetch the HTML login page, and then the client tries
+  // to `res.json()` on `<!DOCTYPE html>…` and throws:
+  //
+  //   "Unexpected token '<', \"<HTML><HE\"... is not valid JSON"
+  //
+  // For everything else (real page navigations), keep the redirect to /login.
   if (!user && !isPublicPath(pathname)) {
+    const accept = request.headers.get("accept") ?? "";
+    const wantsJson =
+      pathname.startsWith("/api/") || accept.includes("application/json");
+    if (wantsJson) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "unauthenticated",
+          message: "Please sign in again.",
+        },
+        { status: 401 }
+      );
+    }
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("from", pathname);

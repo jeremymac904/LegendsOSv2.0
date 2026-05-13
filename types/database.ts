@@ -3,7 +3,13 @@
 // For now we keep this lean and focused on the columns the app actually reads
 // and writes so the rest of the codebase stays type-safe.
 
-export type UserRole = "owner" | "admin" | "loan_officer";
+export type UserRole =
+  | "owner"
+  | "admin"
+  | "loan_officer"
+  | "processor"
+  | "marketing"
+  | "viewer";
 export type AssistantVisibility = "owner_only" | "assigned_user" | "team_shared";
 export type ChatMessageRole = "user" | "assistant" | "system" | "tool";
 export type SocialPostStatus =

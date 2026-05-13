@@ -12,16 +12,17 @@ import {
   X,
 } from "lucide-react";
 
+import { PostPreview, type ChannelId } from "@/components/social/PostPreview";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn, truncate } from "@/lib/utils";
 import type { GeneratedMedia } from "@/types/database";
 
-const CHANNELS = [
+const CHANNELS: { id: ChannelId; label: string }[] = [
   { id: "facebook", label: "Facebook" },
   { id: "instagram", label: "Instagram" },
   { id: "google_business_profile", label: "Google Business Profile" },
   { id: "youtube", label: "YouTube" },
-] as const;
+];
 
 type MediaSummary = Pick<
   GeneratedMedia,
@@ -42,7 +43,8 @@ export function SocialComposer({
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [selected, setSelected] = useState<string[]>(["facebook"]);
+  const [youtubeTitle, setYoutubeTitle] = useState("");
+  const [selected, setSelected] = useState<ChannelId[]>(["facebook"]);
   const [scheduledAt, setScheduledAt] = useState("");
   const [library, setLibrary] = useState<MediaSummary[]>(mediaLibrary);
   const [selectedMediaIds, setSelectedMediaIds] = useState<string[]>(
@@ -62,7 +64,7 @@ export function SocialComposer({
     }
   }, [initialSelectedMediaId]);
 
-  function toggleChannel(id: string) {
+  function toggleChannel(id: ChannelId) {
     setSelected((prev) =>
       prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
     );
@@ -129,11 +131,18 @@ export function SocialComposer({
       setError("Pick a schedule time.");
       return;
     }
+    if (selected.includes("youtube") && !youtubeTitle.trim()) {
+      setError("YouTube needs a video title.");
+      return;
+    }
     startTransition(async () => {
       try {
         const res = await fetch("/api/social", {
           method: "POST",
-          headers: { "content-type": "application/json" },
+          headers: {
+            "content-type": "application/json",
+            accept: "application/json",
+          },
           body: JSON.stringify({
             title: title || undefined,
             body,
@@ -145,8 +154,23 @@ export function SocialComposer({
             action,
             media_id: selectedMediaIds[0] ?? null,
             media_ids: selectedMediaIds,
+            youtube_title: selected.includes("youtube")
+              ? youtubeTitle.trim()
+              : null,
           }),
         });
+
+        // Defensive JSON parse — same pattern as Atlas. If middleware bounced
+        // us to the login page, the response will be HTML, not JSON.
+        const ct = res.headers.get("content-type") ?? "";
+        if (!ct.includes("application/json")) {
+          setError(
+            res.status === 401
+              ? "Your session expired. Refresh and sign in again."
+              : "Social Studio received a non JSON response. Please refresh."
+          );
+          return;
+        }
         const data = await res.json();
         if (!data.ok) {
           setError(`${data.error}: ${data.message}`);
@@ -161,6 +185,7 @@ export function SocialComposer({
         );
         setTitle("");
         setBody("");
+        setYoutubeTitle("");
         setSelected(["facebook"]);
         setScheduledAt("");
         setSelectedMediaIds([]);
@@ -175,6 +200,8 @@ export function SocialComposer({
     .map((id) => library.find((m) => m.id === id))
     .filter((m): m is MediaSummary => Boolean(m));
 
+  const showYouTubeTitleField = selected.includes("youtube");
+
   return (
     <section className="card-padded space-y-4">
       <div className="section-title">
@@ -183,6 +210,11 @@ export function SocialComposer({
           <p>Drafts always save. Schedule queues an automation job for later.</p>
         </div>
       </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.35fr_1fr]">
+        {/* LEFT — form */}
+        <div className="space-y-4">
+
       <input
         className="input"
         placeholder="Internal title (optional)"
@@ -197,6 +229,30 @@ export function SocialComposer({
         onChange={(e) => setBody(e.target.value)}
         maxLength={8000}
       />
+      <p className="text-[11px] text-ink-300">
+        {body.length.toLocaleString()} chars
+      </p>
+
+      {showYouTubeTitleField && (
+        <div className="rounded-xl border border-[#FF0000]/30 bg-[#FF0000]/5 p-3">
+          <p className="label flex items-center gap-1 text-[#ff8484]">
+            YouTube video title{" "}
+            <span className="text-[10px] uppercase tracking-[0.18em] text-ink-300">
+              (required for YouTube)
+            </span>
+          </p>
+          <input
+            className="input mt-2"
+            placeholder="e.g. How to qualify for an FHA loan in 2026"
+            value={youtubeTitle}
+            onChange={(e) => setYoutubeTitle(e.target.value)}
+            maxLength={100}
+          />
+          <p className="mt-1 text-[10px] text-ink-300">
+            {youtubeTitle.length}/100 — YouTube limits titles to 100 characters.
+          </p>
+        </div>
+      )}
 
       <div>
         <p className="label">Media</p>
@@ -353,6 +409,22 @@ export function SocialComposer({
           enables it AND n8n is configured.
         </div>
       </div>
+        </div>
+        {/* RIGHT — live preview */}
+        <PostPreview
+          body={body}
+          channels={selected}
+          media={selectedMedia.map((m) => ({
+            id: m.id,
+            preview_url: m.preview_url,
+            prompt: m.prompt,
+          }))}
+          youtubeTitle={youtubeTitle}
+          scheduledAt={scheduledAt}
+          postStatus={scheduledAt ? "scheduled" : "draft"}
+        />
+      </div>
+
       {error && (
         <p className="rounded-lg border border-status-err/30 bg-status-err/10 px-3 py-2 text-xs text-status-err">
           {error}

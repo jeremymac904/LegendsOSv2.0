@@ -2,6 +2,7 @@ import Link from "next/link";
 import { BookOpen, FolderTree, Lock, Users2 } from "lucide-react";
 
 import { CreateCollectionForm } from "@/components/knowledge/CreateCollectionForm";
+import { QuickUploadPicker } from "@/components/knowledge/QuickUploadPicker";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatusPill } from "@/components/ui/StatusPill";
@@ -68,12 +69,35 @@ export default async function KnowledgePage() {
     );
   }
 
+  // Combined list of collections the user can write into — used by the
+  // quick-upload picker at the top.
+  const writableCollections: { id: string; name: string; visibility: "private" | "team_shared" }[] = [
+    ...priv.map((c) => ({
+      id: c.id,
+      name: c.name,
+      visibility: c.visibility as "private" | "team_shared",
+    })),
+    ...team
+      .filter((c) => c.user_id === profile.id || isOwner(profile))
+      .map((c) => ({
+        id: c.id,
+        name: c.name,
+        visibility: c.visibility as "private" | "team_shared",
+      })),
+  ];
+
   return (
     <div className="space-y-6">
       <SectionHeader
         eyebrow="Knowledge Sources"
         title="Reference material for Atlas"
         description="Upload files, paste text, and link sources. Private by default; team-shared when you flip the toggle."
+      />
+
+      <QuickUploadPicker
+        userId={profile.id}
+        organizationId={profile.organization_id}
+        collections={writableCollections}
       />
 
       {isOwner(profile) && imports.length > 0 && (

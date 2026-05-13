@@ -1,10 +1,18 @@
 import { redirect } from "next/navigation";
-import { Image as ImageIcon, Search, Users2 } from "lucide-react";
+import {
+  FileText,
+  Image as ImageIcon,
+  Search,
+  Users2,
+  Video,
+} from "lucide-react";
 
+import { AssetUploadCard } from "@/components/admin/AssetUploadCard";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { loadAssetManifest, type AssetCategory } from "@/lib/assets";
+import { loadOrgUploadedAssets } from "@/lib/admin/orgAssets";
 import { isOwner } from "@/lib/permissions";
 import { getCurrentProfile } from "@/lib/supabase/server";
 
@@ -16,7 +24,7 @@ const CATEGORY_LABEL: Record<AssetCategory, string> = {
   team_photo: "Team photos",
   social_image: "Social images",
   image_studio_reference: "Image Studio references",
-  unclassified: "Unclassified",
+  unclassified: "Documents & videos",
 };
 
 interface PageProps {
@@ -27,11 +35,46 @@ export default async function AssetLibraryPage({ searchParams }: PageProps) {
   const profile = await getCurrentProfile();
   if (!profile || !isOwner(profile)) redirect("/dashboard");
 
-  const manifest = loadAssetManifest();
+  const [manifest, uploaded] = await Promise.all([
+    Promise.resolve(loadAssetManifest()),
+    loadOrgUploadedAssets(),
+  ]);
+
   const q = (searchParams.q ?? "").trim().toLowerCase();
   const activeCat = (searchParams.cat ?? "").trim() as AssetCategory | "";
 
-  let assets = manifest.assets;
+  // Merge manifest (static, repo-checked-in) with uploaded (db-backed).
+  // Uploaded items come first because they're newer and the owner just made
+  // them — they should be most visible.
+  const merged = [
+    ...uploaded.map((u) => ({
+      kind:
+        u.kind === "document" ? "document" : u.kind === "video" ? "video" : ("image" as const),
+      id: u.id,
+      category: u.category,
+      label: u.label,
+      file_name: u.file_name,
+      public_path: u.public_path,
+      tags: u.tags,
+      default_visibility: u.default_visibility,
+      person: undefined as string | undefined,
+      is_uploaded: true as const,
+    })),
+    ...manifest.assets.map((a) => ({
+      kind: "image" as const,
+      id: a.id,
+      category: a.category,
+      label: a.label,
+      file_name: a.file_name,
+      public_path: a.public_path,
+      tags: a.tags,
+      default_visibility: a.default_visibility,
+      person: a.person,
+      is_uploaded: false as const,
+    })),
+  ];
+
+  let assets = merged;
   if (q) {
     assets = assets.filter(
       (a) =>
@@ -44,25 +87,30 @@ export default async function AssetLibraryPage({ searchParams }: PageProps) {
     assets = assets.filter((a) => a.category === activeCat);
   }
 
-  const counts = manifest.summary as Record<AssetCategory, number>;
+  const counts: Record<string, number> = {};
+  for (const a of merged) {
+    counts[a.category] = (counts[a.category] ?? 0) + 1;
+  }
 
   return (
     <div className="space-y-6">
       <SectionHeader
         eyebrow="Admin · Asset Library"
-        title="Local asset index"
-        description={`${manifest.assets.length} assets indexed${
+        title="Brand & content assets"
+        description={`${merged.length} assets (${uploaded.length} uploaded · ${manifest.assets.length} indexed${
           manifest.generated_at
-            ? ` (last scanned ${new Date(manifest.generated_at).toLocaleString()})`
+            ? `, last scanned ${new Date(manifest.generated_at).toLocaleString()}`
             : ""
-        }. Items copied to /public/assets are served live; everything else is listed for awareness only.`}
+        }). Uploads are saved to Supabase Storage and visible to your team based on the visibility you set.`}
         action={
           <StatusPill
-            status="info"
-            label="run npm run index-assets to refresh"
+            status="ok"
+            label="upload to add new assets — no terminal needed"
           />
         }
       />
+
+      <AssetUploadCard />
 
       <form className="card-padded flex flex-wrap items-end gap-3">
         <label className="flex-1 min-w-[200px]">
@@ -102,7 +150,7 @@ export default async function AssetLibraryPage({ searchParams }: PageProps) {
         <EmptyState
           icon={ImageIcon}
           title="No assets match"
-          description="Try clearing filters or re-run the indexer."
+          description="Try clearing filters, uploading something new above, or re-running the indexer."
         />
       ) : (
         <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -113,13 +161,25 @@ export default async function AssetLibraryPage({ searchParams }: PageProps) {
               title={a.file_name}
             >
               <div className="aspect-square w-full bg-checker">
-                {a.public_path ? (
+                {a.kind === "image" && a.public_path ? (
                   <img
                     src={a.public_path}
                     alt={a.label}
                     className="h-full w-full object-cover"
                     loading="lazy"
                   />
+                ) : a.kind === "video" ? (
+                  <div className="grid h-full w-full place-items-center text-ink-300">
+                    <Video size={28} />
+                    <span className="mt-1 text-[10px]">video</span>
+                  </div>
+                ) : a.kind === "document" ? (
+                  <div className="grid h-full w-full place-items-center text-ink-300">
+                    <FileText size={28} />
+                    <span className="mt-1 text-[10px]">
+                      .{a.file_name.split(".").pop()}
+                    </span>
+                  </div>
                 ) : (
                   <div className="grid h-full w-full place-items-center text-[10px] text-ink-300">
                     <ImageIcon size={18} />
@@ -135,7 +195,12 @@ export default async function AssetLibraryPage({ searchParams }: PageProps) {
                   {a.file_name}
                 </p>
                 <div className="flex flex-wrap items-center gap-1 pt-1">
-                  <span className="chip">{CATEGORY_LABEL[a.category]}</span>
+                  <span className="chip">
+                    {CATEGORY_LABEL[a.category] ?? a.category}
+                  </span>
+                  {a.is_uploaded && (
+                    <span className="chip-ok text-[10px]">uploaded</span>
+                  )}
                   {a.default_visibility === "team_shared" ? (
                     <span className="chip-ok">
                       <Users2 size={10} />

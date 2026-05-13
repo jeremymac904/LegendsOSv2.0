@@ -13,8 +13,47 @@ interface Props {
   organizationId: string | null;
 }
 
-const ACCEPT = ".pdf,.docx,.txt,.md,.csv,.png,.jpg,.jpeg,.webp,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown,text/csv,image/png,image/jpeg,image/webp";
+const ACCEPT = [
+  ".pdf",
+  ".docx",
+  ".pptx",
+  ".txt",
+  ".md",
+  ".csv",
+  ".json",
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".webp",
+  "application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "text/plain",
+  "text/markdown",
+  "text/csv",
+  "application/json",
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+].join(",");
 const MAX_BYTES = 15 * 1024 * 1024; // 15 MB per file
+
+// Extensions whose contents are plain UTF-8 text — we read them in the
+// browser and store the text in knowledge_items.content so the retrieval
+// layer can keyword-match against the actual body, not just the title.
+const PLAIN_TEXT_EXTS = new Set(["md", "txt", "csv", "json"]);
+
+async function maybeReadAsText(file: File): Promise<string | null> {
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  if (!PLAIN_TEXT_EXTS.has(ext)) return null;
+  try {
+    const text = await file.text();
+    // Trim very long content so we don't blow past Postgres TOAST limits.
+    return text.length > 200_000 ? text.slice(0, 200_000) : text;
+  } catch {
+    return null;
+  }
+}
 
 export function KnowledgeUploadCard({ collectionId, userId, organizationId }: Props) {
   const router = useRouter();
@@ -93,36 +132,57 @@ export function KnowledgeUploadCard({ collectionId, userId, organizationId }: Pr
     startTransition(async () => {
       const supabase = getSupabaseBrowserClient();
       let ok = 0;
+      let extracted = 0;
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        setProgress(`Uploading ${i + 1}/${files.length}: ${truncate(file.name, 28)}`);
+        setProgress(
+          `Uploading ${i + 1}/${files.length}: ${truncate(file.name, 28)}`
+        );
         const result = await uploadOne(file);
         if (!result) continue;
-        const { error: itemErr } = await supabase.from("knowledge_items").insert({
-          collection_id: collectionId,
-          user_id: userId,
-          organization_id: organizationId,
-          title: file.name,
-          content: null,
-          source_type: "file",
-          source_uri: null,
-          file_id: result.fileId,
-          metadata: {
-            storage_bucket: "knowledge",
-            storage_path: result.storagePath,
-            mime_type: file.type,
-            size_bytes: file.size,
-          },
-        });
+
+        // Pull text content for the formats we can read directly. PDF/DOCX/
+        // PPTX stay as binaries — retrieval matches on title until we add a
+        // server-side parser (deferred).
+        const textContent = await maybeReadAsText(file);
+        if (textContent !== null) extracted++;
+
+        const { error: itemErr } = await supabase
+          .from("knowledge_items")
+          .insert({
+            collection_id: collectionId,
+            user_id: userId,
+            organization_id: organizationId,
+            title: file.name,
+            content: textContent,
+            source_type: "file",
+            source_uri: null,
+            file_id: result.fileId,
+            metadata: {
+              storage_bucket: "knowledge",
+              storage_path: result.storagePath,
+              mime_type: file.type,
+              size_bytes: file.size,
+              extracted_text: textContent !== null,
+            },
+          });
         if (itemErr) {
-          setError(`Linking knowledge item failed (${file.name}): ${itemErr.message}`);
+          setError(
+            `Linking knowledge item failed (${file.name}): ${itemErr.message}`
+          );
           continue;
         }
         ok++;
       }
       setProgress(null);
       if (ok > 0) {
-        setInfo(`Uploaded ${ok} file(s) to this collection.`);
+        setInfo(
+          `Uploaded ${ok} file${ok === 1 ? "" : "s"} to this collection${
+            extracted > 0
+              ? ` (${extracted} indexed for keyword search)`
+              : ""
+          }.`
+        );
         setFiles([]);
         router.refresh();
       }
@@ -134,8 +194,9 @@ export function KnowledgeUploadCard({ collectionId, userId, organizationId }: Pr
       <div>
         <p className="label">Upload files</p>
         <p className="mt-1 text-[11px] text-ink-300">
-          PDF, DOCX, TXT, MD, CSV, PNG, JPG, JPEG, WEBP. Up to 15 MB each.
-          Each file becomes one knowledge item linked to its storage object.
+          PDF, DOCX, PPTX, TXT, MD, CSV, JSON, PNG, JPG, JPEG, WEBP. Up to
+          15 MB each. Text from .md / .txt / .csv / .json is indexed for
+          Atlas keyword retrieval; binaries stay searchable by filename.
         </p>
       </div>
       <label

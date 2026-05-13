@@ -5,6 +5,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { imageLibrary } from "@/lib/assets";
+import { loadOrgUploadedImageAssets } from "@/lib/admin/orgAssets";
 import { getServerEnv } from "@/lib/env";
 import {
   getCurrentProfile,
@@ -25,19 +26,21 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
   const supabase = getSupabaseServerClient();
   const env = getServerEnv();
 
-  const [{ data: postRows }, { data: mediaRows }] = await Promise.all([
-    supabase
-      .from("social_posts")
-      .select("*")
-      .order("updated_at", { ascending: false })
-      .limit(20),
-    supabase
-      .from("generated_media")
-      .select("id,prompt,preview_url,status,created_at,provider,model")
-      .eq("status", "succeeded")
-      .order("created_at", { ascending: false })
-      .limit(48),
-  ]);
+  const [{ data: postRows }, { data: mediaRows }, uploadedImageAssets] =
+    await Promise.all([
+      supabase
+        .from("social_posts")
+        .select("*")
+        .order("updated_at", { ascending: false })
+        .limit(20),
+      supabase
+        .from("generated_media")
+        .select("id,prompt,preview_url,status,created_at,provider,model")
+        .eq("status", "succeeded")
+        .order("created_at", { ascending: false })
+        .limit(48),
+      loadOrgUploadedImageAssets(),
+    ]);
 
   const posts = (postRows ?? []) as SocialPost[];
   const generatedRows = (mediaRows ?? []) as Pick<
@@ -45,12 +48,8 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
     "id" | "prompt" | "preview_url" | "status" | "created_at" | "provider" | "model"
   >[];
 
-  // Asset-library entries (logos, team photos, social images, references)
-  // synthesised into the same shape the composer's picker already consumes.
-  // The id stays stable across renders thanks to the manifest's deterministic
-  // ids; the composer routes them through metadata.media_ids = ["asset:..."]
-  // so we never look for them in generated_media.
-  const assetEntries: Pick<
+  // Manifest-based assets (logos, team photos, etc. checked into the repo).
+  const manifestAssetEntries: Pick<
     GeneratedMedia,
     "id" | "prompt" | "preview_url" | "status" | "created_at" | "provider" | "model"
   >[] = imageLibrary().map((a) => ({
@@ -63,8 +62,28 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
     model: null,
   }));
 
-  // Generated media first (most recent on top), then the curated asset lib.
-  const mediaLibrary = [...generatedRows, ...assetEntries];
+  // Owner-uploaded assets from shared_resources (new — added in this sprint).
+  // Order newest first.
+  const uploadedAssetEntries: Pick<
+    GeneratedMedia,
+    "id" | "prompt" | "preview_url" | "status" | "created_at" | "provider" | "model"
+  >[] = uploadedImageAssets.map((a) => ({
+    id: a.id,
+    prompt: a.label,
+    preview_url: a.public_path,
+    status: "succeeded",
+    created_at: new Date().toISOString(),
+    provider: `asset:uploaded:${a.category}`,
+    model: null,
+  }));
+
+  // Generated media first (most recent), then uploaded assets, then the
+  // checked-in manifest.
+  const mediaLibrary = [
+    ...generatedRows,
+    ...uploadedAssetEntries,
+    ...manifestAssetEntries,
+  ];
 
   // Resolve preview URLs for any post.media_id so the saved-list shows thumbnails.
   const mediaById = new Map(mediaLibrary.map((m) => [m.id, m]));

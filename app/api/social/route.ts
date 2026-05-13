@@ -32,6 +32,10 @@ const schema = z.object({
   media_ids: z.array(z.string().min(1)).nullish(),
   scheduled_at: z.string().datetime().nullish(),
   action: z.enum(["draft", "schedule"]).default("draft"),
+  // YouTube needs its own title field separate from the internal `title`.
+  // We stash it in `metadata.youtube_title` rather than carving out a new
+  // column. Front-end only sends it when YouTube is in `channels`.
+  youtube_title: z.string().max(100).nullish(),
 });
 
 export async function POST(req: Request) {
@@ -65,6 +69,15 @@ export async function POST(req: Request) {
   const firstUuid = allIds.find((v) => UUID_RE.test(v));
   const primaryMediaId = data.media_id ?? firstUuid ?? null;
 
+  // Build metadata: media_ids (when present) + youtube_title (when YouTube is
+  // selected). Keeping youtube_title out of the top-level columns means we can
+  // ship it without a migration.
+  const metadata: Record<string, unknown> = {};
+  if (allIds.length > 0) metadata.media_ids = allIds;
+  if (data.youtube_title && data.channels.includes("youtube")) {
+    metadata.youtube_title = data.youtube_title.trim();
+  }
+
   // Persist the post.
   const { data: post, error: insErr } = await supabase
     .from("social_posts")
@@ -77,7 +90,7 @@ export async function POST(req: Request) {
       media_id: primaryMediaId,
       scheduled_at: data.scheduled_at ?? null,
       status: data.action === "schedule" ? "scheduled" : "draft",
-      metadata: allIds.length > 0 ? { media_ids: allIds } : {},
+      metadata,
     })
     .select("*")
     .single();
@@ -111,6 +124,10 @@ export async function POST(req: Request) {
         body: data.body,
         channels: data.channels,
         scheduled_at: data.scheduled_at,
+        youtube_title:
+          data.youtube_title && data.channels.includes("youtube")
+            ? data.youtube_title.trim()
+            : null,
       },
       scheduled_at: data.scheduled_at,
       dispatch: env.SAFETY.allowLiveSocialPublish,

@@ -49,6 +49,7 @@ supabase/.temp
 .vscode
 *.swp
 *.swo
+.claude/
 
 # logs
 logs
