@@ -15,6 +15,50 @@ import type {
   ProviderId,
 } from "./types";
 
+// Each provider gets ~8s end-to-end (headers AND body parse). Netlify
+// Functions default sync timeout is 10s, so we MUST bail out before that
+// or the function times out and the browser shows "Atlas is thinking…"
+// forever. On a timeout we fall back to the next configured provider.
+//
+// Important: OpenRouter free models stream keepalive whitespace before the
+// real JSON body, so the *fetch* resolves quickly but the *body parse*
+// can hang for 30+ seconds. We pass the same AbortController through to
+// both the request and the body parse so the timeout actually fires.
+const TEXT_PROVIDER_TIMEOUT_MS = 8000;
+const IMAGE_PROVIDER_TIMEOUT_MS = 25000;
+
+interface TimedFetch {
+  res: Response;
+  controller: AbortController;
+  done: () => void;
+}
+
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number
+): Promise<TimedFetch> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let cleared = false;
+  const done = () => {
+    if (cleared) return;
+    cleared = true;
+    clearTimeout(timer);
+  };
+  try {
+    const res = await fetch(url, { ...init, signal: controller.signal });
+    return { res, controller, done };
+  } catch (e) {
+    done();
+    throw e;
+  }
+}
+
+function isAbortError(e: unknown): boolean {
+  return e instanceof Error && (e.name === "AbortError" || /aborted/i.test(e.message));
+}
+
 // System prompt: Atlas is the internal assistant. The NMLS branding line is
 // auto-applied to outbound marketing copy. This is NOT a compliance gate —
 // it's just the team's standard sign-off, configurable via env.
@@ -45,10 +89,11 @@ export async function runChat(
   const env = getServerEnv();
   const requested = (request.provider ?? env.AI_DEFAULT_TEXT_PROVIDER) as ProviderId;
 
-  // Resolve a usable provider with simple fallback: requested → openrouter →
-  // deepseek → nvidia. Stops on the first one that is configured AND enabled.
+  // Resolve a usable provider with fallback. If a provider returns a hard
+  // error (timeout, 429, 5xx), we fall through to the next configured one
+  // instead of bubbling the failure straight to the UI.
   const order: ProviderId[] = Array.from(
-    new Set([requested, "openrouter", "deepseek", "nvidia"] as ProviderId[])
+    new Set([requested, "deepseek", "openrouter", "nvidia"] as ProviderId[])
   );
 
   let lastReason: GatewayError | null = null;
@@ -69,34 +114,47 @@ export async function runChat(
       );
       continue;
     }
+    let result: GatewayResult<ChatResponse>;
     if (candidate === "openrouter") {
-      return openrouterChat(
+      result = await openrouterChat(
         request,
         env.OPENROUTER_API_KEY,
         env.OPENROUTER_BASE_URL,
         request.model ?? env.OPENROUTER_DEFAULT_MODEL
       );
-    }
-    if (candidate === "deepseek") {
-      return deepseekChat(
+    } else if (candidate === "deepseek") {
+      result = await deepseekChat(
         request,
         env.DEEPSEEK_API_KEY,
         env.DEEPSEEK_BASE_URL,
         request.model ?? env.DEEPSEEK_DEFAULT_MODEL
       );
-    }
-    if (candidate === "nvidia") {
+    } else {
       const fallbackModel =
         env.NVIDIA_MODELS.nemotron_super_120b ||
         env.NVIDIA_MODELS.kimi_k2_5 ||
         env.NVIDIA_MODELS.mistral_small_4_119b ||
         "meta/llama-3.1-70b-instruct";
-      return nvidiaChat(
+      result = await nvidiaChat(
         request,
         env.NVIDIA_API_KEY,
         env.NVIDIA_BASE_URL,
         request.model ?? fallbackModel
       );
+    }
+
+    if ("ok" in result && result.ok) {
+      return result;
+    }
+
+    // Provider failed. Retry next candidate when the failure is something
+    // we expect a different provider to recover from (timeout, 429, 5xx,
+    // network blip). Bubble bad_request / cap / disabled straight up.
+    lastReason = result;
+    const recoverable =
+      result.error === "provider_error" || result.error === "internal_error";
+    if (!recoverable) {
+      return result;
     }
   }
 
@@ -116,23 +174,29 @@ async function openrouterChat(
   model: string
 ): Promise<GatewayResult<ChatResponse>> {
   const messages = ensureSystem(request.messages);
+  let timed: TimedFetch | null = null;
   try {
-    const res = await fetch(`${baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${apiKey}`,
-        "HTTP-Referer": PUBLIC_ENV.APP_URL,
-        "X-Title": PUBLIC_ENV.APP_NAME,
+    timed = await fetchWithTimeout(
+      `${baseUrl}/chat/completions`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${apiKey}`,
+          "HTTP-Referer": PUBLIC_ENV.APP_URL,
+          "X-Title": PUBLIC_ENV.APP_NAME,
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          temperature: request.temperature ?? 0.4,
+          max_tokens: request.max_tokens ?? 1500,
+        }),
+        cache: "no-store",
       },
-      body: JSON.stringify({
-        model,
-        messages,
-        temperature: request.temperature ?? 0.4,
-        max_tokens: request.max_tokens ?? 1500,
-      }),
-      cache: "no-store",
-    });
+      TEXT_PROVIDER_TIMEOUT_MS
+    );
+    const { res } = timed;
     if (!res.ok) {
       const text = await res.text();
       return err(
@@ -153,9 +217,18 @@ async function openrouterChat(
       usage: json.usage,
     };
   } catch (e) {
+    if (isAbortError(e)) {
+      return err(
+        "provider_error",
+        `OpenRouter timed out after ${TEXT_PROVIDER_TIMEOUT_MS}ms.`,
+        { provider: "openrouter", status: 504 }
+      );
+    }
     return err("internal_error", e instanceof Error ? e.message : "OpenRouter failed", {
       provider: "openrouter",
     });
+  } finally {
+    timed?.done();
   }
 }
 
@@ -166,21 +239,27 @@ async function deepseekChat(
   model: string
 ): Promise<GatewayResult<ChatResponse>> {
   const messages = ensureSystem(request.messages);
+  let timed: TimedFetch | null = null;
   try {
-    const res = await fetch(`${baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${apiKey}`,
+    timed = await fetchWithTimeout(
+      `${baseUrl}/chat/completions`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          temperature: request.temperature ?? 0.4,
+          max_tokens: request.max_tokens ?? 1500,
+        }),
+        cache: "no-store",
       },
-      body: JSON.stringify({
-        model,
-        messages,
-        temperature: request.temperature ?? 0.4,
-        max_tokens: request.max_tokens ?? 1500,
-      }),
-      cache: "no-store",
-    });
+      TEXT_PROVIDER_TIMEOUT_MS
+    );
+    const { res } = timed;
     if (!res.ok) {
       const text = await res.text();
       return err(
@@ -201,11 +280,20 @@ async function deepseekChat(
       usage: json.usage,
     };
   } catch (e) {
+    if (isAbortError(e)) {
+      return err(
+        "provider_error",
+        `DeepSeek timed out after ${TEXT_PROVIDER_TIMEOUT_MS}ms.`,
+        { provider: "deepseek", status: 504 }
+      );
+    }
     return err(
       "internal_error",
       e instanceof Error ? e.message : "DeepSeek failed",
       { provider: "deepseek" }
     );
+  } finally {
+    timed?.done();
   }
 }
 
@@ -216,21 +304,27 @@ async function nvidiaChat(
   model: string
 ): Promise<GatewayResult<ChatResponse>> {
   const messages = ensureSystem(request.messages);
+  let timed: TimedFetch | null = null;
   try {
-    const res = await fetch(`${baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${apiKey}`,
+    timed = await fetchWithTimeout(
+      `${baseUrl}/chat/completions`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          temperature: request.temperature ?? 0.4,
+          max_tokens: request.max_tokens ?? 1500,
+        }),
+        cache: "no-store",
       },
-      body: JSON.stringify({
-        model,
-        messages,
-        temperature: request.temperature ?? 0.4,
-        max_tokens: request.max_tokens ?? 1500,
-      }),
-      cache: "no-store",
-    });
+      TEXT_PROVIDER_TIMEOUT_MS
+    );
+    const { res } = timed;
     if (!res.ok) {
       const text = await res.text();
       return err(
@@ -251,11 +345,20 @@ async function nvidiaChat(
       usage: json.usage,
     };
   } catch (e) {
+    if (isAbortError(e)) {
+      return err(
+        "provider_error",
+        `NVIDIA timed out after ${TEXT_PROVIDER_TIMEOUT_MS}ms.`,
+        { provider: "nvidia", status: 504 }
+      );
+    }
     return err(
       "internal_error",
       e instanceof Error ? e.message : "NVIDIA failed",
       { provider: "nvidia" }
     );
+  } finally {
+    timed?.done();
   }
 }
 
@@ -296,19 +399,25 @@ export async function runImage(
   }
 
   const model = request.model ?? env.FAL_DEFAULT_MODEL;
+  let timed: TimedFetch | null = null;
   try {
-    const res = await fetch(`https://fal.run/${model}`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: `Key ${env.FAL_KEY}`,
+    timed = await fetchWithTimeout(
+      `https://fal.run/${model}`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Key ${env.FAL_KEY}`,
+        },
+        body: JSON.stringify({
+          prompt: request.prompt,
+          image_size: mapAspectToFalSize(request.aspect_ratio),
+        }),
+        cache: "no-store",
       },
-      body: JSON.stringify({
-        prompt: request.prompt,
-        image_size: mapAspectToFalSize(request.aspect_ratio),
-      }),
-      cache: "no-store",
-    });
+      IMAGE_PROVIDER_TIMEOUT_MS
+    );
+    const { res } = timed;
     if (!res.ok) {
       const text = await res.text();
       return err(
@@ -335,11 +444,20 @@ export async function runImage(
       cost_estimate: 0.01,
     };
   } catch (e) {
+    if (isAbortError(e)) {
+      return err(
+        "provider_error",
+        `Fal.ai timed out after ${IMAGE_PROVIDER_TIMEOUT_MS}ms.`,
+        { provider: "fal", status: 504 }
+      );
+    }
     return err(
       "internal_error",
       e instanceof Error ? e.message : "Fal.ai failed",
       { provider: "fal" }
     );
+  } finally {
+    timed?.done();
   }
 }
 
