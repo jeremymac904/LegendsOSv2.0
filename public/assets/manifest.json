@@ -1,0 +1,387 @@
+{
+  "generated_at": "2026-05-13T01:22:54.185Z",
+  "summary": {
+    "team_photo": 13,
+    "image_studio_reference": 4,
+    "social_image": 1,
+    "background": 2,
+    "logo": 4,
+    "unclassified": 3
+  },
+  "assets": [
+    {
+      "id": "asset:team/alison.png",
+      "category": "team_photo",
+      "label": "Alison",
+      "file_name": "Alison.png",
+      "public_path": "/assets/team/alison.png",
+      "source_path": "/Users/JeremyMcDonald/Desktop/LegendsOSv2.0/images/Alison.png",
+      "size_bytes": 363274,
+      "tags": [
+        "team",
+        "headshot"
+      ],
+      "default_visibility": "team_shared",
+      "person": "Alison"
+    },
+    {
+      "id": "asset:team/ashley.png",
+      "category": "team_photo",
+      "label": "Ashley",
+      "file_name": "Ashley HS Final.png",
+      "public_path": "/assets/team/ashley.png",
+      "source_path": "/Users/JeremyMcDonald/Desktop/LegendsOSv2.0/images/Ashley HS Final.png",
+      "size_bytes": 357490,
+      "tags": [
+        "team",
+        "headshot"
+      ],
+      "default_visibility": "team_shared",
+      "person": "Ashley"
+    },
+    {
+      "id": "asset:team/barbara.png",
+      "category": "team_photo",
+      "label": "Barbara",
+      "file_name": "Barbra HS.png",
+      "public_path": "/assets/team/barbara.png",
+      "source_path": "/Users/JeremyMcDonald/Desktop/LegendsOSv2.0/images/Barbra HS.png",
+      "size_bytes": 309215,
+      "tags": [
+        "team",
+        "headshot"
+      ],
+      "default_visibility": "team_shared",
+      "person": "Barbara"
+    },
+    {
+      "id": "asset:team/bryan.png",
+      "category": "team_photo",
+      "label": "Bryan",
+      "file_name": "Bryan Profile.png",
+      "public_path": "/assets/team/bryan.png",
+      "source_path": "/Users/JeremyMcDonald/Desktop/LegendsOSv2.0/images/Bryan Profile.png",
+      "size_bytes": 343690,
+      "tags": [
+        "team",
+        "headshot"
+      ],
+      "default_visibility": "team_shared",
+      "person": "Bryan"
+    },
+    {
+      "id": "local:images/ChatGPT-Image-Apr-24--2026--07_11_30-PM.png",
+      "category": "image_studio_reference",
+      "label": "ChatGPT-generated reference",
+      "file_name": "ChatGPT Image Apr 24, 2026, 07_11_30 PM.png",
+      "public_path": null,
+      "source_path": "/Users/JeremyMcDonald/Desktop/LegendsOSv2.0/images/ChatGPT Image Apr 24, 2026, 07_11_30 PM.png",
+      "size_bytes": 1925111,
+      "tags": [
+        "reference"
+      ],
+      "default_visibility": "owner_only"
+    },
+    {
+      "id": "local:images/ChatGPT-Image-Apr-24--2026--07_11_36-PM.png",
+      "category": "image_studio_reference",
+      "label": "ChatGPT-generated reference",
+      "file_name": "ChatGPT Image Apr 24, 2026, 07_11_36 PM.png",
+      "public_path": null,
+      "source_path": "/Users/JeremyMcDonald/Desktop/LegendsOSv2.0/images/ChatGPT Image Apr 24, 2026, 07_11_36 PM.png",
+      "size_bytes": 1814948,
+      "tags": [
+        "reference"
+      ],
+      "default_visibility": "owner_only"
+    },
+    {
+      "id": "local:images/ChatGPT-Image-Apr-24--2026--07_11_41-PM.png",
+      "category": "image_studio_reference",
+      "label": "ChatGPT-generated reference",
+      "file_name": "ChatGPT Image Apr 24, 2026, 07_11_41 PM.png",
+      "public_path": null,
+      "source_path": "/Users/JeremyMcDonald/Desktop/LegendsOSv2.0/images/ChatGPT Image Apr 24, 2026, 07_11_41 PM.png",
+      "size_bytes": 1763172,
+      "tags": [
+        "reference"
+      ],
+      "default_visibility": "owner_only"
+    },
+    {
+      "id": "local:images/ChatGPT-Image-May-12--2026--01_16_04-PM.png",
+      "category": "image_studio_reference",
+      "label": "ChatGPT-generated reference",
+      "file_name": "ChatGPT Image May 12, 2026, 01_16_04 PM.png",
+      "public_path": null,
+      "source_path": "/Users/JeremyMcDonald/Desktop/LegendsOSv2.0/images/ChatGPT Image May 12, 2026, 01_16_04 PM.png",
+      "size_bytes": 1690818,
+      "tags": [
+        "reference"
+      ],
+      "default_visibility": "owner_only"
+    },
+    {
+      "id": "asset:team/christina.png",
+      "category": "team_photo",
+      "label": "Christina",
+      "file_name": "Christina HS Final.png",
+      "public_path": "/assets/team/christina.png",
+      "source_path": "/Users/JeremyMcDonald/Desktop/LegendsOSv2.0/images/Christina HS Final.png",
+      "size_bytes": 386582,
+      "tags": [
+        "team",
+        "headshot"
+      ],
+      "default_visibility": "team_shared",
+      "person": "Christina"
+    },
+    {
+      "id": "local:images/Closing-Day-Alex.png",
+      "category": "social_image",
+      "label": "Closing Day Alex",
+      "file_name": "Closing Day Alex.png",
+      "public_path": null,
+      "source_path": "/Users/JeremyMcDonald/Desktop/LegendsOSv2.0/images/Closing Day Alex.png",
+      "size_bytes": 1349492,
+      "tags": [
+        "social",
+        "closing"
+      ],
+      "default_visibility": "owner_only"
+    },
+    {
+      "id": "asset:backgrounds/command-center-elegant.jpg",
+      "category": "background",
+      "label": "Command Center — Elegant Light",
+      "file_name": "Elegant abstract command center environment with subtle depth, sleek glass architecture panels with soft transparency, minimal digital grids barely visible, luxury fintech atmosphere, very subtle city skyline silhouette in far background, m.jpg",
+      "public_path": "/assets/backgrounds/command-center-elegant.jpg",
+      "source_path": "/Users/JeremyMcDonald/Desktop/LegendsOSv2.0/images/Elegant abstract command center environment with subtle depth, sleek glass architecture panels with soft transparency, minimal digital grids barely visible, luxury fintech atmosphere, very subtle city skyline silhouette in far background, m.jpg",
+      "size_bytes": 1555174,
+      "tags": [
+        "background",
+        "light"
+      ],
+      "default_visibility": "owner_only"
+    },
+    {
+      "id": "asset:team/eric.png",
+      "category": "team_photo",
+      "label": "Eric",
+      "file_name": "Eric Profile.png",
+      "public_path": "/assets/team/eric.png",
+      "source_path": "/Users/JeremyMcDonald/Desktop/LegendsOSv2.0/images/Eric Profile.png",
+      "size_bytes": 294215,
+      "tags": [
+        "team",
+        "headshot"
+      ],
+      "default_visibility": "team_shared",
+      "person": "Eric"
+    },
+    {
+      "id": "asset:backgrounds/command-center-futuristic.jpg",
+      "category": "background",
+      "label": "Command Center — Futuristic Dark",
+      "file_name": "Futuristic command center atmosphere with elegant digital operations environment, abstract financial intelligence visualization, subtle city skyline silhouette in deep background, sleek glass panels with reflections, soft glowing data grids.jpg",
+      "public_path": "/assets/backgrounds/command-center-futuristic.jpg",
+      "source_path": "/Users/JeremyMcDonald/Desktop/LegendsOSv2.0/images/Futuristic command center atmosphere with elegant digital operations environment, abstract financial intelligence visualization, subtle city skyline silhouette in deep background, sleek glass panels with reflections, soft glowing data grids.jpg",
+      "size_bytes": 2295152,
+      "tags": [
+        "background",
+        "dark"
+      ],
+      "default_visibility": "owner_only"
+    },
+    {
+      "id": "asset:team/hugo.png",
+      "category": "team_photo",
+      "label": "Hugo",
+      "file_name": "Hugo.png",
+      "public_path": "/assets/team/hugo.png",
+      "source_path": "/Users/JeremyMcDonald/Desktop/LegendsOSv2.0/images/Hugo.png",
+      "size_bytes": 364189,
+      "tags": [
+        "team",
+        "headshot"
+      ],
+      "default_visibility": "team_shared",
+      "person": "Hugo"
+    },
+    {
+      "id": "asset:team/irene.png",
+      "category": "team_photo",
+      "label": "Irene",
+      "file_name": "Irene HS.png",
+      "public_path": "/assets/team/irene.png",
+      "source_path": "/Users/JeremyMcDonald/Desktop/LegendsOSv2.0/images/Irene HS.png",
+      "size_bytes": 363763,
+      "tags": [
+        "team",
+        "headshot"
+      ],
+      "default_visibility": "team_shared",
+      "person": "Irene"
+    },
+    {
+      "id": "asset:team/jeremy.png",
+      "category": "team_photo",
+      "label": "Jeremy McDonald",
+      "file_name": "Jeremy McDonald.png",
+      "public_path": "/assets/team/jeremy.png",
+      "source_path": "/Users/JeremyMcDonald/Desktop/LegendsOSv2.0/images/Jeremy McDonald.png",
+      "size_bytes": 377979,
+      "tags": [
+        "team",
+        "headshot"
+      ],
+      "default_visibility": "team_shared",
+      "person": "Jeremy McDonald"
+    },
+    {
+      "id": "asset:team/jesus.png",
+      "category": "team_photo",
+      "label": "Jesus",
+      "file_name": "Jesus Profile.png",
+      "public_path": "/assets/team/jesus.png",
+      "source_path": "/Users/JeremyMcDonald/Desktop/LegendsOSv2.0/images/Jesus Profile.png",
+      "size_bytes": 324519,
+      "tags": [
+        "team",
+        "headshot"
+      ],
+      "default_visibility": "team_shared",
+      "person": "Jesus"
+    },
+    {
+      "id": "asset:team/mark.png",
+      "category": "team_photo",
+      "label": "Mark",
+      "file_name": "Mark HS Final.png",
+      "public_path": "/assets/team/mark.png",
+      "source_path": "/Users/JeremyMcDonald/Desktop/LegendsOSv2.0/images/Mark HS Final.png",
+      "size_bytes": 322302,
+      "tags": [
+        "team",
+        "headshot"
+      ],
+      "default_visibility": "team_shared",
+      "person": "Mark"
+    },
+    {
+      "id": "asset:team/raleigh.png",
+      "category": "team_photo",
+      "label": "Raleigh",
+      "file_name": "Raleigh HS.png",
+      "public_path": "/assets/team/raleigh.png",
+      "source_path": "/Users/JeremyMcDonald/Desktop/LegendsOSv2.0/images/Raleigh HS.png",
+      "size_bytes": 351548,
+      "tags": [
+        "team",
+        "headshot"
+      ],
+      "default_visibility": "team_shared",
+      "person": "Raleigh"
+    },
+    {
+      "id": "asset:team/scott.png",
+      "category": "team_photo",
+      "label": "Scott",
+      "file_name": "Scott Profile.png",
+      "public_path": "/assets/team/scott.png",
+      "source_path": "/Users/JeremyMcDonald/Desktop/LegendsOSv2.0/images/Scott Profile.png",
+      "size_bytes": 375582,
+      "tags": [
+        "team",
+        "headshot"
+      ],
+      "default_visibility": "team_shared",
+      "person": "Scott"
+    },
+    {
+      "id": "asset:logos/airealtorprodark-logo.png",
+      "category": "logo",
+      "label": "airealtorprodark logo",
+      "file_name": "airealtorprodark-logo.png",
+      "public_path": "/assets/logos/airealtorprodark-logo.png",
+      "source_path": "/Users/JeremyMcDonald/Desktop/LegendsOSv2.0/images/airealtorprodark-logo.png",
+      "size_bytes": 250712,
+      "tags": [
+        "brand"
+      ],
+      "default_visibility": "owner_only"
+    },
+    {
+      "id": "asset:logos/airealtorprolight-logo.png",
+      "category": "logo",
+      "label": "airealtorprolight logo",
+      "file_name": "airealtorprolight-logo.png",
+      "public_path": "/assets/logos/airealtorprolight-logo.png",
+      "source_path": "/Users/JeremyMcDonald/Desktop/LegendsOSv2.0/images/airealtorprolight-logo.png",
+      "size_bytes": 221472,
+      "tags": [
+        "brand"
+      ],
+      "default_visibility": "owner_only"
+    },
+    {
+      "id": "local:images/flo_hs_pic--2-.png",
+      "category": "unclassified",
+      "label": "flo_hs_pic (2)",
+      "file_name": "flo_hs_pic (2).png",
+      "public_path": null,
+      "source_path": "/Users/JeremyMcDonald/Desktop/LegendsOSv2.0/images/flo_hs_pic (2).png",
+      "size_bytes": 3335609,
+      "tags": [],
+      "default_visibility": "owner_only"
+    },
+    {
+      "id": "local:images/flo_hs_pic.png",
+      "category": "unclassified",
+      "label": "flo_hs_pic",
+      "file_name": "flo_hs_pic.png",
+      "public_path": null,
+      "source_path": "/Users/JeremyMcDonald/Desktop/LegendsOSv2.0/images/flo_hs_pic.png",
+      "size_bytes": 2954561,
+      "tags": [],
+      "default_visibility": "owner_only"
+    },
+    {
+      "id": "local:images/flo_hs_pic_transparent.png",
+      "category": "unclassified",
+      "label": "flo_hs_pic_transparent",
+      "file_name": "flo_hs_pic_transparent.png",
+      "public_path": null,
+      "source_path": "/Users/JeremyMcDonald/Desktop/LegendsOSv2.0/images/flo_hs_pic_transparent.png",
+      "size_bytes": 2213745,
+      "tags": [],
+      "default_visibility": "owner_only"
+    },
+    {
+      "id": "asset:logos/legends-os-logo.png",
+      "category": "logo",
+      "label": "legends os logo",
+      "file_name": "legends-os-logo.png",
+      "public_path": "/assets/logos/legends-os-logo.png",
+      "source_path": "/Users/JeremyMcDonald/Desktop/LegendsOSv2.0/images/legends-os-logo.png",
+      "size_bytes": 59116,
+      "tags": [
+        "brand"
+      ],
+      "default_visibility": "owner_only"
+    },
+    {
+      "id": "asset:logos/lf-processing-logo.png",
+      "category": "logo",
+      "label": "lf processing logo",
+      "file_name": "lf-processing-logo.png",
+      "public_path": "/assets/logos/lf-processing-logo.png",
+      "source_path": "/Users/JeremyMcDonald/Desktop/LegendsOSv2.0/images/lf-processing-logo.png",
+      "size_bytes": 141553,
+      "tags": [
+        "brand"
+      ],
+      "default_visibility": "owner_only"
+    }
+  ]
+}

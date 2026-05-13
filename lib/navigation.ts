@@ -108,6 +108,14 @@ export const NAV_ITEMS: NavItem[] = [
     gate: { ownerOnly: true },
   },
   {
+    section: "owner",
+    href: "/admin/assets",
+    label: "Asset Library",
+    description: "Local logos, backgrounds, team photos",
+    icon: ImageIcon,
+    gate: { ownerOnly: true },
+  },
+  {
     section: "team",
     href: "/settings",
     label: "Settings",

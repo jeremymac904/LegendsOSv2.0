@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ImageIcon } from "lucide-react";
 
 import { GeneratedMediaCard } from "@/components/images/GeneratedMediaCard";
@@ -5,7 +6,9 @@ import { ImageStudioClient } from "@/components/images/ImageStudioClient";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatusPill } from "@/components/ui/StatusPill";
+import { imageLibrary } from "@/lib/assets";
 import { getServerEnv } from "@/lib/env";
+import { isOwner } from "@/lib/permissions";
 import {
   getCurrentProfile,
   getSupabaseServerClient,
@@ -28,6 +31,13 @@ export default async function ImageStudioPage() {
   const media = (data ?? []) as GeneratedMedia[];
 
   const falConfigured = Boolean(env.FAL_KEY);
+
+  // Asset library entries (logos, team photos, social refs) curated by the
+  // local indexer. Owner-only items are filtered out for non-owners.
+  const owner = isOwner(profile);
+  const assetRefs = imageLibrary().filter(
+    (a) => owner || a.default_visibility === "team_shared"
+  );
 
   return (
     <div className="space-y-6">
@@ -78,6 +88,52 @@ export default async function ImageStudioPage() {
           </div>
         </section>
       </div>
+
+      {assetRefs.length > 0 && (
+        <section className="card-padded">
+          <div className="section-title">
+            <div>
+              <h2>Brand asset library</h2>
+              <p>
+                Curated logos, team photos and references from the local
+                indexer. Pickable when composing social drafts; useful as
+                visual reference prompts here.
+              </p>
+            </div>
+            {owner && (
+              <Link href="/admin/assets" className="btn-ghost text-xs">
+                Manage library
+              </Link>
+            )}
+          </div>
+          <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-7 xl:grid-cols-8">
+            {assetRefs.map((a) =>
+              a.public_path ? (
+                <a
+                  key={a.id}
+                  href={a.public_path}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="group block overflow-hidden rounded-lg border border-ink-800 bg-checker"
+                  title={a.label}
+                >
+                  <img
+                    src={a.public_path}
+                    alt={a.label}
+                    className="aspect-square w-full object-cover transition group-hover:opacity-90"
+                    loading="lazy"
+                  />
+                </a>
+              ) : null
+            )}
+          </div>
+          <p className="mt-3 text-[11px] text-ink-300">
+            Hosted from <code>public/assets/</code>. Re-run{" "}
+            <code>npm run index-assets</code> after dropping new files into
+            the local <code>images/</code> folder.
+          </p>
+        </section>
+      )}
     </div>
   );
 }

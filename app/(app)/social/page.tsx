@@ -4,6 +4,7 @@ import { SocialComposer } from "@/components/social/SocialComposer";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatusPill } from "@/components/ui/StatusPill";
+import { imageLibrary } from "@/lib/assets";
 import { getServerEnv } from "@/lib/env";
 import {
   getCurrentProfile,
@@ -39,10 +40,31 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
   ]);
 
   const posts = (postRows ?? []) as SocialPost[];
-  const mediaLibrary = (mediaRows ?? []) as Pick<
+  const generatedRows = (mediaRows ?? []) as Pick<
     GeneratedMedia,
     "id" | "prompt" | "preview_url" | "status" | "created_at" | "provider" | "model"
   >[];
+
+  // Asset-library entries (logos, team photos, social images, references)
+  // synthesised into the same shape the composer's picker already consumes.
+  // The id stays stable across renders thanks to the manifest's deterministic
+  // ids; the composer routes them through metadata.media_ids = ["asset:..."]
+  // so we never look for them in generated_media.
+  const assetEntries: Pick<
+    GeneratedMedia,
+    "id" | "prompt" | "preview_url" | "status" | "created_at" | "provider" | "model"
+  >[] = imageLibrary().map((a) => ({
+    id: a.id,
+    prompt: a.label,
+    preview_url: a.public_path,
+    status: "succeeded",
+    created_at: new Date(0).toISOString(),
+    provider: `asset:${a.category}`,
+    model: null,
+  }));
+
+  // Generated media first (most recent on top), then the curated asset lib.
+  const mediaLibrary = [...generatedRows, ...assetEntries];
 
   // Resolve preview URLs for any post.media_id so the saved-list shows thumbnails.
   const mediaById = new Map(mediaLibrary.map((m) => [m.id, m]));

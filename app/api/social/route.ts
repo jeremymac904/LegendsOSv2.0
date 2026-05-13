@@ -17,12 +17,19 @@ const channels = [
   "youtube",
 ] as const;
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// `media_id` (FK to generated_media) must be a UUID — but `media_ids` can
+// be ANY string (UUID OR an `asset:*` token pulled from the curated asset
+// library). The non-UUID tokens get stored only in `metadata.media_ids`
+// (jsonb) and are resolved client-side from the manifest.
 const schema = z.object({
   title: z.string().max(160).nullish(),
   body: z.string().min(1).max(8000),
   channels: z.array(z.enum(channels)).min(1).max(channels.length),
   media_id: z.string().uuid().nullish(),
-  media_ids: z.array(z.string().uuid()).nullish(),
+  media_ids: z.array(z.string().min(1)).nullish(),
   scheduled_at: z.string().datetime().nullish(),
   action: z.enum(["draft", "schedule"]).default("draft"),
 });
@@ -51,10 +58,12 @@ export async function POST(req: Request) {
   const supabase = getSupabaseServerClient();
   const env = getServerEnv();
 
-  // Pick the first attached media as the primary; persist any extras in
-  // metadata.media_ids so the composer can re-render the full list later.
-  const mediaIds = (data.media_ids ?? []).filter(Boolean);
-  const primaryMediaId = data.media_id ?? mediaIds[0] ?? null;
+  // Pick the first UUID-shaped media as the primary; persist EVERY id in
+  // metadata.media_ids so the composer can re-render the full list later
+  // (including non-UUID asset-library tokens like "asset:logos/x.png").
+  const allIds = (data.media_ids ?? []).filter(Boolean);
+  const firstUuid = allIds.find((v) => UUID_RE.test(v));
+  const primaryMediaId = data.media_id ?? firstUuid ?? null;
 
   // Persist the post.
   const { data: post, error: insErr } = await supabase
@@ -68,7 +77,7 @@ export async function POST(req: Request) {
       media_id: primaryMediaId,
       scheduled_at: data.scheduled_at ?? null,
       status: data.action === "schedule" ? "scheduled" : "draft",
-      metadata: mediaIds.length > 0 ? { media_ids: mediaIds } : {},
+      metadata: allIds.length > 0 ? { media_ids: allIds } : {},
     })
     .select("*")
     .single();
