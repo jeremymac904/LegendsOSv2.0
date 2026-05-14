@@ -62,6 +62,9 @@ const config: Config = {
       boxShadow: {
         card: "0 1px 0 0 rgba(255,255,255,0.04) inset, 0 8px 24px -12px rgba(0,0,0,0.7)",
         glow: "0 0 0 1px rgba(245,180,0,0.35), 0 8px 32px -8px rgba(255,138,31,0.35)",
+        "glow-sm": "0 0 0 1px rgba(245,180,0,0.22), 0 4px 18px -8px rgba(255,138,31,0.28)",
+        glass:
+          "0 1px 0 0 rgba(255,255,255,0.05) inset, 0 0 0 1px rgba(245,180,0,0.06), 0 12px 36px -18px rgba(0,0,0,0.85)",
       },
       backgroundImage: {
         "grid-lines":

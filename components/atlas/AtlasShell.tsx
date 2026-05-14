@@ -10,6 +10,9 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import {
+  Calendar as CalendarIcon,
+  Mail,
+  Megaphone,
   Paperclip,
   Send,
   Settings as SettingsIcon,
@@ -264,6 +267,10 @@ export function AtlasShell({
               model: data.model,
               knowledge_hits: data.knowledge?.count ?? 0,
               knowledge_sources: data.knowledge?.sources ?? [],
+              // When the chat route fired the Atlas tool router, persist
+              // the structured result so MessageRow can render the action
+              // chip (icon + summary + Open link).
+              ...(data.tool_result ? { tool_result: data.tool_result } : {}),
             },
             token_count: null,
             created_at: new Date().toISOString(),
@@ -475,14 +482,61 @@ function EmptyChat({
   );
 }
 
+interface AtlasToolResultMeta {
+  kind: "create_social" | "create_email" | "create_calendar";
+  itemId: string;
+  link: string;
+  summary: string;
+}
+
+function ToolResultCard({ result }: { result: AtlasToolResultMeta }) {
+  const config = {
+    create_social: {
+      icon: Megaphone,
+      label: "Created Social Draft",
+    },
+    create_email: {
+      icon: Mail,
+      label: "Created Newsletter",
+    },
+    create_calendar: {
+      icon: CalendarIcon,
+      label: "Created Calendar Item",
+    },
+  }[result.kind];
+  if (!config) return null;
+  const Icon = config.icon;
+  return (
+    <div className="mt-2 flex items-center gap-3 rounded-xl border border-accent-gold/30 bg-accent-gold/5 px-3 py-2">
+      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-accent-gold/15 text-accent-gold">
+        <Icon size={13} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[11px] font-medium text-accent-gold">
+          {config.label}
+        </p>
+        <p className="truncate text-[11px] text-ink-200">{result.summary}</p>
+      </div>
+      <a
+        href={result.link}
+        className="chip border-accent-gold/40 text-accent-gold hover:bg-accent-gold/10"
+      >
+        Open →
+      </a>
+    </div>
+  );
+}
+
 function MessageRow({ message }: { message: ChatMessage }) {
   const isUser = message.role === "user";
   const isSystem = message.role === "system";
   const meta = (message.metadata ?? {}) as {
     knowledge_hits?: number;
     knowledge_sources?: { title: string; source_path: string | null }[];
+    tool_result?: AtlasToolResultMeta;
   };
   const khits = meta.knowledge_hits ?? 0;
+  const toolResult = meta.tool_result;
   return (
     <div
       className={cn(
@@ -501,6 +555,9 @@ function MessageRow({ message }: { message: ChatMessage }) {
         )}
       >
         {message.content}
+        {!isUser && !isSystem && toolResult && (
+          <ToolResultCard result={toolResult} />
+        )}
         {!isUser && !isSystem && khits > 0 && (
           <p
             className="mt-2 inline-flex max-w-full items-center gap-1 truncate rounded-full border border-accent-gold/30 bg-accent-gold/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-accent-gold"

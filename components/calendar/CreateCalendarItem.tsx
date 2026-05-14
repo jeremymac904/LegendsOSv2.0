@@ -62,40 +62,69 @@ export function CreateCalendarItem({ userId, organizationId }: Props) {
 
   return (
     <form onSubmit={submit} className="card-padded space-y-3">
-      <p className="label">New planning item</p>
-      <select
-        className="input"
-        value={itemType}
-        onChange={(e) => setItemType(e.target.value as never)}
-      >
-        {ITEM_TYPES.map((t) => (
-          <option key={t.value} value={t.value}>
-            {t.label}
-          </option>
-        ))}
-      </select>
-      <input
-        className="input"
-        placeholder="Title"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        required
-        maxLength={160}
-      />
-      <textarea
-        className="textarea"
-        placeholder="Description (optional)"
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        maxLength={500}
-      />
-      <input
-        type="datetime-local"
-        className="input"
-        value={startsAt}
-        onChange={(e) => setStartsAt(e.target.value)}
-        required
-      />
+      <div className="section-title">
+        <div>
+          <h2>New planning item</h2>
+          <p>Drop a content beat, team event, or reminder onto the grid.</p>
+        </div>
+      </div>
+      <div className="space-y-1">
+        <label className="label" htmlFor="cal-item-type">
+          Type
+        </label>
+        <select
+          id="cal-item-type"
+          className="input"
+          value={itemType}
+          onChange={(e) => setItemType(e.target.value as never)}
+        >
+          {ITEM_TYPES.map((t) => (
+            <option key={t.value} value={t.value}>
+              {t.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="space-y-1">
+        <label className="label" htmlFor="cal-item-title">
+          Title
+        </label>
+        <input
+          id="cal-item-title"
+          className="input"
+          placeholder="e.g. Launch May newsletter"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          required
+          maxLength={160}
+        />
+      </div>
+      <div className="space-y-1">
+        <label className="label" htmlFor="cal-item-desc">
+          Notes
+        </label>
+        <textarea
+          id="cal-item-desc"
+          className="textarea"
+          placeholder="Optional context — audience, talking points, links…"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          maxLength={500}
+        />
+      </div>
+      <div className="space-y-1">
+        <label className="label" htmlFor="cal-item-when">
+          When
+        </label>
+        <input
+          id="cal-item-when"
+          type="datetime-local"
+          className="input"
+          value={startsAt}
+          onChange={(e) => setStartsAt(e.target.value)}
+          required
+        />
+      </div>
       {error && (
         <p className="rounded-lg border border-status-err/30 bg-status-err/10 px-3 py-2 text-xs text-status-err">
           {error}

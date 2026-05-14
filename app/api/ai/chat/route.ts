@@ -2,10 +2,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { runChat } from "@/lib/ai/providers";
+import { detectAtlasIntent } from "@/lib/atlas/intentDetection";
 import {
   retrieveForAssistant,
   renderKnowledgeBlock,
 } from "@/lib/atlas/retrieval";
+import { canRunAtlasTools, runAtlasTool } from "@/lib/atlas/toolRouter";
 import {
   getCurrentProfile,
   getSupabaseServerClient,
@@ -122,6 +124,77 @@ export async function POST(req: Request) {
       { ok: false, error: "internal_error", message: userMsgErr.message },
       { status: 500 }
     );
+  }
+
+  // ---- Atlas tool router --------------------------------------------------
+  // Before paying the provider, check whether the message is a deterministic
+  // "do a thing" command (draft a post, write a newsletter, schedule an
+  // event). If yes AND the caller has write permission, run the tool and
+  // short-circuit. Tool failures fall through to normal chat so the user
+  // never sees a dead end.
+  const intent = detectAtlasIntent(message);
+  if (intent.kind !== "none" && canRunAtlasTools(profile)) {
+    const toolResult = await runAtlasTool(intent, profile);
+    if (toolResult.ok) {
+      const assistantText = `Created your ${
+        toolResult.kind === "create_social"
+          ? "social draft"
+          : toolResult.kind === "create_email"
+          ? "newsletter draft"
+          : "calendar item"
+      }. Open it: ${toolResult.link}`;
+      const { data: toolMsg } = await supabase
+        .from("chat_messages")
+        .insert({
+          thread_id: threadId,
+          user_id: profile.id,
+          role: "assistant",
+          content: assistantText,
+          metadata: {
+            tool_result: {
+              kind: toolResult.kind,
+              itemId: toolResult.itemId,
+              link: toolResult.link,
+              summary: toolResult.summary,
+            },
+          },
+        })
+        .select("id")
+        .single();
+      await supabase
+        .from("chat_threads")
+        .update({ last_message_at: new Date().toISOString() })
+        .eq("id", threadId);
+      await logUsage(profile, {
+        module: "atlas",
+        event_type: "tool_call",
+        metadata: {
+          thread_id: threadId,
+          kind: toolResult.kind,
+          item_id: toolResult.itemId,
+        },
+      });
+      return NextResponse.json({
+        ok: true,
+        thread_id: threadId,
+        message_id: toolMsg?.id ?? null,
+        kind: "tool_call",
+        tool_result: {
+          kind: toolResult.kind,
+          itemId: toolResult.itemId,
+          link: toolResult.link,
+          summary: toolResult.summary,
+        },
+        content: assistantText,
+        assistant_message: assistantText,
+        provider: "atlas_tool",
+        model: null,
+        usage: { daily_count: cap.used + 1, daily_limit: cap.cap },
+        knowledge: { count: 0, sources: [] },
+      });
+    }
+    // If the tool failed, log and fall through to the AI provider.
+    console.error("atlas_tool_failed", toolResult);
   }
 
   // Fetch prior turns for context.

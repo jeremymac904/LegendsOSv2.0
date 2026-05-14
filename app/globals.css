@@ -29,67 +29,119 @@ body {
 }
 
 @layer components {
+  /* ─── Glass surfaces ─────────────────────────────────────────────── */
   .card {
-    @apply rounded-2xl border border-ink-700/70 bg-ink-900/60 backdrop-blur-sm shadow-card;
+    @apply relative rounded-2xl border border-ink-800/80 bg-ink-900/55 backdrop-blur-md shadow-card transition-colors;
+    background-image:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.025) 0%, rgba(255, 255, 255, 0) 36%),
+      linear-gradient(180deg, rgba(10, 12, 18, 0.4) 0%, rgba(10, 12, 18, 0.65) 100%);
+  }
+  .card::before {
+    content: "";
+    @apply pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-accent-gold/30 to-transparent opacity-60;
+  }
+  .card:hover {
+    @apply border-accent-gold/25;
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.04) inset,
+      0 12px 32px -16px rgba(0, 0, 0, 0.8),
+      0 0 0 1px rgba(245, 180, 0, 0.08),
+      0 8px 36px -18px rgba(245, 180, 0, 0.18);
   }
   .card-padded {
     @apply card p-5;
   }
+
+  /* ─── Buttons ────────────────────────────────────────────────────── */
   .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-xl border border-ink-700 bg-ink-800/80 px-4 py-2 text-sm font-medium text-ink-100 transition-all hover:bg-ink-700/80 disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-primary {
-    /* Gold-forward primary: starts on gold and warms into orange on hover. */
-    @apply btn border-accent-gold/40 bg-gradient-to-br from-accent-gold via-accent-gold to-accent-orange text-ink-950 shadow-glow hover:from-accent-orange hover:to-accent-gold;
+    /* Gold gradient with inset highlight; warms further on hover. */
+    @apply btn border-accent-gold/50 bg-gradient-to-b from-accent-gold via-accent-gold to-accent-orange text-ink-950 font-semibold shadow-glow;
+    box-shadow:
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.4),
+      inset 0 -1px 0 0 rgba(0, 0, 0, 0.15),
+      0 8px 24px -10px rgba(245, 180, 0, 0.45);
+  }
+  .btn-primary:hover {
+    @apply from-accent-orange to-accent-gold;
+    box-shadow:
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.5),
+      inset 0 -1px 0 0 rgba(0, 0, 0, 0.15),
+      0 10px 32px -8px rgba(255, 138, 31, 0.55);
+  }
+  .btn-secondary {
+    @apply btn border-accent-gold/30 bg-ink-900/60 text-ink-100 backdrop-blur-sm hover:border-accent-gold/55 hover:bg-ink-800/70;
   }
   .btn-ghost {
-    @apply btn border-transparent bg-transparent text-ink-200 hover:bg-ink-800/60;
+    @apply btn border-transparent bg-transparent text-ink-300 hover:bg-ink-800/50 hover:text-ink-100;
   }
+
+  /* ─── Form ───────────────────────────────────────────────────────── */
   .input {
-    @apply w-full rounded-xl border border-ink-700 bg-ink-900/80 px-3 py-2 text-sm text-ink-100 placeholder:text-ink-400 focus:border-accent-gold/50 focus:outline-none focus:ring-2 focus:ring-accent-gold/20;
+    @apply w-full rounded-xl border border-ink-700/80 bg-ink-900/70 px-3 py-2 text-sm text-ink-100 backdrop-blur-sm placeholder:text-ink-400 focus:border-accent-gold/60 focus:outline-none focus:ring-2 focus:ring-accent-gold/20;
   }
   .textarea {
     @apply input min-h-[120px] leading-relaxed;
   }
   .label {
-    @apply text-xs uppercase tracking-wider text-ink-300;
+    @apply text-[10px] font-medium uppercase tracking-[0.18em] text-ink-400;
   }
+  .field-label {
+    @apply text-[11px] font-medium uppercase tracking-[0.16em] text-ink-300;
+  }
+
+  /* ─── Chips / pills ──────────────────────────────────────────────── */
   .chip {
-    @apply inline-flex items-center gap-1 rounded-full border border-ink-700 bg-ink-900/70 px-2.5 py-0.5 text-[11px] font-medium text-ink-200;
+    @apply inline-flex h-6 items-center gap-1 rounded-full border border-ink-700/80 bg-ink-900/70 px-2.5 text-[10px] font-medium uppercase tracking-[0.08em] text-ink-200 backdrop-blur-sm;
+  }
+  .chip-active {
+    @apply chip border-accent-gold/50 bg-gradient-to-b from-accent-gold/15 to-accent-orange/10 text-accent-gold;
   }
   .chip-ok {
-    @apply chip border-status-ok/30 bg-status-ok/10 text-status-ok;
+    @apply chip border-status-ok/40 bg-status-ok/10 text-status-ok;
   }
   .chip-warn {
-    @apply chip border-status-warn/30 bg-status-warn/10 text-status-warn;
+    @apply chip border-status-warn/40 bg-status-warn/10 text-status-warn;
   }
   .chip-err {
-    @apply chip border-status-err/30 bg-status-err/10 text-status-err;
+    @apply chip border-status-err/40 bg-status-err/10 text-status-err;
   }
   .chip-info {
-    @apply chip border-status-info/30 bg-status-info/10 text-status-info;
+    @apply chip border-status-info/40 bg-status-info/10 text-status-info;
   }
   .chip-off {
-    @apply chip border-status-off/30 bg-status-off/10 text-status-off;
+    @apply chip border-status-off/40 bg-status-off/10 text-status-off;
   }
+
+  /* ─── Section header ─────────────────────────────────────────────── */
   .section-title {
     @apply flex items-center justify-between gap-3;
   }
   .section-title h2 {
-    @apply text-base font-semibold tracking-tight text-ink-100;
+    @apply text-[17px] font-semibold tracking-tight text-ink-100;
   }
   .section-title p {
-    @apply text-sm text-ink-300;
+    @apply text-[13px] text-ink-300;
   }
+
   .divider {
     @apply h-px w-full bg-gradient-to-r from-transparent via-ink-700/80 to-transparent;
   }
+
+  /* ─── Nav ────────────────────────────────────────────────────────── */
   .nav-item {
-    @apply flex items-center gap-3 rounded-xl border border-transparent px-3 py-2 text-sm text-ink-200 transition-colors hover:border-ink-700 hover:bg-ink-800/70;
+    @apply relative flex items-center gap-3 rounded-xl border border-transparent px-3 py-2 text-sm text-ink-300 transition-colors hover:bg-ink-800/40 hover:text-ink-100;
   }
   .nav-item-active {
-    @apply flex items-center gap-3 rounded-xl border border-accent-gold/30 bg-gradient-to-r from-accent-orange/15 via-ink-800/60 to-ink-800/30 px-3 py-2 text-sm text-ink-100 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.03)] transition-colors;
+    @apply relative flex items-center gap-3 rounded-xl border border-accent-gold/20 bg-gradient-to-r from-accent-gold/10 via-ink-800/60 to-ink-800/30 px-3 py-2 text-sm font-medium text-ink-100 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)] transition-colors;
   }
+  .nav-item-active::before {
+    content: "";
+    @apply absolute left-0 top-1/2 h-5 w-[2px] -translate-y-1/2 rounded-r-full bg-gradient-to-b from-accent-gold to-accent-orange shadow-[0_0_8px_rgba(245,180,0,0.6)];
+  }
+
   .scrollbar-thin::-webkit-scrollbar {
     width: 8px;
     height: 8px;
@@ -109,5 +161,8 @@ body {
       linear-gradient(45deg, rgba(255, 255, 255, 0.03) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.03) 75%, rgba(255, 255, 255, 0.03));
     background-size: 16px 16px;
     background-position: 0 0, 8px 8px;
+  }
+  .text-gold-gradient {
+    @apply bg-gradient-to-r from-accent-gold via-accent-gold to-accent-orange bg-clip-text text-transparent;
   }
 }

@@ -1,8 +1,10 @@
 import Link from "next/link";
 import {
+  Activity,
   ArrowRight,
   BookOpen,
   Calendar,
+  Clock,
   ImageIcon,
   Mail,
   MessageCircle,
@@ -76,7 +78,11 @@ export default async function DashboardPage() {
   const profile = await getCurrentProfile();
   if (!profile) return null;
   const supabase = getSupabaseServerClient();
+  const nowIso = new Date().toISOString();
   const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const next7DaysIso = new Date(
+    Date.now() + 7 * 24 * 60 * 60 * 1000
+  ).toISOString();
 
   // Recent-chats card + Provider-status card were removed per the
   // walkthrough. We now skip those reads on the dashboard.
@@ -87,6 +93,9 @@ export default async function DashboardPage() {
     { data: usage24h },
     { data: recentJobs },
     { data: latestNewsletterRow },
+    { data: upcomingSocial },
+    { data: upcomingEmail },
+    { data: upcomingCalendar },
   ] = await Promise.all([
     supabase
       .from("social_posts")
@@ -125,6 +134,28 @@ export default async function DashboardPage() {
       .order("updated_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
+    // Upcoming-content reads — next 7 days, scheduled rows only.
+    supabase
+      .from("social_posts")
+      .select("id,title,scheduled_at,status,channels")
+      .gte("scheduled_at", nowIso)
+      .lte("scheduled_at", next7DaysIso)
+      .order("scheduled_at", { ascending: true })
+      .limit(10),
+    supabase
+      .from("email_campaigns")
+      .select("id,subject,scheduled_at,status")
+      .gte("scheduled_at", nowIso)
+      .lte("scheduled_at", next7DaysIso)
+      .order("scheduled_at", { ascending: true })
+      .limit(10),
+    supabase
+      .from("calendar_items")
+      .select("id,title,starts_at,item_type")
+      .gte("starts_at", nowIso)
+      .lte("starts_at", next7DaysIso)
+      .order("starts_at", { ascending: true })
+      .limit(10),
   ]);
 
   const drafts = (socialDrafts ?? []) as Pick<
@@ -187,6 +218,82 @@ export default async function DashboardPage() {
         bodyMarkdown: latestNewsletter.body_text ?? "",
       }).html
     : "";
+
+  // Upcoming content (next 7 days) — merged feed across social, email, calendar.
+  type UpcomingItem = {
+    id: string;
+    kind: "social" | "email" | "calendar";
+    title: string;
+    whenIso: string;
+    href: string;
+    badge?: string;
+  };
+  const upcoming: UpcomingItem[] = [
+    ...((upcomingSocial ?? []) as Array<{
+      id: string;
+      title: string | null;
+      scheduled_at: string;
+      status: string;
+      channels?: string[] | null;
+    }>).map((s) => ({
+      id: s.id,
+      kind: "social" as const,
+      title: s.title || "Untitled social post",
+      whenIso: s.scheduled_at,
+      href: `/social/${s.id}`,
+      badge: s.channels?.[0]?.replace(/_/g, " "),
+    })),
+    ...((upcomingEmail ?? []) as Array<{
+      id: string;
+      subject: string | null;
+      scheduled_at: string;
+      status: string;
+    }>).map((e) => ({
+      id: e.id,
+      kind: "email" as const,
+      title: e.subject || "Untitled newsletter",
+      whenIso: e.scheduled_at,
+      href: `/email/${e.id}`,
+      badge: e.status,
+    })),
+    ...((upcomingCalendar ?? []) as Array<{
+      id: string;
+      title: string | null;
+      starts_at: string;
+      item_type: string;
+    }>).map((c) => ({
+      id: c.id,
+      kind: "calendar" as const,
+      title: c.title || "Untitled event",
+      whenIso: c.starts_at,
+      href: `/calendar?month=${c.starts_at.slice(0, 7)}`,
+      badge: c.item_type.replace(/_/g, " "),
+    })),
+  ]
+    .sort((a, b) => a.whenIso.localeCompare(b.whenIso))
+    .slice(0, 6);
+
+  // Recent activity — most recent usage events, human-labeled. Limit to last
+  // 10 so the card doesn't get crowded. The 24h window is already captured.
+  const activityRows = events.slice(0, 10);
+  const moduleLabel: Record<string, string> = {
+    atlas: "Atlas",
+    images: "Image Studio",
+    social: "Social Studio",
+    email: "Email Studio",
+    knowledge: "Knowledge",
+    admin: "Admin",
+  };
+  const eventLabel: Record<string, string> = {
+    chat_message: "sent a chat",
+    image_generated: "generated an image",
+    social_drafted: "drafted a post",
+    social_published: "published a post",
+    email_drafted: "drafted a newsletter",
+    email_sent: "sent a newsletter",
+    tool_call: "ran an Atlas tool",
+    asset_uploaded: "uploaded an asset",
+  };
 
   return (
     <div className="space-y-8">
@@ -433,6 +540,103 @@ export default async function DashboardPage() {
           </div>
         </section>
       )}
+
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <section className="card-padded">
+          <div className="section-title">
+            <div>
+              <h2>Upcoming content</h2>
+              <p>Next 7 days of scheduled posts, newsletters, and calendar items.</p>
+            </div>
+            <Link href="/calendar" className="btn-ghost text-xs">
+              <Calendar size={14} />
+              Open calendar
+            </Link>
+          </div>
+          <div className="mt-4 grid grid-cols-1 gap-2">
+            {upcoming.length === 0 ? (
+              <EmptyState
+                icon={Clock}
+                title="Nothing scheduled this week"
+                description="Schedule a social post, newsletter, or calendar item to see it here."
+              />
+            ) : (
+              upcoming.map((u) => (
+                <Link
+                  key={`${u.kind}-${u.id}`}
+                  href={u.href}
+                  className="flex items-start justify-between gap-3 rounded-xl border border-ink-800 bg-ink-900/40 p-3 transition hover:border-accent-gold/40"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-ink-100">
+                      {u.title}
+                    </p>
+                    <p className="text-xs text-ink-300">
+                      {formatRelative(u.whenIso)}
+                      {u.badge ? <> · <span className="capitalize">{u.badge}</span></> : null}
+                    </p>
+                  </div>
+                  <span
+                    className={
+                      u.kind === "social"
+                        ? "chip border-accent-orange/40 text-accent-orange"
+                        : u.kind === "email"
+                        ? "chip border-accent-gold/40 text-accent-gold"
+                        : "chip"
+                    }
+                  >
+                    {u.kind}
+                  </span>
+                </Link>
+              ))
+            )}
+          </div>
+        </section>
+
+        <section className="card-padded">
+          <div className="section-title">
+            <div>
+              <h2>Recent activity</h2>
+              <p>What you and the team have been doing in the last 24 hours.</p>
+            </div>
+            {owner && (
+              <Link href="/admin/usage" className="btn-ghost text-xs">
+                <Activity size={14} />
+                Full feed
+              </Link>
+            )}
+          </div>
+          <div className="mt-4 grid grid-cols-1 gap-2">
+            {activityRows.length === 0 ? (
+              <EmptyState
+                icon={Activity}
+                title="No activity yet today"
+                description="Send an Atlas chat, draft a post, or generate an image — events land here."
+              />
+            ) : (
+              activityRows.map((ev, i) => (
+                <div
+                  key={`${ev.created_at}-${i}`}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-ink-800 bg-ink-900/40 p-3"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm text-ink-100">
+                      <span className="text-ink-300">
+                        {moduleLabel[ev.module] ?? ev.module}
+                      </span>{" "}
+                      {eventLabel[ev.event_type] ?? ev.event_type.replace(/_/g, " ")}
+                    </p>
+                    <p className="text-xs text-ink-300">
+                      {formatRelative(ev.created_at)}
+                    </p>
+                  </div>
+                  <span className="chip">{ev.module}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+      </div>
 
       {owner && (
         <section className="card-padded">

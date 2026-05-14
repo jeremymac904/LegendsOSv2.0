@@ -14,21 +14,34 @@ export function EmptyState({
   action,
 }: EmptyStateProps) {
   return (
-    <div className="card flex flex-col items-center justify-center gap-3 p-10 text-center">
+    <div className="card flex flex-col items-center justify-center gap-4 p-10 text-center">
       {Icon && (
-        <div className="grid h-12 w-12 place-items-center rounded-2xl border border-ink-700 bg-ink-800/70 text-ink-300">
-          <Icon size={18} />
+        <div className="relative grid h-14 w-14 place-items-center">
+          {/* Faint gold halo */}
+          <span
+            aria-hidden
+            className="absolute inset-0 rounded-full bg-accent-gold/10 blur-[10px]"
+          />
+          <span
+            aria-hidden
+            className="absolute inset-1 rounded-full border border-accent-gold/25"
+          />
+          <span className="relative grid h-10 w-10 place-items-center rounded-full border border-accent-gold/30 bg-ink-900/70 text-accent-gold shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)]">
+            <Icon size={18} />
+          </span>
         </div>
       )}
-      <div>
-        <p className="text-sm font-medium text-ink-100">{title}</p>
+      <div className="space-y-1.5">
+        <p className="text-[15px] font-semibold tracking-tight text-ink-100">
+          {title}
+        </p>
         {description && (
-          <p className="mx-auto mt-1 max-w-md text-xs text-ink-300">
+          <p className="mx-auto max-w-md text-[12.5px] leading-relaxed text-ink-300">
             {description}
           </p>
         )}
       </div>
-      {action && <div>{action}</div>}
+      {action && <div className="mt-1">{action}</div>}
     </div>
   );
 }

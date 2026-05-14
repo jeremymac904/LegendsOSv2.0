@@ -17,6 +17,11 @@ const schema = z.object({
   body_text: z.string().nullish(),
   template_key: z.string().nullish(),
   recipient_list: z.string().nullish(),
+  // The composer derives this from the audience picker. We persist it in
+  // metadata.audience_id (no dedicated column in email_campaigns) so the
+  // composer can re-hydrate the selection on reopen even when the
+  // free-text recipient_list also carries `audience:<uuid>`.
+  audience_id: z.string().uuid().nullish(),
   action: z
     .enum(["draft", "approve", "request_send", "request_test"])
     .default("draft"),
@@ -55,8 +60,31 @@ export async function POST(req: Request) {
       ? "approved"
       : "draft";
 
+  // Merge audience_id into metadata. We prefer the explicit `audience_id`
+  // field from the composer, but fall back to parsing `audience:<uuid>` out
+  // of recipient_list so legacy drafts still round-trip cleanly. When
+  // updating an existing row we read the current metadata first so we
+  // don't clobber unrelated fields.
+  const recipientAudienceMatch =
+    data.recipient_list?.match(/^audience:([0-9a-f-]{36})$/i) ?? null;
+  const incomingAudienceId =
+    data.audience_id ?? recipientAudienceMatch?.[1] ?? null;
+
   let row;
   if (data.campaign_id) {
+    const { data: existing } = await supabase
+      .from("email_campaigns")
+      .select("metadata")
+      .eq("id", data.campaign_id)
+      .maybeSingle();
+    const existingMeta =
+      existing && typeof existing.metadata === "object" && existing.metadata
+        ? (existing.metadata as Record<string, unknown>)
+        : {};
+    const mergedMeta = {
+      ...existingMeta,
+      audience_id: incomingAudienceId ?? null,
+    };
     const { data: updated, error: upErr } = await supabase
       .from("email_campaigns")
       .update({
@@ -66,6 +94,7 @@ export async function POST(req: Request) {
         body_text: data.body_text ?? null,
         template_key: data.template_key ?? null,
         recipient_list: data.recipient_list ?? null,
+        metadata: mergedMeta,
         status,
       })
       .eq("id", data.campaign_id)
@@ -90,6 +119,7 @@ export async function POST(req: Request) {
         body_text: data.body_text ?? null,
         template_key: data.template_key ?? null,
         recipient_list: data.recipient_list ?? null,
+        metadata: { audience_id: incomingAudienceId ?? null },
         status,
       })
       .select("*")

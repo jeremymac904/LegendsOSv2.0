@@ -64,9 +64,9 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-1">
-        <label htmlFor="email" className="label">
+    <form onSubmit={handleSubmit} className="space-y-5">
+      <div className="space-y-1.5">
+        <label htmlFor="email" className="field-label">
           Email
         </label>
         <input
@@ -82,8 +82,8 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
         />
       </div>
       {mode === "sign_in" && (
-        <div className="space-y-1">
-          <label htmlFor="password" className="label">
+        <div className="space-y-1.5">
+          <label htmlFor="password" className="field-label">
             Password
           </label>
           <input
@@ -111,13 +111,21 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
         </p>
       )}
 
-      <button type="submit" className="btn-primary w-full" disabled={disabled || isPending}>
-        {isPending ? "Signing in…" : mode === "sign_in" ? "Sign in" : "Send magic link"}
+      <button
+        type="submit"
+        className="btn-primary w-full py-2.5 text-sm"
+        disabled={disabled || isPending}
+      >
+        {isPending
+          ? "Signing in…"
+          : mode === "sign_in"
+          ? "Sign in"
+          : "Send magic link"}
       </button>
 
       <button
         type="button"
-        className="btn-ghost w-full text-xs text-ink-300"
+        className="btn-ghost w-full text-[11px] font-medium uppercase tracking-[0.16em] text-ink-400 hover:text-accent-gold"
         onClick={() => {
           setMode(mode === "sign_in" ? "magic_link" : "sign_in");
           setError(null);

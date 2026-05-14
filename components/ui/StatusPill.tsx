@@ -18,7 +18,29 @@ export function StatusPill({ status, label }: StatusPillProps) {
     disabled: "chip-off",
     missing: "chip-warn",
   };
+  const dot: Record<string, string> = {
+    ok: "bg-status-ok",
+    configured: "bg-status-ok",
+    info: "bg-status-info",
+    warn: "bg-status-warn",
+    err: "bg-status-err",
+    error: "bg-status-err",
+    off: "bg-status-off",
+    disabled: "bg-status-off",
+    missing: "bg-status-warn",
+  };
   const fallback = "chip";
   const display = label ?? status;
-  return <span className={cn(tone[status] ?? fallback)}>{display}</span>;
+  return (
+    <span className={cn(tone[status] ?? fallback)}>
+      <span
+        aria-hidden
+        className={cn(
+          "inline-block h-1.5 w-1.5 rounded-full",
+          dot[status] ?? "bg-ink-400"
+        )}
+      />
+      {display}
+    </span>
+  );
 }

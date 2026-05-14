@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   CheckCircle,
@@ -9,6 +9,7 @@ import {
   Mail,
   Save,
   Send,
+  Sparkles,
   UserCheck,
   Users2,
 } from "lucide-react";
@@ -33,6 +34,24 @@ interface Props {
   ownerName?: string;
 }
 
+// Pull `metadata.audience_id` out of an EmailCampaign row defensively. The
+// column is JSONB so the shape is `Record<string, unknown>` — we can't trust
+// it without runtime checks.
+function pickAudienceIdFromDraft(
+  draft: EmailCampaign | null | undefined
+): string | null {
+  if (!draft) return null;
+  const meta = draft.metadata;
+  if (meta && typeof meta === "object") {
+    const raw = (meta as Record<string, unknown>).audience_id;
+    if (typeof raw === "string" && raw.length > 0) return raw;
+  }
+  // Fall back to parsing `audience:<uuid>` out of recipient_list — older
+  // drafts saved before this polish only stored it there.
+  const match = draft.recipient_list?.match(/^audience:([0-9a-f-]{36})$/i);
+  return match?.[1] ?? null;
+}
+
 export function EmailComposer({
   initialDraft,
   initialAudienceId,
@@ -55,6 +74,8 @@ export function EmailComposer({
   // unaffected if the param is missing.
   const [recipients, setRecipients] = useState(() => {
     if (initialDraft?.recipient_list) return initialDraft.recipient_list;
+    const fromMeta = pickAudienceIdFromDraft(initialDraft);
+    if (fromMeta) return `audience:${fromMeta}`;
     if (initialAudienceId) return `audience:${initialAudienceId}`;
     return "";
   });
@@ -62,17 +83,56 @@ export function EmailComposer({
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiNote, setAiNote] = useState<string | null>(null);
 
   useEffect(() => {
     setCampaignId(initialDraft?.id ?? null);
     setSubject(initialDraft?.subject ?? "");
     setPreviewText(initialDraft?.preview_text ?? "");
     setBody(initialDraft?.body_text ?? "");
-    setRecipients(
-      initialDraft?.recipient_list ??
-        (initialAudienceId ? `audience:${initialAudienceId}` : "")
-    );
+    // Restore the audience picker selection in this priority order:
+    //   1. The draft's saved recipient_list (free-text or audience:<uuid>)
+    //   2. metadata.audience_id on the draft row
+    //   3. The /email?audience=<uuid> deep-link param
+    const draftMetaAudience = pickAudienceIdFromDraft(initialDraft);
+    if (initialDraft?.recipient_list) {
+      setRecipients(initialDraft.recipient_list);
+    } else if (draftMetaAudience) {
+      setRecipients(`audience:${draftMetaAudience}`);
+    } else if (initialAudienceId) {
+      setRecipients(`audience:${initialAudienceId}`);
+    } else {
+      setRecipients("");
+    }
   }, [initialDraft, initialAudienceId]);
+
+  // Derive the currently selected audience UUID (used by save payload + AI
+  // prompt + summary card). When the picker is on free-text mode this is
+  // null and we send no `audience_id` to the API.
+  const selectedAudienceId = recipients.startsWith("audience:")
+    ? recipients.slice("audience:".length)
+    : null;
+  const selectedAudience = selectedAudienceId
+    ? audiences.find((a) => a.id === selectedAudienceId)
+    : null;
+
+  // ---------------- Preview (debounced 250ms) ----------------
+  // The renderer is cheap, but recomputing the full HTML + the iframe
+  // srcdoc on every keystroke causes the preview pane to flicker on long
+  // bodies. Debouncing the render — not the input — keeps the textarea
+  // responsive while smoothing the iframe redraw.
+  const [debouncedSubject, setDebouncedSubject] = useState(subject);
+  const [debouncedPreviewText, setDebouncedPreviewText] = useState(previewText);
+  const [debouncedBody, setDebouncedBody] = useState(body);
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedSubject(subject);
+      setDebouncedPreviewText(previewText);
+      setDebouncedBody(body);
+    }, 250);
+    return () => clearTimeout(t);
+  }, [subject, previewText, body]);
 
   // Full inbox-shell HTML. The `html` field is what we drop into the iframe
   // srcdoc and what we POST to /api/email so the saved row + future n8n
@@ -80,13 +140,25 @@ export function EmailComposer({
   const rendered = useMemo(
     () =>
       renderEmailPreview({
+        subject: debouncedSubject || "(No subject)",
+        previewText: debouncedPreviewText,
+        bodyMarkdown: debouncedBody,
+      }),
+    [debouncedSubject, debouncedPreviewText, debouncedBody]
+  );
+  const previewHtml = rendered.html;
+
+  // Live (un-debounced) preview HTML for the save payload — when the user
+  // hits Save we want the latest content shipped, not the 250ms-old version.
+  const livePreviewHtml = useMemo(
+    () =>
+      renderEmailPreview({
         subject: subject || "(No subject)",
         previewText,
         bodyMarkdown: body,
-      }),
+      }).html,
     [subject, previewText, body]
   );
-  const previewHtml = rendered.html;
 
   function submit(action: "draft" | "approve" | "request_send" | "request_test") {
     setError(null);
@@ -103,17 +175,32 @@ export function EmailComposer({
       try {
         const res = await fetch("/api/email", {
           method: "POST",
-          headers: { "content-type": "application/json" },
+          headers: {
+            "content-type": "application/json",
+            accept: "application/json",
+          },
           body: JSON.stringify({
             campaign_id: campaignId,
             subject,
             preview_text: previewText || undefined,
             body_text: body,
-            body_html: previewHtml,
+            body_html: livePreviewHtml,
             recipient_list: recipients || undefined,
+            audience_id: selectedAudienceId ?? undefined,
             action,
           }),
         });
+        // Defensive parse — mirror AtlasShell. A 401 page or CDN error
+        // would otherwise blow up on res.json().
+        const ct = res.headers.get("content-type") ?? "";
+        if (!ct.includes("application/json")) {
+          setError(
+            res.status === 401
+              ? "Your session expired. Refresh and sign in again."
+              : "Email Studio received a non JSON response. Please refresh and try again."
+          );
+          return;
+        }
         const data = await res.json();
         if (!data.ok) {
           setError(`${data.error}: ${data.message}`);
@@ -143,13 +230,110 @@ export function EmailComposer({
     });
   }
 
-  // Active audience summary (drives the big "X active contacts" card).
-  const selectedAudienceId = recipients.startsWith("audience:")
-    ? recipients.slice("audience:".length)
-    : null;
-  const selectedAudience = selectedAudienceId
-    ? audiences.find((a) => a.id === selectedAudienceId)
-    : null;
+  // ---------------- AI Write ----------------
+  // Hits /api/ai/chat — same endpoint Atlas uses — with a single shaped
+  // prompt that asks for a newsletter draft seeded by the current subject
+  // and the selected audience name. We don't pass a thread/assistant id
+  // so each call is one-shot. Response is plain markdown which we drop
+  // directly into the body field (and the subject if empty).
+  const aiAbortRef = useRef<AbortController | null>(null);
+  async function runAiWrite() {
+    if (aiBusy) return;
+    setError(null);
+    setInfo(null);
+    setAiNote(null);
+    setAiBusy(true);
+    aiAbortRef.current?.abort();
+    aiAbortRef.current = new AbortController();
+    try {
+      const seedSubject = subject.trim();
+      const audienceLabel = selectedAudience
+        ? `${selectedAudience.name} (${selectedAudience.active} active contacts)`
+        : "a general newsletter list";
+      const prompt = [
+        "Draft a short, friendly real-estate / mortgage newsletter in Markdown.",
+        seedSubject
+          ? `The subject line is: "${seedSubject}". Keep the body aligned with that topic.`
+          : "Suggest a single H1 line as the implied subject, then the body.",
+        `Audience: ${audienceLabel}.`,
+        "Use 2-3 short paragraphs, one bullet list of 3 takeaways, and a single call-to-action link placeholder like [Schedule a call](#).",
+        "No emoji. No salutation like 'Dear ...'. Do not wrap the response in code fences.",
+      ].join("\n\n");
+
+      const res = await fetch("/api/ai/chat", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          accept: "application/json",
+        },
+        body: JSON.stringify({
+          thread_id: null,
+          assistant_id: null,
+          message: prompt,
+        }),
+        signal: aiAbortRef.current.signal,
+      });
+
+      // Defensive parse — same pattern as AtlasShell / SocialComposer.
+      const ct = res.headers.get("content-type") ?? "";
+      if (!ct.includes("application/json")) {
+        setAiNote(
+          res.status === 401
+            ? "Your session expired. Refresh the page and try AI Write again."
+            : "AI Write received a non JSON response. Please retry in a moment."
+        );
+        return;
+      }
+      const data = await res.json();
+      if (!data.ok) {
+        if (data.error === "cap_exceeded") {
+          setAiNote(
+            data.message ?? "Daily AI cap reached. Try again tomorrow."
+          );
+        } else if (data.error === "provider_disabled") {
+          setAiNote(
+            data.message ??
+              "AI provider is currently disabled in Settings."
+          );
+        } else if (data.error === "unauthenticated") {
+          setAiNote("Your session expired. Refresh and sign in again.");
+        } else {
+          setAiNote(`${data.error}: ${data.message}`);
+        }
+        return;
+      }
+      const content =
+        typeof data.content === "string" ? data.content.trim() : "";
+      if (!content) {
+        setAiNote("AI returned an empty draft. Try again.");
+        return;
+      }
+
+      // If the response starts with a markdown H1 AND the subject field is
+      // empty, lift that into the subject. Otherwise leave subject alone.
+      if (!seedSubject) {
+        const h1Match = content.match(/^# +(.+)$/m);
+        if (h1Match?.[1]) {
+          setSubject(h1Match[1].trim().slice(0, 300));
+          setBody(content.replace(/^# +.+$/m, "").trimStart());
+        } else {
+          setBody(content);
+        }
+      } else {
+        setBody(content);
+      }
+      setAiNote("AI Write applied. Review the body before sending.");
+    } catch (e) {
+      if ((e as { name?: string })?.name === "AbortError") return;
+      setAiNote(
+        e instanceof Error
+          ? `AI Write failed: ${e.message}`
+          : "AI Write failed."
+      );
+    } finally {
+      setAiBusy(false);
+    }
+  }
 
   return (
     <section className="card-padded space-y-3">
@@ -158,16 +342,37 @@ export function EmailComposer({
           <h2>{campaignId ? "Edit campaign" : "Compose newsletter"}</h2>
           <p>Drafts save instantly. External sending only runs when the owner enables it.</p>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowPreview((v) => !v)}
-          className="btn-ghost text-xs"
-          title={showPreview ? "Hide preview" : "Show preview"}
-        >
-          {showPreview ? <EyeOff size={12} /> : <Eye size={12} />}
-          {showPreview ? "Hide preview" : "Show preview"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={runAiWrite}
+            className="btn-ghost text-xs"
+            disabled={aiBusy}
+            title="Draft this newsletter with AI using the current subject + audience"
+          >
+            <Sparkles
+              size={12}
+              className={cn(aiBusy && "animate-pulse text-accent-gold")}
+            />
+            {aiBusy ? "AI writing…" : "AI Write"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowPreview((v) => !v)}
+            className="btn-ghost text-xs"
+            title={showPreview ? "Hide preview" : "Show preview"}
+          >
+            {showPreview ? <EyeOff size={12} /> : <Eye size={12} />}
+            {showPreview ? "Hide preview" : "Show preview"}
+          </button>
+        </div>
       </div>
+
+      {aiNote && (
+        <p className="rounded-lg border border-status-info/30 bg-status-info/10 px-3 py-2 text-xs text-status-info">
+          {aiNote}
+        </p>
+      )}
 
       <div
         className={cn(
@@ -266,32 +471,38 @@ export function EmailComposer({
         </div>
         {showPreview && (
           <div className="space-y-2">
-            <div className="rounded-xl border border-ink-800 bg-ink-900/40 p-3">
-              <p className="text-[10px] uppercase tracking-[0.18em] text-ink-300">
-                Inbox preview
-              </p>
-              <p className="mt-1 font-medium text-ink-100">
-                {subject || "Subject preview"}
-              </p>
-              <p className="text-xs text-ink-300">
-                {previewText || "Preview text appears here"}
-              </p>
-            </div>
+            {/* Inbox preview card — matches the dashboard "Latest newsletter"
+                card visual (rounded ink-950 panel, gold-tinted eyebrow). The
+                iframe is sized like a real inbox: max-width ~600px so the
+                preview matches what the recipient sees in Gmail / Outlook. */}
             <div className="overflow-hidden rounded-xl border border-ink-800 bg-ink-950">
               <div className="flex items-center justify-between gap-2 border-b border-ink-800 px-3 py-1.5">
                 <p className="text-[10px] uppercase tracking-[0.18em] text-ink-300">
-                  Rendered newsletter
+                  Inbox preview
                 </p>
                 <p className="text-[10px] text-ink-400">
                   Same shell ships to n8n on Queue send
                 </p>
               </div>
-              <iframe
-                title="Email preview"
-                srcDoc={previewHtml}
-                sandbox=""
-                className="block h-[520px] w-full bg-ink-950"
-              />
+              <div className="border-b border-ink-800 bg-ink-900/40 px-4 py-3">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-ink-300">
+                  Subject
+                </p>
+                <p className="mt-1 truncate font-medium text-ink-100">
+                  {subject || "Subject preview"}
+                </p>
+                <p className="truncate text-xs text-ink-300">
+                  {previewText || "Preview text appears here"}
+                </p>
+              </div>
+              <div className="flex justify-center bg-ink-950 px-3 py-4">
+                <iframe
+                  title="Email preview"
+                  srcDoc={previewHtml}
+                  sandbox=""
+                  className="block h-[520px] w-full max-w-[600px] rounded-lg border border-ink-800 bg-ink-950"
+                />
+              </div>
             </div>
           </div>
         )}
@@ -358,4 +569,3 @@ export function EmailComposer({
     </section>
   );
 }
-
