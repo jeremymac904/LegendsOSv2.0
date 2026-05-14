@@ -1,11 +1,16 @@
 import Link from "next/link";
 import { Mail, Users2 } from "lucide-react";
 
-import { EmailComposer } from "@/components/email/EmailComposer";
+import {
+  EmailComposer,
+  StarterTemplatesPanel,
+} from "@/components/email/EmailComposer";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { getServerEnv, PUBLIC_ENV } from "@/lib/env";
+import { STARTER_TEMPLATES } from "@/lib/newsletter/starterTemplates";
+import { isOwner } from "@/lib/permissions";
 import {
   getCurrentProfile,
   getSupabaseServerClient,
@@ -96,6 +101,15 @@ export default async function EmailStudioPage({
         }
       />
 
+      {/* Starter templates panel — visible only when the org has zero
+          campaigns (no drafts, no sends, nothing). Once the owner picks
+          a template, /api/email returns the new draft id and we route to
+          /email?id=<new>, which renders the composer the normal way. The
+          panel never reappears after at least one draft exists. */}
+      {campaigns.length === 0 && !initial && (
+        <StarterTemplatesPanel templates={STARTER_TEMPLATES} />
+      )}
+
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[2fr_1fr]">
         <EmailComposer
           initialDraft={initial}
@@ -108,6 +122,7 @@ export default async function EmailStudioPage({
               ? profile.email.split("@")[0]
               : PUBLIC_ENV.OWNER_EMAIL.split("@")[0])
           }
+          isOwner={isOwner(profile)}
           audiences={audiences.map((a) => ({
             id: a.id,
             name: a.name,

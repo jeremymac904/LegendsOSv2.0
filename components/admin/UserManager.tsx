@@ -17,11 +17,16 @@ import { StatusPill } from "@/components/ui/StatusPill";
 import { cn, formatRelative } from "@/lib/utils";
 import type { Profile, UserRole } from "@/types/database";
 
+// Assignable roles in the UI. `owner` is intentionally excluded — there's
+// only one owner per org and promotion has to go through `promote_owner()`
+// in the SQL editor so it lands in audit_logs at the DB level too. The
+// server route also rejects `update_role -> owner` for the same reason.
+// Order: admin → loan_officer → processor → marketing → viewer.
 const ROLES: { value: UserRole; label: string; description: string }[] = [
   {
     value: "admin",
     label: "Admin",
-    description: "Full app access except role / billing changes.",
+    description: "Full app access except role / billing / owner promotion.",
   },
   {
     value: "loan_officer",

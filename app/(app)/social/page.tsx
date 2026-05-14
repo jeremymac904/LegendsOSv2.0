@@ -5,19 +5,63 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { imageLibrary } from "@/lib/assets";
-import { loadOrgUploadedImageAssets } from "@/lib/admin/orgAssets";
+import {
+  loadOrgUploadedImageAssets,
+  loadSocialAssetUsageCounts,
+} from "@/lib/admin/orgAssets";
 import { getServerEnv } from "@/lib/env";
 import {
   getCurrentProfile,
   getSupabaseServerClient,
 } from "@/lib/supabase/server";
 import { formatRelative } from "@/lib/utils";
-import type { GeneratedMedia, SocialPost } from "@/types/database";
+import type { GeneratedMedia, SocialPost, SocialChannel } from "@/types/database";
 
 export const dynamic = "force-dynamic";
 
 interface PageProps {
-  searchParams: { media?: string };
+  // `media` preselects an attachment from Image Studio.
+  // `prefill` is a JSON-encoded handoff from Atlas — strict allowlist
+  // of fields (title/body/channels) is enforced server-side before passing
+  // to the composer.
+  searchParams: { media?: string; prefill?: string };
+}
+
+// Strict allowlist decode for the Atlas prefill query param. Never trust the
+// URL contents — only copy known scalar fields, and discard anything else.
+function decodePrefill(raw: string | undefined): {
+  title?: string;
+  body?: string;
+  channels?: SocialChannel[];
+} | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    if (!parsed || typeof parsed !== "object") return null;
+    const allowedChannels: SocialChannel[] = [
+      "facebook",
+      "instagram",
+      "google_business_profile",
+      "youtube",
+    ];
+    const out: {
+      title?: string;
+      body?: string;
+      channels?: SocialChannel[];
+    } = {};
+    if (typeof parsed.title === "string") out.title = parsed.title.slice(0, 160);
+    if (typeof parsed.body === "string") out.body = parsed.body.slice(0, 8000);
+    if (Array.isArray(parsed.channels)) {
+      const filtered = parsed.channels.filter(
+        (c): c is SocialChannel =>
+          typeof c === "string" && (allowedChannels as string[]).includes(c)
+      );
+      if (filtered.length > 0) out.channels = filtered;
+    }
+    return out;
+  } catch {
+    return null;
+  }
 }
 
 export default async function SocialStudioPage({ searchParams }: PageProps) {
@@ -26,7 +70,7 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
   const supabase = getSupabaseServerClient();
   const env = getServerEnv();
 
-  const [{ data: postRows }, { data: mediaRows }, uploadedImageAssets] =
+  const [{ data: postRows }, { data: mediaRows }, uploadedImageAssets, usageCounts] =
     await Promise.all([
       supabase
         .from("social_posts")
@@ -40,7 +84,18 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
         .order("created_at", { ascending: false })
         .limit(48),
       loadOrgUploadedImageAssets(),
+      loadSocialAssetUsageCounts(),
     ]);
+
+  // Atlas handoff: ?prefill=<urlencoded JSON> opens the create-form prefilled
+  // WITHOUT creating a row. Atlas may also send users to /social/<id> after
+  // creating a draft — that path is handled by the [postId] route.
+  const atlasPrefill = decodePrefill(searchParams?.prefill);
+
+  // Convert the Map to a plain Record so we can pass it to the client
+  // component (Maps don't serialize cleanly through the RSC boundary).
+  const assetUsage: Record<string, number> = {};
+  for (const [k, v] of usageCounts) assetUsage[k] = v;
 
   const posts = (postRows ?? []) as SocialPost[];
   const generatedRows = (mediaRows ?? []) as Pick<
@@ -120,6 +175,8 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
         userId={profile.id}
         mediaLibrary={mediaLibrary}
         initialSelectedMediaId={preselectedMediaId}
+        assetUsage={assetUsage}
+        atlasPrefill={atlasPrefill}
       />
 
       <section className="card-padded">

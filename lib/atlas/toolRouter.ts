@@ -24,6 +24,9 @@ export interface AtlasToolSuccess {
   itemId: string;
   link: string;
   summary: string;
+  // Short structured title for the result chip (so the UI can show
+  // "Drafted: <title>" without slicing the long human-readable summary).
+  title: string | null;
 }
 
 export interface AtlasToolFailure {
@@ -88,6 +91,7 @@ export async function runAtlasTool(
       itemId: data.id,
       link: `/social/${data.id}`,
       summary,
+      title: title ?? null,
     };
   }
 
@@ -127,6 +131,7 @@ export async function runAtlasTool(
       itemId: data.id,
       link: `/email/${data.id}`,
       summary: `Newsletter draft "${data.subject}"`,
+      title: data.subject ?? null,
     };
   }
 
@@ -172,6 +177,7 @@ export async function runAtlasTool(
       itemId: data.id,
       link: `/calendar?id=${data.id}`,
       summary: `Calendar item "${data.title}" on ${when}`,
+      title: data.title ?? null,
     };
   }
 

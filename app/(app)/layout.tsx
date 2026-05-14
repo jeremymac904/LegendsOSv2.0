@@ -43,6 +43,7 @@ export default async function ProtectedLayout({
     <div className="flex min-h-screen flex-col">
       {impersonating && realProfile && (
         <ImpersonationBanner
+          targetName={profile.full_name ?? profile.email}
           targetEmail={profile.email}
           targetRole={
             profile.role === "loan_officer" ? "LO" : profile.role

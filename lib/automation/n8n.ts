@@ -38,6 +38,44 @@ export interface EnqueueResult {
 }
 
 /**
+ * Resolve the configured webhook URL for a given n8n job type. Returns `null`
+ * when no URL is configured — callers should treat that as "queue but do not
+ * dispatch" instead of substituting a fake URL.
+ *
+ * This is server-only — never import from a client component.
+ */
+export function getWebhookUrl(jobType: N8nWebhookKey): string | null {
+  const env = getServerEnv();
+  const url = env.N8N_WEBHOOKS[jobType];
+  if (!url || url.trim() === "") return null;
+  return url;
+}
+
+/**
+ * Snapshot of n8n configuration state for the integrations-status endpoint.
+ * Returns booleans only — never any URL or key material.
+ */
+export function getN8nConfigState() {
+  const env = getServerEnv();
+  const webhooks = env.N8N_WEBHOOKS;
+  const flags = {
+    social_publish: Boolean(webhooks.social_publish),
+    email_send: Boolean(webhooks.email_send),
+    content_reminder: Boolean(webhooks.content_reminder),
+    daily_usage: Boolean(webhooks.daily_usage),
+    failed_publish_recovery: Boolean(webhooks.failed_publish_recovery),
+    provider_health: Boolean(webhooks.provider_health),
+  };
+  const base_url_present = Boolean(env.N8N_BASE_URL || env.N8N_WEBHOOK_BASE_URL);
+  const anyWebhook = Object.values(flags).some(Boolean);
+  return {
+    configured: base_url_present && anyWebhook,
+    base_url_present,
+    webhooks: flags,
+  };
+}
+
+/**
  * Insert an `automation_jobs` row, and (optionally) POST the payload to the
  * configured n8n webhook URL.
  *

@@ -9,6 +9,7 @@ import {
   Server,
   Share2,
   ShieldCheck,
+  Sparkles,
   Users,
 } from "lucide-react";
 
@@ -182,6 +183,13 @@ export default async function AdminCenterPage() {
           icon={ShieldCheck}
         />
       </section>
+
+      <LiveUsageCard
+        usageList={usageList}
+        jobList={jobList}
+        recentSocial={recentSocial}
+        recentEmail={recentEmail}
+      />
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[2fr_1fr]">
         <section className="card-padded">
@@ -415,6 +423,7 @@ export default async function AdminCenterPage() {
                   title={m.prompt}
                 >
                   {m.preview_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={m.preview_url}
                       alt={m.prompt}
@@ -477,5 +486,135 @@ export default async function AdminCenterPage() {
         </div>
       </section>
     </div>
+  );
+}
+
+// ----------------------------------------------------------------------
+// Live usage card — compact 24h snapshot of every module so admins have a
+// single-pane summary without leaving /admin. Numbers are derived from the
+// already-fetched usage_events + automation_jobs lists; we don't pull more
+// data than the page already loads.
+function LiveUsageCard({
+  usageList,
+  jobList,
+  recentSocial,
+  recentEmail,
+}: {
+  usageList: Pick<UsageEvent, "module" | "event_type" | "created_at" | "user_id">[];
+  jobList: AutomationJob[];
+  recentSocial: Pick<
+    SocialPost,
+    "id" | "title" | "body" | "user_id" | "status" | "channels" | "updated_at"
+  >[];
+  recentEmail: Pick<
+    EmailCampaign,
+    "id" | "subject" | "user_id" | "status" | "updated_at"
+  >[];
+}) {
+  // Active users (24h): distinct user_ids that fired any event.
+  const activeUsers = new Set<string>();
+  for (const e of usageList) {
+    if (e.user_id) activeUsers.add(e.user_id);
+  }
+
+  // Module counts. usage_events.module strings match the studios; we
+  // intentionally count "chats" via the `atlas` module to keep the label
+  // user-friendly.
+  let atlasChats = 0;
+  let imagesGenerated = 0;
+  let socialPostsQueued = 0;
+  let newslettersDrafted = 0;
+  for (const e of usageList) {
+    if (e.module === "atlas") atlasChats++;
+    if (e.module === "images" && e.event_type !== "view") imagesGenerated++;
+    if (e.module === "social" && e.event_type === "queued") socialPostsQueued++;
+    if (e.module === "email" && e.event_type !== "view") newslettersDrafted++;
+  }
+  // Fall back to deriving the social/email counts from the most-recent rows
+  // when usage_events doesn't carry the expected event_type — keeps the card
+  // useful even before the studios start emitting structured events.
+  if (socialPostsQueued === 0) {
+    socialPostsQueued = recentSocial.filter((s) => s.status === "scheduled").length;
+  }
+  if (newslettersDrafted === 0) {
+    newslettersDrafted = recentEmail.filter((e) => e.status === "draft").length;
+  }
+
+  // n8n queue depth = automation_jobs.status === "queued" (and "sent" rows in
+  // flight that haven't yet succeeded/failed). The enum only has the five
+  // states defined in types/database.ts — no "retrying" state today.
+  const queueDepth = jobList.filter(
+    (j) => j.status === "queued" || j.status === "sent"
+  ).length;
+
+  const tiles: { label: string; value: number; hint: string }[] = [
+    {
+      label: "Active users (24h)",
+      value: activeUsers.size,
+      hint: "Distinct people firing events",
+    },
+    {
+      label: "Atlas chats (24h)",
+      value: atlasChats,
+      hint: "Assistant turns logged",
+    },
+    {
+      label: "Images generated (24h)",
+      value: imagesGenerated,
+      hint: "Image Studio runs",
+    },
+    {
+      label: "Social posts queued (24h)",
+      value: socialPostsQueued,
+      hint: "Scheduled for publishing",
+    },
+    {
+      label: "Newsletters drafted (24h)",
+      value: newslettersDrafted,
+      hint: "Email Studio drafts",
+    },
+    {
+      label: "n8n queue depth",
+      value: queueDepth,
+      hint: "queued + retrying jobs",
+    },
+  ];
+
+  return (
+    <section className="card-padded">
+      <div className="section-title">
+        <div>
+          <h2 className="flex items-center gap-2">
+            <Sparkles size={14} className="text-accent-gold" />
+            Live usage (24h)
+          </h2>
+          <p>
+            Single-pane snapshot pulled from <code>usage_events</code> and{" "}
+            <code>automation_jobs</code>. Mirrors the dashboard numbers so
+            admins can spot anomalies without bouncing tabs.
+          </p>
+        </div>
+        <Link href="/admin/usage" className="btn-ghost text-xs">
+          <ChartLine size={14} />
+          7-day breakdown
+        </Link>
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-3">
+        {tiles.map((t) => (
+          <div
+            key={t.label}
+            className="rounded-xl border border-ink-800 bg-ink-900/40 p-3"
+          >
+            <p className="text-[10px] uppercase tracking-[0.18em] text-ink-400">
+              {t.label}
+            </p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-ink-100">
+              {t.value}
+            </p>
+            <p className="mt-0.5 text-[10px] text-ink-300">{t.hint}</p>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }

@@ -29,6 +29,7 @@ export interface UploadedAsset extends AssetRecord {
   kind: AssetKind;
   description: string | null;
   is_uploaded: true;
+  created_at: string;
 }
 
 function categoryToTyped(c: string | undefined): AssetCategory {
@@ -84,6 +85,7 @@ export async function loadOrgUploadedAssets(): Promise<UploadedAsset[]> {
         kind,
         description: r.description,
         is_uploaded: true,
+        created_at: r.created_at,
       };
       return rec;
     })
@@ -95,4 +97,45 @@ export async function loadOrgUploadedAssets(): Promise<UploadedAsset[]> {
 export async function loadOrgUploadedImageAssets(): Promise<UploadedAsset[]> {
   const all = await loadOrgUploadedAssets();
   return all.filter((a) => a.kind === "image");
+}
+
+// Returns a Map<assetId, count> describing how many `social_posts` rows
+// reference each asset id, either via the legacy `media_id` column (UUID
+// only) or via the `metadata.media_ids` JSON array (which can hold UUIDs OR
+// non-UUID tokens like manifest slugs / asset library ids).
+//
+// One Supabase query — RLS scopes results to rows the caller can see, which
+// is fine for owner/team views. We do the aggregation in-process because
+// `metadata.media_ids` is a JSON array, not a relational column. The same
+// pattern is used by the admin assets page; this helper centralizes it so
+// Social Studio can reuse it without duplicating logic.
+export async function loadSocialAssetUsageCounts(): Promise<
+  Map<string, number>
+> {
+  const sb = getSupabaseServerClient();
+  const { data, error } = await sb
+    .from("social_posts")
+    .select("id,media_id,metadata");
+  const counts = new Map<string, number>();
+  if (error || !data) return counts;
+  for (const row of data as {
+    id: string;
+    media_id: string | null;
+    metadata: { media_ids?: unknown } | null;
+  }[]) {
+    // Dedupe within a post — a post that references the same asset in both
+    // `media_id` and `metadata.media_ids` should still count as one usage.
+    const seen = new Set<string>();
+    if (row.media_id) seen.add(row.media_id);
+    const ids = row.metadata?.media_ids;
+    if (Array.isArray(ids)) {
+      for (const v of ids) {
+        if (typeof v === "string" && v) seen.add(v);
+      }
+    }
+    for (const id of seen) {
+      counts.set(id, (counts.get(id) ?? 0) + 1);
+    }
+  }
+  return counts;
 }

@@ -252,9 +252,9 @@ export default async function CalendarPage({ searchParams }: PageProps) {
                     <span
                       className={
                         row.kind === "social"
-                          ? "chip border-accent-orange/40 bg-accent-orange/10 text-accent-orange"
+                          ? "chip border-accent-gold/30 bg-accent-gold/10 text-accent-gold"
                           : row.kind === "email"
-                          ? "chip border-accent-gold/40 bg-accent-gold/10 text-accent-gold"
+                          ? "chip border-accent-gold/50 bg-accent-gold/15 text-accent-gold"
                           : "chip"
                       }
                     >

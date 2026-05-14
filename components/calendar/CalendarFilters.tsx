@@ -50,7 +50,7 @@ export function CalendarFilters({ current }: Props) {
             onClick={() => setFilter(opt.value)}
             className={
               active
-                ? "inline-flex items-center gap-1 rounded-full border border-accent-gold/40 bg-gradient-to-br from-accent-gold/20 to-accent-orange/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-accent-gold shadow-glow"
+                ? "inline-flex items-center gap-1 rounded-full border border-accent-gold/40 bg-gradient-to-br from-accent-gold/25 to-accent-gold/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-accent-gold shadow-glow"
                 : "inline-flex items-center gap-1 rounded-full border border-ink-700 bg-ink-900/70 px-3 py-1 text-[11px] font-medium uppercase tracking-wider text-ink-300 hover:border-ink-600 hover:text-ink-100"
             }
           >

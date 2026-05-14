@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   CalendarPlus,
@@ -9,6 +9,7 @@ import {
   ImagePlus,
   Save,
   Send,
+  Sparkles,
   X,
 } from "lucide-react";
 
@@ -40,6 +41,24 @@ interface Props {
    * of inserting a new one.
    */
   initialDraft?: SocialPost | null;
+  /**
+   * Server-computed usage counts. Key = asset id (generated_media UUID,
+   * uploaded shared_resources UUID, or manifest slug), value = number of
+   * social_posts rows referencing that asset. Used to render the
+   * "Used in N posts" chip on each asset in the picker.
+   */
+  assetUsage?: Record<string, number>;
+  /**
+   * Atlas-side prefill payload (strict allowlist of fields, decoded
+   * server-side). Only fires on initial mount when there's no
+   * `initialDraft`. Never trusts URL contents to inject HTML — fields
+   * land in React state and are rendered through React's escaping.
+   */
+  atlasPrefill?: {
+    title?: string;
+    body?: string;
+    channels?: ChannelId[];
+  } | null;
 }
 
 // Convert a SocialPost.scheduled_at ISO string into the format the native
@@ -79,6 +98,8 @@ export function SocialComposer({
   mediaLibrary,
   initialSelectedMediaId,
   initialDraft,
+  assetUsage,
+  atlasPrefill,
 }: Props) {
   const router = useRouter();
   const editing = Boolean(initialDraft?.id);
@@ -87,14 +108,23 @@ export function SocialComposer({
     (initialDraft?.metadata as { youtube_title?: string } | null)
       ?.youtube_title ?? "";
 
-  const [title, setTitle] = useState(initialDraft?.title ?? "");
-  const [body, setBody] = useState(initialDraft?.body ?? "");
-  const [youtubeTitle, setYoutubeTitle] = useState(initialYoutubeTitle);
-  const [selected, setSelected] = useState<ChannelId[]>(
+  // Apply Atlas prefill only on the create-form path (no initialDraft).
+  // Atlas-created drafts route to /social/<id> which uses initialDraft.
+  const seedTitle =
+    initialDraft?.title ?? (!initialDraft ? atlasPrefill?.title ?? "" : "");
+  const seedBody =
+    initialDraft?.body ?? (!initialDraft ? atlasPrefill?.body ?? "" : "");
+  const seedChannels: ChannelId[] =
     initialDraft?.channels && initialDraft.channels.length > 0
       ? (initialDraft.channels as ChannelId[])
-      : ["facebook"]
-  );
+      : !initialDraft && atlasPrefill?.channels && atlasPrefill.channels.length > 0
+      ? atlasPrefill.channels
+      : ["facebook"];
+
+  const [title, setTitle] = useState(seedTitle);
+  const [body, setBody] = useState(seedBody);
+  const [youtubeTitle, setYoutubeTitle] = useState(initialYoutubeTitle);
+  const [selected, setSelected] = useState<ChannelId[]>(seedChannels);
   const [scheduledAt, setScheduledAt] = useState(
     toLocalDateTimeInput(initialDraft?.scheduled_at ?? null)
   );
@@ -105,6 +135,9 @@ export function SocialComposer({
   const [showLibrary, setShowLibrary] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiNote, setAiNote] = useState<string | null>(null);
+  const aiAbortRef = useRef<AbortController | null>(null);
   const [isPending, startTransition] = useTransition();
 
   // Reseed state if the parent passes in a different draft (e.g. routing
@@ -186,6 +219,127 @@ export function SocialComposer({
     setLibrary((prev) => [row as MediaSummary, ...prev]);
     setSelectedMediaIds((prev) => [...prev, row.id]);
     setInfo(`Attached upload: ${truncate(file.name, 40)}`);
+  }
+
+  // ---------------- AI Write ----------------
+  // Mirrors EmailComposer.runAiWrite exactly: defensive Content-Type parse,
+  // friendly cap_exceeded / provider_disabled fallback, busy state. Prompts
+  // /api/ai/chat for a social caption tailored to whichever channels are
+  // currently selected (Facebook gets longer copy, Instagram gets line
+  // breaks + hashtags, GBP stays tight, YouTube focuses on the hook).
+  async function runAiWrite() {
+    if (aiBusy) return;
+    setError(null);
+    setInfo(null);
+    setAiNote(null);
+    setAiBusy(true);
+    aiAbortRef.current?.abort();
+    aiAbortRef.current = new AbortController();
+    try {
+      const seedTopic = title.trim();
+      const channelGuidance: string[] = [];
+      if (selected.includes("facebook")) {
+        channelGuidance.push(
+          "Facebook: 2-3 conversational paragraphs, friendly and helpful."
+        );
+      }
+      if (selected.includes("instagram")) {
+        channelGuidance.push(
+          "Instagram: short punchy lines separated by line breaks, end with 3-5 relevant hashtags."
+        );
+      }
+      if (selected.includes("google_business_profile")) {
+        channelGuidance.push(
+          "Google Business Profile: keep it tight — 1-2 sentences, factual, location-aware."
+        );
+      }
+      if (selected.includes("youtube")) {
+        channelGuidance.push(
+          "YouTube: lead with a strong hook in the first line, then a short description."
+        );
+      }
+      if (channelGuidance.length === 0) {
+        channelGuidance.push(
+          "Write a friendly general-purpose social caption."
+        );
+      }
+      const prompt = [
+        "Draft a social media post for The Legends Mortgage Team.",
+        seedTopic
+          ? `Topic hint: "${seedTopic}". Stay aligned with that topic.`
+          : "Pick a relevant real-estate / mortgage topic the audience would care about.",
+        "Channels selected (write ONE caption that fits all of them):",
+        channelGuidance.map((g) => `- ${g}`).join("\n"),
+        "Do not wrap the response in code fences. No emoji unless an Instagram hashtag block makes sense.",
+      ].join("\n\n");
+
+      const res = await fetch("/api/ai/chat", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          accept: "application/json",
+        },
+        body: JSON.stringify({
+          thread_id: null,
+          assistant_id: null,
+          message: prompt,
+        }),
+        signal: aiAbortRef.current.signal,
+      });
+
+      // Defensive parse — same pattern as Atlas / EmailComposer. If
+      // middleware bounced us to the login page, the response is HTML.
+      const ct = res.headers.get("content-type") ?? "";
+      if (!ct.includes("application/json")) {
+        setAiNote(
+          res.status === 401
+            ? "Your session expired. Refresh the page and try AI Write again."
+            : "AI Write received a non JSON response. Please retry in a moment."
+        );
+        return;
+      }
+      const data = await res.json();
+      if (!data.ok) {
+        if (data.error === "cap_exceeded") {
+          setAiNote(
+            data.message ?? "Daily AI cap reached. Try again tomorrow."
+          );
+        } else if (data.error === "provider_disabled") {
+          setAiNote(
+            data.message ?? "AI provider is currently disabled in Settings."
+          );
+        } else if (data.error === "unauthenticated") {
+          setAiNote("Your session expired. Refresh and sign in again.");
+        } else {
+          setAiNote(`${data.error}: ${data.message}`);
+        }
+        return;
+      }
+      const content =
+        typeof data.content === "string" ? data.content.trim() : "";
+      if (!content) {
+        setAiNote("AI returned an empty draft. Try again.");
+        return;
+      }
+      setBody(content);
+      // If the internal title is empty, lift the first short line of the
+      // generated copy as a working title — keeps the saved-list legible.
+      if (!title.trim()) {
+        const firstLine = content
+          .split("\n")
+          .map((s: string) => s.trim())
+          .find((s: string) => s.length > 0);
+        if (firstLine) setTitle(firstLine.slice(0, 80));
+      }
+      setAiNote("AI Write applied. Review the body before posting.");
+    } catch (e) {
+      if ((e as { name?: string })?.name === "AbortError") return;
+      setAiNote(
+        e instanceof Error ? `AI Write failed: ${e.message}` : "AI Write failed."
+      );
+    } finally {
+      setAiBusy(false);
+    }
   }
 
   function submit(action: "draft" | "schedule") {
@@ -292,7 +446,28 @@ export function SocialComposer({
           <h2>Compose</h2>
           <p>Drafts always save. Schedule queues an automation job for later.</p>
         </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={runAiWrite}
+            className="btn-ghost text-xs"
+            disabled={aiBusy}
+            title="Draft this post with AI using the current title hint + selected channels"
+          >
+            <Sparkles
+              size={12}
+              className={cn(aiBusy && "animate-pulse text-accent-gold")}
+            />
+            {aiBusy ? "AI writing…" : "AI Write"}
+          </button>
+        </div>
       </div>
+
+      {aiNote && (
+        <p className="rounded-lg border border-status-info/30 bg-status-info/10 px-3 py-2 text-xs text-status-info">
+          {aiNote}
+        </p>
+      )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.35fr_1fr]">
         {/* LEFT — form */}
@@ -307,7 +482,7 @@ export function SocialComposer({
       />
       <textarea
         className="textarea min-h-[180px]"
-        placeholder="What do you want to post? Add the team's NMLS branding line if needed; Atlas can fill it in automatically when you generate copy."
+        placeholder="What do you want to post? Add the team's NMLS branding line if needed; Atlas can fill it in automatically when you generate copy. Or hit AI Write."
         value={body}
         onChange={(e) => setBody(e.target.value)}
         maxLength={8000}
@@ -419,6 +594,7 @@ export function SocialComposer({
               <div className="mt-2 grid max-h-72 grid-cols-3 gap-2 overflow-y-auto pr-1 sm:grid-cols-4 lg:grid-cols-6 scrollbar-thin">
                 {library.map((m) => {
                   const picked = selectedMediaIds.includes(m.id);
+                  const usedCount = assetUsage?.[m.id] ?? 0;
                   return (
                     <button
                       key={m.id}
@@ -430,7 +606,11 @@ export function SocialComposer({
                           ? "border-accent-gold/60 ring-2 ring-accent-gold/30"
                           : "border-ink-800 hover:border-ink-600"
                       )}
-                      title={m.prompt ?? ""}
+                      title={
+                        usedCount > 0
+                          ? `${m.prompt ?? ""} · Used in ${usedCount} post${usedCount === 1 ? "" : "s"}`
+                          : m.prompt ?? ""
+                      }
                     >
                       {m.preview_url ? (
                         <img
@@ -448,6 +628,21 @@ export function SocialComposer({
                           ✓
                         </span>
                       )}
+                      {/* Usage chip — accent-gold when used at least once,
+                          muted ink-300 when never used. Server-computed by
+                          loadSocialAssetUsageCounts to keep this cheap. */}
+                      <span
+                        className={cn(
+                          "absolute bottom-1 left-1 rounded-full border px-1.5 py-0.5 text-[9px] font-medium tracking-tight",
+                          usedCount > 0
+                            ? "border-accent-gold/40 bg-ink-950/80 text-accent-gold"
+                            : "border-ink-800 bg-ink-950/70 text-ink-300"
+                        )}
+                      >
+                        {usedCount > 0
+                          ? `Used ${usedCount}×`
+                          : "Used 0 times"}
+                      </span>
                     </button>
                   );
                 })}

@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useMemo, useTransition } from "react";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { useMemo, useState, useTransition } from "react";
 
 export type CalendarKind = "social" | "email" | "calendar";
 
@@ -43,12 +43,17 @@ function monthLabel(month: string): string {
   });
 }
 
+// Each calendar kind gets a subtle gold-family chip. We previously used
+// accent-orange for the "social" kind, but the design system is gold-only;
+// orange is reserved for the Facebook brand chip in PostPreview (owned by
+// another agent). Here we use a warmer gold tint for social and the standard
+// gold for email so they're distinguishable without leaving the gold family.
 function kindClasses(kind: CalendarKind): string {
   switch (kind) {
     case "social":
-      return "border-accent-orange/40 bg-accent-orange/15 text-accent-orange hover:bg-accent-orange/25";
+      return "border-accent-gold/30 bg-accent-gold/10 text-accent-gold hover:bg-accent-gold/20";
     case "email":
-      return "border-accent-gold/40 bg-accent-gold/15 text-accent-gold hover:bg-accent-gold/25";
+      return "border-accent-gold/50 bg-accent-gold/15 text-accent-gold hover:bg-accent-gold/25";
     case "calendar":
     default:
       return "border-ink-600/70 bg-ink-800/80 text-ink-100 border-l-2 border-l-accent-gold/60 hover:bg-ink-700/80";
@@ -60,6 +65,7 @@ export function CalendarMonthGrid({ month, entries }: Props) {
   const pathname = usePathname();
   const params = useSearchParams();
   const [isPending, startTransition] = useTransition();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const { year, month0 } = parseMonth(month);
 
@@ -125,6 +131,26 @@ export function CalendarMonthGrid({ month, entries }: Props) {
     });
   }
 
+  // Calendar-item delete. Social + email drafts have their own delete flows in
+  // their respective studios; this chip only renders for `calendar` entries.
+  async function deleteCalendarItem(id: string, title: string) {
+    if (deletingId) return;
+    if (!window.confirm(`Delete "${title || "Untitled"}" from the calendar?`))
+      return;
+    setDeletingId(id);
+    try {
+      const res = await fetch(`/api/calendar/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        window.alert(text || "Could not delete that item.");
+        return;
+      }
+      router.refresh();
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   const todayKey = (() => {
     const t = new Date();
     return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(
@@ -166,7 +192,7 @@ export function CalendarMonthGrid({ month, entries }: Props) {
         </div>
         <div className="flex items-center gap-2 text-[11px] text-ink-300">
           <span className="inline-flex items-center gap-1">
-            <span className="inline-block h-2 w-2 rounded-full bg-accent-orange/70" />
+            <span className="inline-block h-2 w-2 rounded-full bg-accent-gold/50" />
             Social
           </span>
           <span className="inline-flex items-center gap-1">
@@ -228,24 +254,49 @@ export function CalendarMonthGrid({ month, entries }: Props) {
                 )}
               </div>
               <div className="flex flex-col gap-1">
-                {visible.map((entry) => (
-                  <Link
-                    key={`${entry.kind}-${entry.id}`}
-                    href={entry.link}
-                    title={`${entry.title} — ${new Date(
-                      entry.whenIso
-                    ).toLocaleString(undefined, {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}`}
-                    className={[
-                      "block truncate rounded-md border px-1.5 py-0.5 text-[10.5px] font-medium leading-tight",
-                      kindClasses(entry.kind),
-                    ].join(" ")}
-                  >
-                    {entry.title || "Untitled"}
-                  </Link>
-                ))}
+                {visible.map((entry) => {
+                  const canDelete = entry.kind === "calendar";
+                  const isDeleting = deletingId === entry.id;
+                  return (
+                    <div
+                      key={`${entry.kind}-${entry.id}`}
+                      className="group relative"
+                    >
+                      <Link
+                        href={entry.link}
+                        title={`${entry.title} — ${new Date(
+                          entry.whenIso
+                        ).toLocaleString(undefined, {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}`}
+                        className={[
+                          "block truncate rounded-md border px-1.5 py-0.5 text-[10.5px] font-medium leading-tight",
+                          canDelete ? "pr-4" : "",
+                          kindClasses(entry.kind),
+                          isDeleting ? "opacity-50" : "",
+                        ].join(" ")}
+                      >
+                        {entry.title || "Untitled"}
+                      </Link>
+                      {canDelete && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            void deleteCalendarItem(entry.id, entry.title);
+                          }}
+                          disabled={isDeleting}
+                          aria-label="Delete calendar item"
+                          className="absolute right-0.5 top-1/2 hidden -translate-y-1/2 items-center justify-center rounded-full bg-ink-950/80 p-0.5 text-ink-300 transition hover:bg-status-err/20 hover:text-status-err group-hover:flex"
+                        >
+                          <X size={10} />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
                 {overflow > 0 && (
                   <span className="inline-flex w-fit items-center rounded-full border border-ink-700 bg-ink-800/80 px-1.5 py-[1px] text-[9.5px] font-medium text-ink-300">
                     +{overflow} more

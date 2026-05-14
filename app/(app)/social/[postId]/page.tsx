@@ -5,7 +5,10 @@ import { ArrowLeft } from "lucide-react";
 import { SocialComposer } from "@/components/social/SocialComposer";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatusPill } from "@/components/ui/StatusPill";
-import { loadOrgUploadedImageAssets } from "@/lib/admin/orgAssets";
+import {
+  loadOrgUploadedImageAssets,
+  loadSocialAssetUsageCounts,
+} from "@/lib/admin/orgAssets";
 import { imageLibrary } from "@/lib/assets";
 import { getServerEnv } from "@/lib/env";
 import {
@@ -30,7 +33,7 @@ export default async function SocialPostPage({
   // the composer can render attached thumbnails for any of the three id
   // shapes (generated_media UUID, uploaded shared_resources UUID,
   // manifest slug).
-  const [{ data: postRow }, { data: generated }, uploadedImages] =
+  const [{ data: postRow }, { data: generated }, uploadedImages, usageCounts] =
     await Promise.all([
       supabase
         .from("social_posts")
@@ -43,6 +46,7 @@ export default async function SocialPostPage({
         .order("created_at", { ascending: false })
         .limit(60),
       loadOrgUploadedImageAssets(),
+      loadSocialAssetUsageCounts(),
     ]);
 
   if (!postRow) notFound();
@@ -91,6 +95,10 @@ export default async function SocialPostPage({
     ...manifestAssetEntries,
   ];
 
+  // Flatten the usage Map for client transport.
+  const assetUsage: Record<string, number> = {};
+  for (const [k, v] of usageCounts) assetUsage[k] = v;
+
   return (
     <div className="space-y-5">
       <Link href="/social" className="btn-ghost w-fit text-xs">
@@ -119,6 +127,7 @@ export default async function SocialPostPage({
         userId={profile.id}
         mediaLibrary={mediaLibrary}
         initialDraft={post}
+        assetUsage={assetUsage}
       />
     </div>
   );

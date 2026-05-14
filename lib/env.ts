@@ -265,8 +265,54 @@ export function getServerEnv() {
       // toggles for whether outbound publishing / sending may actually run.
       allowLiveSocialPublish: readBool("ALLOW_LIVE_SOCIAL_PUBLISH", false),
       allowLiveEmailSend: readBool("ALLOW_LIVE_EMAIL_SEND", false),
+      allowPaidImageGeneration: readBool("ALLOW_PAID_IMAGE_GENERATION", false),
+      allowPaidTextGeneration: readBool("ALLOW_PAID_TEXT_GENERATION", false),
     },
   } as const;
+}
+
+// ---------------------------------------------------------------------------
+// Provider config state — single source of truth for "is X configured?"
+// ---------------------------------------------------------------------------
+//
+// Returned shape per provider:
+//   { configured: boolean, paid_enabled: boolean }
+//
+// `configured`   = the env vars exist; we COULD call the provider
+// `paid_enabled` = configured AND the matching ALLOW_PAID_* flag is true
+//
+// Image provider (fal) is the only one currently treated as "paid by default,"
+// so it uses ALLOW_PAID_IMAGE_GENERATION. Text providers use
+// ALLOW_PAID_TEXT_GENERATION. Hugging Face is treated as a text provider for
+// gating purposes. This helper never returns key material.
+export interface ProviderConfigState {
+  configured: boolean;
+  paid_enabled: boolean;
+}
+
+export function getProviderConfigState(id: AIProviderId): ProviderConfigState {
+  const statuses = getAIProviderStatuses();
+  const s = statuses.find((x) => x.id === id);
+  const configured = Boolean(s?.configured && s?.enabled);
+  const isImage = id === "fal";
+  const allowPaid = readBool(
+    isImage ? "ALLOW_PAID_IMAGE_GENERATION" : "ALLOW_PAID_TEXT_GENERATION",
+    false
+  );
+  return {
+    configured,
+    paid_enabled: configured && allowPaid,
+  };
+}
+
+export function getAllProviderConfigStates(): Record<AIProviderId, ProviderConfigState> {
+  return {
+    openrouter: getProviderConfigState("openrouter"),
+    deepseek: getProviderConfigState("deepseek"),
+    nvidia: getProviderConfigState("nvidia"),
+    fal: getProviderConfigState("fal"),
+    huggingface: getProviderConfigState("huggingface"),
+  };
 }
 
 export { read };

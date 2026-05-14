@@ -2,10 +2,13 @@ import Link from "next/link";
 import { ImageIcon } from "lucide-react";
 
 import { GeneratedMediaCard } from "@/components/images/GeneratedMediaCard";
-import { ImageStudioClient } from "@/components/images/ImageStudioClient";
+import {
+  ImageStudioClient,
+  type FalReadiness,
+  type ReferenceAsset,
+} from "@/components/images/ImageStudioClient";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionHeader } from "@/components/ui/SectionHeader";
-import { StatusPill } from "@/components/ui/StatusPill";
 import { imageLibrary } from "@/lib/assets";
 import { loadOrgUploadedImageAssets } from "@/lib/admin/orgAssets";
 import { getServerEnv } from "@/lib/env";
@@ -17,6 +20,15 @@ import {
 import type { GeneratedMedia } from "@/types/database";
 
 export const dynamic = "force-dynamic";
+
+// ALLOW_PAID_IMAGE_GENERATION is read directly here (not via lib/env helpers)
+// to keep this change scoped to the Image Studio page. Default is false, which
+// matches the project-wide expectation that paid generation is opt-in only.
+function readAllowPaidImageGeneration(): boolean {
+  const raw = process.env.ALLOW_PAID_IMAGE_GENERATION;
+  if (!raw) return false;
+  return ["1", "true", "yes", "on"].includes(raw.toLowerCase());
+}
 
 export default async function ImageStudioPage() {
   const profile = await getCurrentProfile();
@@ -35,11 +47,21 @@ export default async function ImageStudioPage() {
   const media = (data ?? []) as GeneratedMedia[];
 
   const falConfigured = Boolean(env.FAL_KEY);
+  const paidAllowed = readAllowPaidImageGeneration();
+
+  // Three-state readiness for the FAL chip + the guided composer's
+  // "Generate image" button gate. Wording mirrors what we surface in the
+  // component itself.
+  const falReadiness: FalReadiness = !falConfigured
+    ? "not_configured"
+    : paidAllowed
+    ? "ready"
+    : "configured_but_paid_off";
 
   // Asset library entries (logos, team photos, social refs) curated by the
-  // local indexer. Owner-only items are filtered out for non-owners.
-  // The owner-uploaded assets join the same gallery — they're already
-  // filtered to images-only and respect the visibility chosen at upload.
+  // local indexer. Owner-only items are filtered out for non-owners. Owner-
+  // uploaded assets join the same gallery — they're already filtered to
+  // images-only and respect the visibility chosen at upload.
   const owner = isOwner(profile);
   const manifestRefs = imageLibrary().filter(
     (a) => owner || a.default_visibility === "team_shared"
@@ -49,9 +71,20 @@ export default async function ImageStudioPage() {
   );
   const assetRefs = [...uploadedRefs, ...manifestRefs];
 
+  // The composer's "Reference asset" dropdown wants a lightweight shape: only
+  // pickable items with a public URL or a label we can stuff into the prompt.
+  const composerReferenceAssets: ReferenceAsset[] = assetRefs
+    .filter((a) => a.public_path)
+    .map((a) => ({
+      id: a.id,
+      label: a.label,
+      public_path: a.public_path,
+      source: uploadedRefs.some((u) => u.id === a.id) ? "uploaded" : "library",
+    }));
+
   // When the user has < 4 generations we show a "Starter visuals" row that
   // surfaces the strongest brand-library images, so the right column never
-  // looks empty for a fresh deploy. The starters are read-only previews;
+  // looks empty for a fresh deploy. Starters are read-only previews;
   // generated_media rows still take priority.
   const SHOW_STARTERS_THRESHOLD = 4;
   const starters = assetRefs
@@ -65,27 +98,49 @@ export default async function ImageStudioPage() {
     .slice(0, 6);
   const showStarters = media.length < SHOW_STARTERS_THRESHOLD;
 
+  // Three-state chip surfaced in the SectionHeader action slot. The
+  // composer renders its own chip too — both pull from the same value so
+  // they always agree.
+  const readinessChip =
+    falReadiness === "ready" ? (
+      <span className="chip-ok">
+        <span
+          aria-hidden
+          className="inline-block h-1.5 w-1.5 rounded-full bg-status-ok"
+        />
+        FAL · Ready
+      </span>
+    ) : falReadiness === "configured_but_paid_off" ? (
+      <span className="chip-warn">
+        <span
+          aria-hidden
+          className="inline-block h-1.5 w-1.5 rounded-full bg-accent-gold"
+        />
+        FAL · Configured but paid generation disabled
+      </span>
+    ) : (
+      <span className="chip-off">
+        <span
+          aria-hidden
+          className="inline-block h-1.5 w-1.5 rounded-full bg-status-off"
+        />
+        FAL · Not configured
+      </span>
+    );
+
   return (
     <div className="space-y-6">
       <SectionHeader
         eyebrow="Image Studio"
         title="Mortgage marketing visuals"
         description="Brand-aware image generation via Fal.ai. Outputs save to Supabase Storage and can be attached to social drafts."
-        action={
-          <div className="flex flex-wrap gap-2">
-            <StatusPill
-              status={falConfigured ? "configured" : "missing"}
-              label={
-                falConfigured
-                  ? "Fal.ai ready"
-                  : "FAL_KEY or FAL_API_KEY missing"
-              }
-            />
-          </div>
-        }
+        action={<div className="flex flex-wrap gap-2">{readinessChip}</div>}
       />
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_2fr]">
-        <ImageStudioClient />
+        <ImageStudioClient
+          falReadiness={falReadiness}
+          referenceAssets={composerReferenceAssets}
+        />
         <section className="card-padded">
           <div className="section-title">
             <div>

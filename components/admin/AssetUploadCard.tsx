@@ -173,8 +173,9 @@ export function AssetUploadCard() {
         <div>
           <h2>Upload assets</h2>
           <p>
-            Images (png/jpg/webp), documents (pdf/docx/pptx/md/txt/csv/json),
-            videos (mp4/mov/webm). Up to 50 MB each.
+            Accepted: images (png · jpg · jpeg · webp), documents (pdf · docx ·
+            pptx · md · txt · csv · json), and videos (mp4 · mov · webm). Up to
+            50 MB per file. Drop multiple at once.
           </p>
         </div>
       </div>

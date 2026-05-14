@@ -2,9 +2,11 @@ import { NextResponse } from "next/server";
 
 import {
   getAIProviderStatuses,
+  getAllProviderConfigStates,
   getServerEnv,
   maskedKeyPreview,
 } from "@/lib/env";
+import { getN8nConfigState } from "@/lib/automation/n8n";
 import { getCurrentProfile } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -22,6 +24,7 @@ export async function GET() {
     );
   }
   const env = getServerEnv();
+  const states = getAllProviderConfigStates();
   const providers = getAIProviderStatuses().map((p) => ({
     id: p.id,
     label: p.label,
@@ -29,7 +32,10 @@ export async function GET() {
     enabled: p.enabled,
     source: p.source,
     env_var_names: p.envVarNames,
+    // Single source of truth — same shape used by /api/integrations/status.
+    state: states[p.id],
   }));
+  const n8n = getN8nConfigState();
 
   return NextResponse.json({
     ok: true,
@@ -61,10 +67,9 @@ export async function GET() {
       live_email_send: env.SAFETY.allowLiveEmailSend,
     },
     automation: {
-      n8n_configured: Boolean(
-        env.N8N_BASE_URL &&
-          Object.values(env.N8N_WEBHOOKS).some((u) => Boolean(u))
-      ),
+      n8n_configured: n8n.configured,
+      n8n_base_url_present: n8n.base_url_present,
+      n8n_webhooks: n8n.webhooks,
     },
     // Masked previews only — never the full key. Even though only authenticated
     // users hit this endpoint, providing masked-only is defense in depth.
