@@ -13,6 +13,7 @@ import {
   Users2,
 } from "lucide-react";
 
+import { renderEmailPreview } from "@/lib/email/render";
 import { cn } from "@/lib/utils";
 import type { EmailCampaign } from "@/types/database";
 
@@ -25,6 +26,7 @@ export interface AudienceOption {
 
 interface Props {
   initialDraft?: EmailCampaign | null;
+  initialAudienceId?: string | null;
   liveSendEnabled?: boolean;
   audiences?: AudienceOption[];
   ownerEmail?: string;
@@ -33,6 +35,7 @@ interface Props {
 
 export function EmailComposer({
   initialDraft,
+  initialAudienceId,
   liveSendEnabled,
   audiences = [],
   ownerEmail = "",
@@ -47,9 +50,14 @@ export function EmailComposer({
     initialDraft?.preview_text ?? ""
   );
   const [body, setBody] = useState(initialDraft?.body_text ?? "");
-  const [recipients, setRecipients] = useState(
-    initialDraft?.recipient_list ?? ""
-  );
+  // Initial recipients: prefer the draft's saved value, otherwise apply the
+  // `audience=<uuid>` deep-link param when present. Free-text fallback is
+  // unaffected if the param is missing.
+  const [recipients, setRecipients] = useState(() => {
+    if (initialDraft?.recipient_list) return initialDraft.recipient_list;
+    if (initialAudienceId) return `audience:${initialAudienceId}`;
+    return "";
+  });
   const [showPreview, setShowPreview] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
@@ -60,10 +68,25 @@ export function EmailComposer({
     setSubject(initialDraft?.subject ?? "");
     setPreviewText(initialDraft?.preview_text ?? "");
     setBody(initialDraft?.body_text ?? "");
-    setRecipients(initialDraft?.recipient_list ?? "");
-  }, [initialDraft]);
+    setRecipients(
+      initialDraft?.recipient_list ??
+        (initialAudienceId ? `audience:${initialAudienceId}` : "")
+    );
+  }, [initialDraft, initialAudienceId]);
 
-  const previewHtml = useMemo(() => renderMarkdownPreview(body), [body]);
+  // Full inbox-shell HTML. The `html` field is what we drop into the iframe
+  // srcdoc and what we POST to /api/email so the saved row + future n8n
+  // payload all share one renderer.
+  const rendered = useMemo(
+    () =>
+      renderEmailPreview({
+        subject: subject || "(No subject)",
+        previewText,
+        bodyMarkdown: body,
+      }),
+    [subject, previewText, body]
+  );
+  const previewHtml = rendered.html;
 
   function submit(action: "draft" | "approve" | "request_send" | "request_test") {
     setError(null);
@@ -254,17 +277,20 @@ export function EmailComposer({
                 {previewText || "Preview text appears here"}
               </p>
             </div>
-            <div className="rounded-xl border border-ink-800 bg-ink-900/30 p-3">
-              <p className="text-[10px] uppercase tracking-[0.18em] text-ink-300">
-                Rendered body
-              </p>
-              <div
-                className="prose prose-invert mt-2 max-w-none text-sm text-ink-100 [&_h1]:text-base [&_h1]:font-semibold [&_h2]:text-sm [&_h2]:font-semibold [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-accent-gold [&_a]:underline"
-                dangerouslySetInnerHTML={{
-                  __html:
-                    previewHtml ||
-                    '<p class="text-ink-300">Start typing in the editor on the left…</p>',
-                }}
+            <div className="overflow-hidden rounded-xl border border-ink-800 bg-ink-950">
+              <div className="flex items-center justify-between gap-2 border-b border-ink-800 px-3 py-1.5">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-ink-300">
+                  Rendered newsletter
+                </p>
+                <p className="text-[10px] text-ink-400">
+                  Same shell ships to n8n on Queue send
+                </p>
+              </div>
+              <iframe
+                title="Email preview"
+                srcDoc={previewHtml}
+                sandbox=""
+                className="block h-[520px] w-full bg-ink-950"
               />
             </div>
           </div>
@@ -333,51 +359,3 @@ export function EmailComposer({
   );
 }
 
-// Small Markdown subset → HTML for the preview pane. Headings, bold/italic,
-// bullet + numbered lists, http(s)/mailto links, paragraphs.
-function renderMarkdownPreview(src: string): string {
-  if (!src) return "";
-  const escape = (s: string) =>
-    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  let html = escape(src);
-  html = html.replace(/```([\s\S]*?)```/g, (_, code) => `<pre><code>${code}</code></pre>`);
-  html = html.replace(/^###### (.+)$/gm, "<h6>$1</h6>");
-  html = html.replace(/^##### (.+)$/gm, "<h5>$1</h5>");
-  html = html.replace(/^#### (.+)$/gm, "<h4>$1</h4>");
-  html = html.replace(/^### (.+)$/gm, "<h3>$1</h3>");
-  html = html.replace(/^## (.+)$/gm, "<h2>$1</h2>");
-  html = html.replace(/^# (.+)$/gm, "<h1>$1</h1>");
-  html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-  html = html.replace(/\*([^*]+)\*/g, "<em>$1</em>");
-  html = html.replace(
-    /\[([^\]]+)\]\((https?:\/\/[^\s)]+|mailto:[^\s)]+)\)/g,
-    '<a href="$2" rel="noreferrer noopener" target="_blank">$1</a>'
-  );
-  html = html.replace(/^(?:- (.+)(?:\n|$))+/gm, (block) => {
-    const items = block
-      .trim()
-      .split(/\n/)
-      .map((l) => l.replace(/^- /, ""))
-      .map((l) => `<li>${l}</li>`)
-      .join("");
-    return `<ul>${items}</ul>`;
-  });
-  html = html.replace(/^(?:\d+\. (.+)(?:\n|$))+/gm, (block) => {
-    const items = block
-      .trim()
-      .split(/\n/)
-      .map((l) => l.replace(/^\d+\. /, ""))
-      .map((l) => `<li>${l}</li>`)
-      .join("");
-    return `<ol>${items}</ol>`;
-  });
-  html = html
-    .split(/\n{2,}/)
-    .map((chunk) =>
-      /^<(h\d|ul|ol|pre|blockquote)/i.test(chunk.trim())
-        ? chunk
-        : `<p>${chunk.replace(/\n/g, "<br/>")}</p>`
-    )
-    .join("\n");
-  return html;
-}

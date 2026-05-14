@@ -86,6 +86,20 @@ select public.promote_owner('newowner@example.com');
 - The dashboard at `/dashboard` shows your name and role
 - Settings → Providers reflects the env vars you have set
 
+## 5a. Login page extras
+
+The sign-in page (`/login`) reads three optional public env vars:
+
+| Env var | What it does |
+|---|---|
+| `NEXT_PUBLIC_WELCOME_VIDEO_URL` | Embeds a welcome video in the left panel. Use a vimeo / youtube / loom embed URL. If empty, a placeholder card is shown. |
+| `NEXT_PUBLIC_DESKTOP_MAC_DOWNLOAD_URL` | Points the "Download for Mac" button at a hosted `.dmg`. If empty the button shows "Coming soon" and is disabled. |
+| `NEXT_PUBLIC_DESKTOP_WINDOWS_DOWNLOAD_URL` | Points the "Download for Windows" button at a hosted `.exe` / `.msi`. If empty the button shows "Coming soon" and is disabled. |
+
+These vars are public (browser-readable) by design — they are URLs, not secrets.
+LegendsOS does not auto-wrap a desktop app; once you ship a wrapper, host the
+installer behind a CDN and paste the URLs in.
+
 ## 6. Deploy to Netlify
 
 1. Push the repo to GitHub.

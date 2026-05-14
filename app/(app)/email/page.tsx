@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
 export default async function EmailStudioPage({
   searchParams,
 }: {
-  searchParams: { id?: string };
+  searchParams: { id?: string; audience?: string };
 }) {
   const profile = await getCurrentProfile();
   if (!profile) return null;
@@ -57,6 +57,17 @@ export default async function EmailStudioPage({
     ? campaigns.find((c) => c.id === searchParams.id) ?? null
     : null;
 
+  // /email?audience=<uuid> preselects the audience in the composer. We
+  // validate it against the active audience list so a stale or wrong UUID
+  // falls back to no preselection — never breaks the free-text mode.
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const audienceParam = (searchParams?.audience ?? "").trim();
+  const initialAudienceId =
+    audienceParam && UUID_RE.test(audienceParam) &&
+    audiences.some((a) => a.id === audienceParam)
+      ? audienceParam
+      : null;
+
   return (
     <div className="space-y-6">
       <SectionHeader
@@ -88,6 +99,7 @@ export default async function EmailStudioPage({
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[2fr_1fr]">
         <EmailComposer
           initialDraft={initial}
+          initialAudienceId={initialAudienceId}
           liveSendEnabled={env.SAFETY.allowLiveEmailSend}
           ownerEmail={profile.email || PUBLIC_ENV.OWNER_EMAIL}
           ownerName={

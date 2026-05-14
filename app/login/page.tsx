@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { PlayCircle } from "lucide-react";
+import { Apple, Download, MonitorDown, PlayCircle } from "lucide-react";
 
 import { LoginForm } from "@/components/auth/LoginForm";
 import { PUBLIC_ENV, isSupabaseConfigured } from "@/lib/env";
@@ -16,51 +16,64 @@ export default function LoginPage({
   // "feature bullets" — Jeremy explicitly removed those from the sign-in
   // page in the walkthrough.
   const welcomeVideoUrl = process.env.NEXT_PUBLIC_WELCOME_VIDEO_URL || "";
+  const macDownloadUrl =
+    process.env.NEXT_PUBLIC_DESKTOP_MAC_DOWNLOAD_URL || "";
+  const winDownloadUrl =
+    process.env.NEXT_PUBLIC_DESKTOP_WINDOWS_DOWNLOAD_URL || "";
 
   return (
     <main className="grid min-h-screen lg:grid-cols-[1.05fr_1fr]">
-      <section className="hidden lg:flex flex-col justify-between border-r border-ink-800 bg-ember-radial p-12">
-        <div>
-          <div className="flex items-center gap-3">
-            <Logo />
-            <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-ink-300">
-                {PUBLIC_ENV.APP_NAME}
-              </p>
-              <p className="text-sm text-ink-200">v2.0 · internal</p>
-            </div>
+      <section className="hidden lg:flex flex-col border-r border-ink-800 bg-ember-radial px-12 py-10">
+        <div className="flex items-center gap-3">
+          <Logo />
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-ink-300">
+              {PUBLIC_ENV.APP_NAME}
+            </p>
+            <p className="text-sm text-ink-200">v2.0 · internal</p>
           </div>
-          <h1 className="mt-10 max-w-md text-3xl font-semibold leading-tight text-ink-100">
+        </div>
+        {/* Centered content block: headline → video → desktop downloads.
+            flex-1 + justify-center vertically centers this column in the
+            remaining space below the logo, so the welcome card no longer
+            sits at the bottom edge of the viewport. */}
+        <div className="flex flex-1 flex-col justify-center gap-8 pb-4">
+          <h1 className="max-w-md text-3xl font-semibold leading-tight text-ink-100">
             One command center for{" "}
             <span className="bg-gradient-to-r from-accent-gold to-accent-orange bg-clip-text text-transparent">
               The Legends Mortgage Team
             </span>
             .
           </h1>
-        </div>
-        <div className="mt-6 max-w-md">
-          {welcomeVideoUrl ? (
-            <div className="aspect-video overflow-hidden rounded-2xl border border-ink-800 bg-ink-950 shadow-card">
-              <iframe
-                src={welcomeVideoUrl}
-                title="LegendsOS welcome"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowFullScreen
-                className="h-full w-full"
-              />
-            </div>
-          ) : (
-            <div className="card flex aspect-video flex-col items-center justify-center gap-2 p-6 text-center text-ink-300">
-              <PlayCircle size={28} className="text-accent-gold" />
-              <p className="text-sm font-medium text-ink-100">
-                Welcome video coming soon
-              </p>
-              <p className="text-xs text-ink-300">
-                Drop the URL into <code>NEXT_PUBLIC_WELCOME_VIDEO_URL</code>{" "}
-                and it embeds here automatically.
-              </p>
-            </div>
-          )}
+          <div className="w-full max-w-md">
+            {welcomeVideoUrl ? (
+              <div className="aspect-video overflow-hidden rounded-2xl border border-ink-800 bg-ink-950 shadow-card">
+                <iframe
+                  src={welcomeVideoUrl}
+                  title="LegendsOS welcome"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                  className="h-full w-full"
+                />
+              </div>
+            ) : (
+              <div className="card flex aspect-video flex-col items-center justify-center gap-2 p-6 text-center text-ink-300">
+                <PlayCircle size={28} className="text-accent-gold" />
+                <p className="text-sm font-medium text-ink-100">
+                  Welcome video coming soon
+                </p>
+                <p className="text-xs text-ink-300">
+                  Drop the URL into{" "}
+                  <code>NEXT_PUBLIC_WELCOME_VIDEO_URL</code> and it embeds
+                  here automatically.
+                </p>
+              </div>
+            )}
+          </div>
+          <DesktopDownloadCard
+            macUrl={macDownloadUrl}
+            winUrl={winDownloadUrl}
+          />
         </div>
       </section>
       <section className="flex items-center justify-center px-6 py-12">
@@ -113,5 +126,80 @@ function Logo() {
     <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-accent-gold via-accent-gold to-accent-orange text-base font-black text-ink-950 shadow-glow">
       L
     </div>
+  );
+}
+
+function DesktopDownloadCard({
+  macUrl,
+  winUrl,
+}: {
+  macUrl: string;
+  winUrl: string;
+}) {
+  return (
+    <div className="w-full max-w-md rounded-2xl border border-ink-800 bg-ink-900/40 p-5 shadow-card backdrop-blur">
+      <div className="flex items-start gap-3">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-accent-gold/15 text-accent-gold">
+          <Download size={16} />
+        </span>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-ink-100">
+            Download LegendsOS Desktop
+          </p>
+          <p className="mt-0.5 text-xs text-ink-300">
+            Use LegendsOS from your Mac or Windows desktop.
+          </p>
+        </div>
+      </div>
+      <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <DesktopButton
+          href={macUrl}
+          label="Download for Mac"
+          icon={<Apple size={14} />}
+        />
+        <DesktopButton
+          href={winUrl}
+          label="Download for Windows"
+          icon={<MonitorDown size={14} />}
+          variant="ghost"
+        />
+      </div>
+    </div>
+  );
+}
+
+function DesktopButton({
+  href,
+  label,
+  icon,
+  variant = "primary",
+}: {
+  href: string;
+  label: string;
+  icon: React.ReactNode;
+  variant?: "primary" | "ghost";
+}) {
+  const baseClasses =
+    variant === "primary"
+      ? "btn-primary w-full justify-center"
+      : "btn w-full justify-center";
+  if (!href) {
+    return (
+      <button
+        type="button"
+        disabled
+        className={`${baseClasses} cursor-not-allowed opacity-50`}
+        title="Set the matching NEXT_PUBLIC_DESKTOP_*_DOWNLOAD_URL env var to enable."
+      >
+        {icon}
+        <span>Coming soon</span>
+      </button>
+    );
+  }
+  return (
+    <a href={href} className={baseClasses} target="_blank" rel="noreferrer">
+      {icon}
+      {label}
+    </a>
   );
 }

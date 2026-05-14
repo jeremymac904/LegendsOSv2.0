@@ -16,7 +16,10 @@ import { StatusPill } from "@/components/ui/StatusPill";
 import { loadAssetManifest, type AssetCategory } from "@/lib/assets";
 import { loadOrgUploadedAssets } from "@/lib/admin/orgAssets";
 import { isOwner } from "@/lib/permissions";
-import { getCurrentProfile } from "@/lib/supabase/server";
+import {
+  getCurrentProfile,
+  getSupabaseServerClient,
+} from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -37,10 +40,40 @@ export default async function AssetLibraryPage({ searchParams }: PageProps) {
   const profile = await getCurrentProfile();
   if (!profile || !isOwner(profile)) redirect("/dashboard");
 
-  const [manifest, uploaded] = await Promise.all([
+  const sb = getSupabaseServerClient();
+  const [manifest, uploaded, { data: socialRefs }] = await Promise.all([
     Promise.resolve(loadAssetManifest()),
     loadOrgUploadedAssets(),
+    // One query, then aggregate per asset id below. Used to render the
+    // "Used in N posts" chip on each asset card.
+    sb
+      .from("social_posts")
+      .select("id,media_id,metadata"),
   ]);
+
+  // Build a Map<string assetId/token, number>. The token shape is whatever
+  // the social composer stores in metadata.media_ids — that can be a real
+  // generated_media UUID, an uploaded shared_resources UUID, or a manifest
+  // slug like "team-jeremy". We count any of those equally. The single
+  // `media_id` column is also counted (UUID only).
+  const usageCount = new Map<string, number>();
+  for (const row of (socialRefs ?? []) as {
+    id: string;
+    media_id: string | null;
+    metadata: { media_ids?: unknown } | null;
+  }[]) {
+    const seen = new Set<string>();
+    if (row.media_id) seen.add(row.media_id);
+    const ids = row.metadata?.media_ids;
+    if (Array.isArray(ids)) {
+      for (const v of ids) {
+        if (typeof v === "string" && v) seen.add(v);
+      }
+    }
+    for (const id of seen) {
+      usageCount.set(id, (usageCount.get(id) ?? 0) + 1);
+    }
+  }
 
   const q = (searchParams.q ?? "").trim().toLowerCase();
   const activeCat = (searchParams.cat ?? "").trim() as AssetCategory | "";
@@ -239,6 +272,7 @@ export default async function AssetLibraryPage({ searchParams }: PageProps) {
                   <span className="chip">
                     {CATEGORY_LABEL[a.category] ?? a.category}
                   </span>
+                  <UsageChip count={usageCount.get(a.id) ?? 0} />
                   {a.is_uploaded && (
                     <span className="chip-ok text-[10px]">uploaded</span>
                   )}
@@ -266,6 +300,20 @@ export default async function AssetLibraryPage({ searchParams }: PageProps) {
       )}
     </div>
   );
+}
+
+function UsageChip({ count }: { count: number }) {
+  const copy =
+    count === 0
+      ? "Used in 0 posts"
+      : count === 1
+      ? "Used in 1 post"
+      : `Used in ${count} posts`;
+  const className =
+    count === 0
+      ? "inline-flex items-center gap-1 rounded-full border border-ink-700 bg-ink-900/50 px-2 py-0.5 text-[10px] text-ink-300"
+      : "inline-flex items-center gap-1 rounded-full border border-accent-gold/40 bg-accent-gold/10 px-2 py-0.5 text-[10px] font-medium text-accent-gold";
+  return <span className={className}>{copy}</span>;
 }
 
 function CategoryChip({
