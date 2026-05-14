@@ -49,6 +49,22 @@ export default async function ImageStudioPage() {
   );
   const assetRefs = [...uploadedRefs, ...manifestRefs];
 
+  // When the user has < 4 generations we show a "Starter visuals" row that
+  // surfaces the strongest brand-library images, so the right column never
+  // looks empty for a fresh deploy. The starters are read-only previews;
+  // generated_media rows still take priority.
+  const SHOW_STARTERS_THRESHOLD = 4;
+  const starters = assetRefs
+    .filter(
+      (a) =>
+        a.public_path &&
+        (a.category === "social_image" ||
+          a.category === "image_studio_reference" ||
+          a.category === "background")
+    )
+    .slice(0, 6);
+  const showStarters = media.length < SHOW_STARTERS_THRESHOLD;
+
   return (
     <div className="space-y-6">
       <SectionHeader
@@ -73,12 +89,16 @@ export default async function ImageStudioPage() {
         <section className="card-padded">
           <div className="section-title">
             <div>
-              <h2>Library</h2>
-              <p>Your last 40 generations.</p>
+              <h2>{media.length > 0 ? "Library" : "Starter visuals"}</h2>
+              <p>
+                {media.length > 0
+                  ? "Your last 40 generations."
+                  : "Curated brand visuals — generate your first image and these tuck into the Brand asset library below."}
+              </p>
             </div>
           </div>
-          <div className="mt-4">
-            {media.length === 0 ? (
+          <div className="mt-4 space-y-4">
+            {media.length === 0 && starters.length === 0 && (
               <EmptyState
                 icon={ImageIcon}
                 title="No images yet"
@@ -88,11 +108,75 @@ export default async function ImageStudioPage() {
                     : "Add FAL_KEY in Settings → Providers to enable generation."
                 }
               />
-            ) : (
+            )}
+            {media.length === 0 && starters.length > 0 && (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {starters.map((a) => (
+                  <article
+                    key={a.id}
+                    className="group overflow-hidden rounded-xl border border-ink-800 bg-checker"
+                    title={a.label}
+                  >
+                    <div className="relative aspect-square">
+                      {a.public_path && (
+                        <img
+                          src={a.public_path}
+                          alt={a.label}
+                          className="h-full w-full object-cover transition group-hover:scale-[1.02]"
+                          loading="lazy"
+                        />
+                      )}
+                      <span className="absolute left-1.5 top-1.5 rounded-full bg-ink-950/80 px-2 py-0.5 text-[9px] uppercase tracking-[0.18em] text-ink-200">
+                        {a.category.replace(/_/g, " ")}
+                      </span>
+                    </div>
+                    <div className="space-y-0.5 px-2.5 py-1.5 text-[11px]">
+                      <p className="line-clamp-1 font-medium text-ink-100">
+                        {a.label}
+                      </p>
+                      <p className="line-clamp-1 text-[10px] text-ink-300">
+                        {a.file_name}
+                      </p>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+            {media.length > 0 && (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {media.map((m) => (
                   <GeneratedMediaCard key={m.id} media={m} />
                 ))}
+                {showStarters && starters.length > 0 && (
+                  <>
+                    <div className="col-span-full mt-2">
+                      <p className="text-[10px] uppercase tracking-[0.18em] text-ink-300">
+                        Brand starters
+                      </p>
+                    </div>
+                    {starters.map((a) => (
+                      <article
+                        key={a.id}
+                        className="overflow-hidden rounded-xl border border-ink-800 bg-checker"
+                        title={a.label}
+                      >
+                        <div className="aspect-square">
+                          {a.public_path && (
+                            <img
+                              src={a.public_path}
+                              alt={a.label}
+                              className="h-full w-full object-cover"
+                              loading="lazy"
+                            />
+                          )}
+                        </div>
+                        <p className="line-clamp-1 px-2 py-1 text-[11px] text-ink-200">
+                          {a.label}
+                        </p>
+                      </article>
+                    ))}
+                  </>
+                )}
               </div>
             )}
           </div>

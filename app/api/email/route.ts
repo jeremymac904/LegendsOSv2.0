@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { getServerEnv } from "@/lib/env";
+import { getServerEnv, PUBLIC_ENV } from "@/lib/env";
 import { enqueueAutomationJob } from "@/lib/automation/n8n";
 import { getCurrentProfile, getSupabaseServerClient } from "@/lib/supabase/server";
 import { logUsage, recordAudit } from "@/lib/usage";
@@ -17,7 +17,9 @@ const schema = z.object({
   body_text: z.string().nullish(),
   template_key: z.string().nullish(),
   recipient_list: z.string().nullish(),
-  action: z.enum(["draft", "approve", "request_send"]).default("draft"),
+  action: z
+    .enum(["draft", "approve", "request_send", "request_test"])
+    .default("draft"),
 });
 
 export async function POST(req: Request) {
@@ -44,6 +46,8 @@ export async function POST(req: Request) {
   const supabase = getSupabaseServerClient();
   const env = getServerEnv();
 
+  // Test sends do NOT bump the campaign status — the draft stays a draft so
+  // the owner can keep iterating after previewing in their own inbox.
   const status =
     data.action === "request_send"
       ? "approved"
@@ -104,6 +108,8 @@ export async function POST(req: Request) {
     event_type:
       data.action === "request_send"
         ? "campaign_send_requested"
+        : data.action === "request_test"
+        ? "campaign_test_requested"
         : data.action === "approve"
         ? "campaign_approved"
         : "campaign_drafted",
@@ -111,6 +117,7 @@ export async function POST(req: Request) {
   });
 
   let job: { job_id: string; status: string; reason?: string } | null = null;
+  let testRecipient: string | null = null;
   if (data.action === "request_send") {
     job = await enqueueAutomationJob({
       profile,
@@ -133,7 +140,58 @@ export async function POST(req: Request) {
       target_id: row.id,
       metadata: { dispatch: env.SAFETY.allowLiveEmailSend, job_id: job.job_id },
     });
+  } else if (data.action === "request_test") {
+    // Owner-only inbox test. The recipient is HARD-CODED to the owner's
+    // email — even if the form's recipient_list pointed at an audience,
+    // it is ignored here. This is what keeps "Queue test to me" from ever
+    // hitting the broader list.
+    testRecipient = profile.email || PUBLIC_ENV.OWNER_EMAIL;
+    if (!testRecipient) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "bad_request",
+          message:
+            "Owner email is not set on your profile, and NEXT_PUBLIC_OWNER_EMAIL is empty. Set one before queuing a test.",
+        },
+        { status: 400 }
+      );
+    }
+    job = await enqueueAutomationJob({
+      profile,
+      job_type: "email_test_send",
+      module: "email",
+      target_table: "email_campaigns",
+      target_id: row.id,
+      webhook_key: "email_send",
+      payload: {
+        campaign_id: row.id,
+        subject: row.subject,
+        // Override with the owner's email only. The n8n workflow can read
+        // `test_mode: true` and refuse to look up audience contacts.
+        recipient_list: `owner:${testRecipient}`,
+        test_mode: true,
+        test_recipient: testRecipient,
+      },
+      dispatch: env.SAFETY.allowLiveEmailSend,
+    });
+    await recordAudit({
+      actor: profile,
+      action: "email_test_requested",
+      target_type: "email_campaigns",
+      target_id: row.id,
+      metadata: {
+        dispatch: env.SAFETY.allowLiveEmailSend,
+        job_id: job.job_id,
+        recipient: testRecipient,
+      },
+    });
   }
 
-  return NextResponse.json({ ok: true, campaign: row, job });
+  return NextResponse.json({
+    ok: true,
+    campaign: row,
+    job,
+    test_recipient: testRecipient,
+  });
 }

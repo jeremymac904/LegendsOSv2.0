@@ -9,6 +9,8 @@ import {
   Mail,
   Save,
   Send,
+  UserCheck,
+  Users2,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -25,12 +27,16 @@ interface Props {
   initialDraft?: EmailCampaign | null;
   liveSendEnabled?: boolean;
   audiences?: AudienceOption[];
+  ownerEmail?: string;
+  ownerName?: string;
 }
 
 export function EmailComposer({
   initialDraft,
   liveSendEnabled,
   audiences = [],
+  ownerEmail = "",
+  ownerName = "",
 }: Props) {
   const router = useRouter();
   const [campaignId, setCampaignId] = useState<string | null>(
@@ -59,7 +65,7 @@ export function EmailComposer({
 
   const previewHtml = useMemo(() => renderMarkdownPreview(body), [body]);
 
-  function submit(action: "draft" | "approve" | "request_send") {
+  function submit(action: "draft" | "approve" | "request_send" | "request_test") {
     setError(null);
     setInfo(null);
     if (!subject.trim()) {
@@ -100,12 +106,27 @@ export function EmailComposer({
               : `Send queued. n8n status: ${data.job?.status ?? "queued"}.`
           );
         }
+        if (action === "request_test") {
+          setInfo(
+            data.job?.status === "sent"
+              ? `Test sent to ${data.test_recipient ?? "owner inbox"}.`
+              : `Test prepared for ${data.test_recipient ?? "owner inbox"}. n8n status: ${data.job?.status ?? "queued"} — no audience emails went out.`
+          );
+        }
         router.refresh();
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed.");
       }
     });
   }
+
+  // Active audience summary (drives the big "X active contacts" card).
+  const selectedAudienceId = recipients.startsWith("audience:")
+    ? recipients.slice("audience:".length)
+    : null;
+  const selectedAudience = selectedAudienceId
+    ? audiences.find((a) => a.id === selectedAudienceId)
+    : null;
 
   return (
     <section className="card-padded space-y-3">
@@ -146,7 +167,7 @@ export function EmailComposer({
             onChange={(e) => setPreviewText(e.target.value)}
             maxLength={200}
           />
-          <div>
+          <div className="space-y-2">
             {audiences.length > 0 ? (
               <select
                 className="input"
@@ -159,7 +180,7 @@ export function EmailComposer({
                 <option value="">— Select an audience —</option>
                 {audiences.map((a) => (
                   <option key={a.id} value={`audience:${a.id}`}>
-                    {a.name} · {a.active}/{a.total}
+                    {a.name} · {a.active.toLocaleString()} active
                   </option>
                 ))}
               </select>
@@ -173,8 +194,36 @@ export function EmailComposer({
               />
             )}
             {audiences.length === 0 && (
-              <p className="mt-1 text-[10px] text-ink-300">
+              <p className="text-[10px] text-ink-300">
                 No audiences yet. Open Audiences (top-right) to import a CSV.
+              </p>
+            )}
+            {selectedAudience && (
+              <div className="flex items-start gap-3 rounded-xl border border-accent-gold/30 bg-accent-gold/5 p-3">
+                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-accent-gold/20 text-accent-gold">
+                  <Users2 size={16} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-ink-100">
+                    {selectedAudience.name}
+                  </p>
+                  <p className="mt-0.5 text-[12px] text-ink-200">
+                    <span className="font-semibold text-accent-gold">
+                      {selectedAudience.active.toLocaleString()}
+                    </span>{" "}
+                    active contact
+                    {selectedAudience.active === 1 ? "" : "s"} ·{" "}
+                    {selectedAudience.total.toLocaleString()} total
+                  </p>
+                  <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-ink-300">
+                    Blast size when you Queue send
+                  </p>
+                </div>
+              </div>
+            )}
+            {!selectedAudience && audiences.length > 0 && (
+              <p className="text-[10px] text-ink-300">
+                Pick an audience above to see the blast size before sending.
               </p>
             )}
           </div>
@@ -246,6 +295,19 @@ export function EmailComposer({
           Mark ready
         </button>
         <button
+          className="btn"
+          onClick={() => submit("request_test")}
+          disabled={isPending || !body.trim() || !ownerEmail}
+          title={
+            ownerEmail
+              ? `Routes only to ${ownerEmail}${ownerName ? ` (${ownerName})` : ""}, never to the selected audience.`
+              : "Owner email not configured."
+          }
+        >
+          <UserCheck size={14} />
+          {ownerEmail ? `Queue test to ${ownerName || "me"}` : "Queue test"}
+        </button>
+        <button
           className="btn-primary"
           onClick={() => submit("request_send")}
           disabled={isPending || !body.trim()}
@@ -256,7 +318,9 @@ export function EmailComposer({
           }
         >
           <Send size={14} />
-          Queue send
+          {selectedAudience
+            ? `Queue send · ${selectedAudience.active.toLocaleString()} contacts`
+            : "Queue send"}
         </button>
         <span className="ml-auto inline-flex items-center gap-1 text-[11px] text-ink-300">
           <Mail size={12} />

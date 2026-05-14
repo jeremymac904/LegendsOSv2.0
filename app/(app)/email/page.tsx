@@ -5,7 +5,7 @@ import { EmailComposer } from "@/components/email/EmailComposer";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatusPill } from "@/components/ui/StatusPill";
-import { getServerEnv } from "@/lib/env";
+import { getServerEnv, PUBLIC_ENV } from "@/lib/env";
 import {
   getCurrentProfile,
   getSupabaseServerClient,
@@ -89,6 +89,13 @@ export default async function EmailStudioPage({
         <EmailComposer
           initialDraft={initial}
           liveSendEnabled={env.SAFETY.allowLiveEmailSend}
+          ownerEmail={profile.email || PUBLIC_ENV.OWNER_EMAIL}
+          ownerName={
+            profile.full_name?.split(" ")[0] ??
+            (profile.email
+              ? profile.email.split("@")[0]
+              : PUBLIC_ENV.OWNER_EMAIL.split("@")[0])
+          }
           audiences={audiences.map((a) => ({
             id: a.id,
             name: a.name,

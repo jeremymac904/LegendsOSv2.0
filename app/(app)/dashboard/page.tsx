@@ -13,9 +13,9 @@ import {
 
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionHeader } from "@/components/ui/SectionHeader";
-import { StatCard } from "@/components/ui/StatCard";
 import { StatusPill } from "@/components/ui/StatusPill";
-import { PUBLIC_ENV } from "@/lib/env";
+import { imageLibrary } from "@/lib/assets";
+import { PUBLIC_ENV, getServerEnv } from "@/lib/env";
 import { isOwner } from "@/lib/permissions";
 import {
   getCurrentProfile,
@@ -139,6 +139,28 @@ export default async function DashboardPage() {
 
   const owner = isOwner(profile);
 
+  // Daily caps come from server env. Used to render "X chats remaining today"
+  // copy on the stat cards instead of bare 0/N.
+  const env = getServerEnv();
+  const caps = env.DAILY_CAPS;
+  const chatsUsed = events.filter((e) => e.module === "atlas").length;
+  const imagesUsed = events.filter((e) => e.module === "images").length;
+  const socialUsed = events.filter((e) => e.module === "social").length;
+  const emailUsed = events.filter((e) => e.module === "email").length;
+
+  // When the image library is essentially empty, surface the brand visuals
+  // from the asset manifest so the "Recent imagery" card never looks dead.
+  // Owner-only assets are filtered to team_shared for non-owners.
+  const brandStarters = imageLibrary()
+    .filter((a) => owner || a.default_visibility === "team_shared")
+    .filter(
+      (a) =>
+        a.category === "social_image" ||
+        a.category === "image_studio_reference" ||
+        a.category === "background"
+    )
+    .slice(0, 6);
+
   return (
     <div className="space-y-8">
       <SectionHeader
@@ -155,28 +177,32 @@ export default async function DashboardPage() {
 
       <section>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <StatCard
-            label="Chats (24h)"
-            value={events.filter((e) => e.module === "atlas").length}
-            hint="Atlas messages logged today"
+          <UsageCard
+            label="Atlas chats today"
+            used={chatsUsed}
+            cap={caps.chat}
+            unit="chat"
             icon={MessageCircle}
           />
-          <StatCard
-            label="Images (24h)"
-            value={events.filter((e) => e.module === "images").length}
-            hint="Generated media events"
+          <UsageCard
+            label="Images today"
+            used={imagesUsed}
+            cap={caps.images}
+            unit="image"
             icon={ImageIcon}
           />
-          <StatCard
-            label="Social events (24h)"
-            value={events.filter((e) => e.module === "social").length}
-            hint="Drafts + publish requests"
+          <UsageCard
+            label="Social activity today"
+            used={socialUsed}
+            cap={caps.social}
+            unit="action"
             icon={Share2}
           />
-          <StatCard
-            label="Email events (24h)"
-            value={events.filter((e) => e.module === "email").length}
-            hint="Drafts + send requests"
+          <UsageCard
+            label="Email activity today"
+            used={emailUsed}
+            cap={caps.email}
+            unit="action"
             icon={Mail}
           />
         </div>
@@ -278,43 +304,67 @@ export default async function DashboardPage() {
         <section className="card-padded">
           <div className="section-title">
             <div>
-              <h2>Recent imagery</h2>
-              <p>Last six Image Studio outputs.</p>
+              <h2>{images.length > 0 ? "Recent imagery" : "Brand visuals"}</h2>
+              <p>
+                {images.length > 0
+                  ? "Last six Image Studio outputs."
+                  : "Curated starters from your brand library — generate a new image to replace these."}
+              </p>
             </div>
             <Link href="/images" className="btn-ghost text-xs">
               Open studio
             </Link>
           </div>
           <div className="mt-4 grid grid-cols-3 gap-2">
-            {images.length === 0 ? (
-              <div className="col-span-3">
-                <EmptyState
-                  icon={Sparkles}
-                  title="No generated images yet"
-                  description="Provider must be configured first. See Settings → Providers."
-                />
-              </div>
-            ) : (
-              images.map((img) => (
-                <div
-                  key={img.id}
-                  className="aspect-square overflow-hidden rounded-xl border border-ink-800 bg-checker"
-                  title={img.prompt}
-                >
-                  {img.preview_url ? (
-                    <img
-                      src={img.preview_url}
-                      alt={img.prompt}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="grid h-full w-full place-items-center text-[10px] text-ink-300">
-                      {img.status}
-                    </div>
-                  )}
+            {images.length > 0
+              ? images.map((img) => (
+                  <div
+                    key={img.id}
+                    className="aspect-square overflow-hidden rounded-xl border border-ink-800 bg-checker"
+                    title={img.prompt}
+                  >
+                    {img.preview_url ? (
+                      <img
+                        src={img.preview_url}
+                        alt={img.prompt}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="grid h-full w-full place-items-center text-[10px] text-ink-300">
+                        {img.status}
+                      </div>
+                    )}
+                  </div>
+                ))
+              : brandStarters.length > 0
+              ? brandStarters.map((a) => (
+                  <div
+                    key={a.id}
+                    className="group relative aspect-square overflow-hidden rounded-xl border border-ink-800 bg-checker"
+                    title={a.label}
+                  >
+                    {a.public_path && (
+                      <img
+                        src={a.public_path}
+                        alt={a.label}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                      />
+                    )}
+                    <span className="absolute bottom-1 left-1 right-1 rounded-md bg-ink-950/70 px-1.5 py-0.5 text-[9px] text-ink-100 line-clamp-1">
+                      {a.label}
+                    </span>
+                  </div>
+                ))
+              : (
+                <div className="col-span-3">
+                  <EmptyState
+                    icon={Sparkles}
+                    title="No imagery yet"
+                    description="Open Image Studio to generate the first brand visual, or upload assets in the Admin Asset Library."
+                  />
                 </div>
-              ))
-            )}
+              )}
           </div>
         </section>
       </div>
@@ -370,6 +420,51 @@ export default async function DashboardPage() {
           </div>
         </section>
       )}
+    </div>
+  );
+}
+
+// Daily usage card with humanized copy. "0/100" reads as broken; this shows
+// either "100 chats remaining today" + "No chats used yet today" or
+// "97 chats remaining today" + "3 used so far today".
+function UsageCard({
+  label,
+  used,
+  cap,
+  unit,
+  icon: Icon,
+}: {
+  label: string;
+  used: number;
+  cap: number;
+  unit: string;
+  icon: React.ComponentType<{ size?: number | string }>;
+}) {
+  const remaining = Math.max(cap - used, 0);
+  const pct = cap > 0 ? Math.min(100, (used / cap) * 100) : 0;
+  const noneYet = used === 0;
+  const headline = noneYet
+    ? `${cap} ${unit}${cap === 1 ? "" : "s"} ready today`
+    : `${remaining} ${unit}${remaining === 1 ? "" : "s"} remaining today`;
+  const sub = noneYet
+    ? `No ${unit}s used yet today.`
+    : `${used} used so far · daily cap ${cap}`;
+  return (
+    <div className="card-padded space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="label">{label}</p>
+        <span className="text-ink-300">
+          <Icon size={14} />
+        </span>
+      </div>
+      <p className="text-base font-semibold text-ink-100">{headline}</p>
+      <p className="text-[11px] text-ink-300">{sub}</p>
+      <div className="h-1 w-full overflow-hidden rounded-full bg-ink-800">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-accent-gold to-accent-orange"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
     </div>
   );
 }
