@@ -76,21 +76,85 @@ Nothing technically blocked. Live action enabling depends on Jeremy explicitly s
 - `npm run build` ✓ 18 routes, middleware compiled, no errors
 - Playwright config + smoke test authored (not yet run; requires browser install)
 
+## Premium command-center sprint — 2026-05-14 (commit 2b93c40)
+
+Lead integrator dispatched four parallel agents and merged the output.
+Lint / typecheck / build all clean at 20 routes; live deploy serving the new
+build (verified `text-gold-gradient` + "Your command center awaits" in the
+live HTML; build id `bgSwkiYKKXnUYLkAT81dN`).
+
+- **Atlas Hermes-style tool router** — `lib/atlas/intentDetection.ts` +
+  `lib/atlas/toolRouter.ts`. `/api/ai/chat` now intercepts intents like
+  "draft a Facebook post about X", "write a newsletter about Y",
+  "schedule team standup on Monday" and inserts a draft row in the
+  correct table, returns the link, audit-logs the call, and renders a
+  ToolResultCard chip in Atlas. Non-tool messages preserve the full
+  provider chain + retrieval behavior.
+- **Email Studio** — audience picker persists on reopen (stored in
+  `metadata.audience_id`, falls back to legacy `recipient_list "audience:<uuid>"`).
+  AI Write button calls `/api/ai/chat`. Inbox preview rendered via
+  `lib/email/render.ts` in a sandboxed iframe, debounced 250ms,
+  matches the dashboard's "Latest newsletter" treatment.
+- **Calendar** — server-rendered month grid with prev/next/today nav,
+  All/Social/Email/Calendar filter chips, color-coded entry chips
+  (orange social, gold email, gold-bordered ink calendar), "+N more"
+  overflow, today cell ringed in gold. `?month=YYYY-MM` and `?filter=`
+  drive state. Upcoming next 7 days flat list below the grid.
+- **Premium dark gold glass shell** — `.card` / `.card-padded` have
+  subtle backdrop-blur + hairline gold top edge + hover glow.
+  `.btn-primary` has inset highlight + warm glow, `.btn-secondary` is
+  glass with gold border, `.btn-ghost` gets a gold hover underline.
+  `.chip` is uniform 24px. `.nav-item-active` has a 2px gold left rail.
+  Sidebar gains an Atlas-style header with a gold rune dot + wordmark.
+  TopBar is a glass band with a workspace dot. Login is a centered
+  glass card with mobile wordmark + ambient gold wash.
+- **Dashboard** — two new cards after Latest newsletter: "Upcoming
+  content" (next 7 days merged across social/email/calendar) and
+  "Recent activity" (last 10 usage events with friendly module +
+  action labels). Both fall back to polished empty states.
+
+## Verification (this pass)
+
+- `npm run lint`        ✓ no warnings or errors
+- `npx tsc --noEmit`    ✓ exit 0
+- `npm run build`       ✓ 20 routes, middleware 81.6 kB
+- Live `/login`         ✓ 200, new visual polish landed (Playwright
+                          snapshot + full-page screenshot saved to
+                          `.playwright-mcp/login-verified.png`)
+- Live `/api/health`    ✓ `{ ok: true, supabaseConfigured: true }`
+- Live protected routes (`/dashboard`, `/atlas`, `/social`, `/images`,
+  `/email`, `/calendar`, `/knowledge`, `/admin`, `/admin/users`,
+  `/admin/assets`, `/settings`) all 307-redirect to
+  `/login?from=<path>` for unauthenticated GETs — middleware OK.
+
 ## Next highest value task
 
-1. Push to `github.com/jeremymac904/LegendsOSv2.0`.
-2. Create Supabase project, apply migrations 1–4 in order.
-3. Wire env vars in Netlify and deploy.
-4. Sign in with `jeremy@mcdonald-mtg.com` and confirm `/dashboard` renders for the owner role.
-5. After verification, run the DeepSeek and Codex prompts from the source pack against the new repo.
+1. **Authenticated visual sweep.** Bring up Playwright against
+   `/dashboard`, `/atlas`, `/social`, `/email`, `/calendar`,
+   `/admin/users`, `/admin/assets` while signed in as
+   `jeremy@mcdonald-mtg.com` and confirm the new glass treatment lands
+   on every protected surface, plus exercise:
+   - Atlas tool router: type a draft/social/calendar prompt and verify
+     the ToolResultCard chip + the corresponding row appears in
+     `social_posts` / `email_campaigns` / `calendar_items`.
+   - Email AI Write: open a fresh draft, click AI Write, verify body
+     populates and audience picker round-trips on reopen.
+   - Calendar grid: schedule items across a week, verify chips render
+     in the correct cells with correct color, and "+N more" works.
+2. **Provider live test.** With `ALLOW_PAID_TEXT_GENERATION=true`,
+   exercise an end-to-end Atlas chat and AI Write call against
+   OpenRouter to confirm the gateway + caps behave under real load.
+3. **Knowledge upload smoke.** Upload a PDF + a markdown file via
+   `/knowledge` and verify Atlas retrieval surfaces the new content.
 
 ## Risks
 
 - **Owner auto-promotion** depends on the bootstrap migration being applied before first login. If a user signs up before migration runs, run `select public.promote_owner('jeremy@mcdonald-mtg.com');` manually.
 - **Daily caps** use a 24h rolling window via `usage_events`. If the table is heavily seeded with old test data, caps may misfire; truncate test data before going live.
 - **Compliance line** is auto-applied in the Atlas system prompt; the social and email composers expect the user to paste it manually for now (planned for next pass via the `shared_resources` template loader).
-- **No email HTML rendering yet** — campaigns persist plaintext; HTML body field exists but UI is text-only this pass.
+- **Atlas tool router** uses keyword/regex heuristics for intent detection — high-precision on the patterns it knows, but unusual phrasings fall through to normal chat. Acceptable for the demo path; revisit with a small LLM classifier when traffic grows.
+- **Authenticated visual verification not yet performed** for protected routes — code, types, and HTTP behavior are verified, but the new glass treatment on `/dashboard`, `/atlas`, etc. has not been visually confirmed yet (Jeremy will exercise this manually).
 
 ## Last updated
 
-2026-05-12
+2026-05-14

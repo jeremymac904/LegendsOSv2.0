@@ -2,6 +2,62 @@
 
 ## Unreleased
 
+### Added — 2026-05-14 (premium command-center sprint, commit `2b93c40`)
+
+- **Atlas Hermes-style tool router.** New `lib/atlas/intentDetection.ts`
+  + `lib/atlas/toolRouter.ts`. `/api/ai/chat` now detects intents
+  (`create_social`, `create_email`, `create_calendar`) before calling
+  the provider chain. On a hit, the router inserts a draft into
+  `social_posts` / `email_campaigns` / `calendar_items` via the
+  user-scoped Supabase client, logs a `tool_call` usage event +
+  `recordAudit` entry, and persists an assistant chat message with
+  `metadata.tool_result`. `AtlasShell` renders a `ToolResultCard` chip
+  with an "Open →" link to the new item. Viewers blocked; non-tool
+  messages preserve full retrieval / caps / persistence behavior.
+- **Email Studio polish.** Audience picker now persists across
+  reopen (stored in `metadata.audience_id`, legacy
+  `recipient_list "audience:<uuid>"` honored as a fallback). New AI
+  Write button calls `/api/ai/chat` with a newsletter prompt,
+  defensive Content-Type parse, friendly inline notes for
+  `cap_exceeded` / `provider_disabled`. Inbox preview rendered through
+  `lib/email/render.ts` in a sandboxed iframe (max-w 600px, debounced
+  250ms) matching the dashboard's "Latest newsletter" treatment.
+- **Calendar campaign planning.** `app/(app)/calendar/page.tsx` is
+  now an async server component reading `?month=YYYY-MM` and
+  `?filter=all|social|email|cal`. New `CalendarMonthGrid` (color-
+  coded chips per source, today cell ringed in gold, "+N more"
+  overflow, prev/next/today nav) and `CalendarFilters` (chip
+  toggles). Upcoming next 7 days flat list below the grid.
+  `CreateCalendarItem` spacing tightened to match polished surfaces.
+- **Premium dark gold glass shell.** `app/globals.css`,
+  `tailwind.config.ts`, every `components/ui/*` primitive and shell
+  surface refined: glass cards with backdrop-blur + hairline gold
+  top edge + hover glow; tightened `.btn-primary` / `.btn-secondary`
+  / `.btn-ghost`; uniform `.chip` height; `.nav-item-active` 2px
+  gold left rail; sidebar Atlas-style header with gold rune dot;
+  TopBar glass band; MobileNav gold-gradient FAB; login is a centered
+  glass card with ambient gold wash. New `shadow-glow-sm` +
+  `shadow-glass` tokens. All semantic class names preserved.
+- **Dashboard expansion.** Two new side-by-side cards after the
+  Latest newsletter section: "Upcoming content" merges next-7-day
+  scheduled rows across social / email / calendar with color-coded
+  source chips, sorted ascending, capped at 6. "Recent activity"
+  surfaces the last 10 usage events from the existing 24h read with
+  friendly module + action labels. Both fall back to polished empty
+  states.
+
+### Verification (this commit)
+
+- `npm run lint`     ✓ no warnings or errors
+- `npx tsc --noEmit` ✓ exit 0
+- `npm run build`    ✓ 20 routes, middleware 81.6 kB
+- Live `/login`      ✓ 200, new polish landed (Playwright snapshot +
+                       full-page PNG saved to
+                       `.playwright-mcp/login-verified.png`)
+- Live `/api/health` ✓ `{ ok: true, supabaseConfigured: true }`
+- All 11 protected routes return 307 → `/login?from=<path>`
+  (middleware OK).
+
 ### Added — 2026-05-13 (completion sprint)
 
 - **Atlas JSON parse fix.** `lib/supabase/middleware.ts` now returns a JSON
