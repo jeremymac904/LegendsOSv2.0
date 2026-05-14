@@ -25,6 +25,10 @@ const UUID_RE =
 // library). The non-UUID tokens get stored only in `metadata.media_ids`
 // (jsonb) and are resolved client-side from the manifest.
 const schema = z.object({
+  // When `post_id` is set, the route UPDATEs the existing row instead of
+  // inserting a new draft. RLS guarantees the caller owns the row (the
+  // user-scoped client gates by user_id).
+  post_id: z.string().uuid().nullish(),
   title: z.string().max(160).nullish(),
   body: z.string().min(1).max(8000),
   channels: z.array(z.enum(channels)).min(1).max(channels.length),
@@ -78,26 +82,72 @@ export async function POST(req: Request) {
     metadata.youtube_title = data.youtube_title.trim();
   }
 
-  // Persist the post.
-  const { data: post, error: insErr } = await supabase
-    .from("social_posts")
-    .insert({
-      user_id: profile.id,
-      organization_id: profile.organization_id,
-      title: data.title ?? null,
-      body: data.body,
-      channels: data.channels as SocialChannel[],
-      media_id: primaryMediaId,
-      scheduled_at: data.scheduled_at ?? null,
-      status: data.action === "schedule" ? "scheduled" : "draft",
-      metadata,
-    })
-    .select("*")
-    .single();
+  // Persist the post. UPDATE when post_id is provided AND the caller owns
+  // the row (RLS enforces ownership). Otherwise INSERT a brand-new draft.
+  let post:
+    | (Record<string, unknown> & { id: string })
+    | null = null;
+  let dbError: { message: string } | null = null;
 
-  if (insErr || !post) {
+  if (data.post_id) {
+    const { data: updated, error: updErr } = await supabase
+      .from("social_posts")
+      .update({
+        title: data.title ?? null,
+        body: data.body,
+        channels: data.channels as SocialChannel[],
+        media_id: primaryMediaId,
+        scheduled_at: data.scheduled_at ?? null,
+        status: data.action === "schedule" ? "scheduled" : "draft",
+        metadata,
+      })
+      .eq("id", data.post_id)
+      .select("*")
+      .maybeSingle();
+    if (updErr) {
+      dbError = updErr;
+    } else if (!updated) {
+      // RLS hid the row OR the id was wrong. Treat as not-found so the
+      // caller knows the update didn't land.
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "not_found",
+          message: "Post not found, or you don't have access to it.",
+        },
+        { status: 404 }
+      );
+    } else {
+      post = updated as Record<string, unknown> & { id: string };
+    }
+  } else {
+    const { data: inserted, error: insErr } = await supabase
+      .from("social_posts")
+      .insert({
+        user_id: profile.id,
+        organization_id: profile.organization_id,
+        title: data.title ?? null,
+        body: data.body,
+        channels: data.channels as SocialChannel[],
+        media_id: primaryMediaId,
+        scheduled_at: data.scheduled_at ?? null,
+        status: data.action === "schedule" ? "scheduled" : "draft",
+        metadata,
+      })
+      .select("*")
+      .single();
+    if (insErr) dbError = insErr;
+    else post = inserted as Record<string, unknown> & { id: string };
+  }
+
+  if (dbError || !post) {
     return NextResponse.json(
-      { ok: false, error: "internal_error", message: insErr?.message ?? "insert failed" },
+      {
+        ok: false,
+        error: "internal_error",
+        message:
+          dbError?.message ?? (data.post_id ? "update failed" : "insert failed"),
+      },
       { status: 500 }
     );
   }
@@ -105,7 +155,7 @@ export async function POST(req: Request) {
   await logUsage(profile, {
     module: "social",
     event_type: data.action === "schedule" ? "post_scheduled" : "post_drafted",
-    metadata: { post_id: post.id, channels: data.channels },
+    metadata: { post_id: post.id, channels: data.channels, edited: !!data.post_id },
   });
 
   // If scheduling, enqueue an automation job. NEVER dispatch live unless the

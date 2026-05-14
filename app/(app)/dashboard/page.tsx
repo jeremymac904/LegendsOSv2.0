@@ -15,6 +15,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { imageLibrary } from "@/lib/assets";
+import { renderEmailPreview } from "@/lib/email/render";
 import { PUBLIC_ENV, getServerEnv } from "@/lib/env";
 import { isOwner } from "@/lib/permissions";
 import {
@@ -85,6 +86,7 @@ export default async function DashboardPage() {
     { data: media },
     { data: usage24h },
     { data: recentJobs },
+    { data: latestNewsletterRow },
   ] = await Promise.all([
     supabase
       .from("social_posts")
@@ -114,6 +116,15 @@ export default async function DashboardPage() {
       .select("id,job_type,status,updated_at,last_error")
       .order("updated_at", { ascending: false })
       .limit(5),
+    // Most recent email campaign of any status — drives the new "Latest
+    // newsletter" card. We render its inbox preview via lib/email/render.ts
+    // so the dashboard mirrors what the composer / future n8n payload show.
+    supabase
+      .from("email_campaigns")
+      .select("id,subject,preview_text,body_text,status,updated_at")
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
 
   const drafts = (socialDrafts ?? []) as Pick<
@@ -160,6 +171,22 @@ export default async function DashboardPage() {
         a.category === "background"
     )
     .slice(0, 6);
+
+  // Latest newsletter — render its inbox preview through the shared shell
+  // so the dashboard mirrors the composer + future n8n payload.
+  const latestNewsletter = latestNewsletterRow
+    ? (latestNewsletterRow as Pick<
+        EmailCampaign,
+        "id" | "subject" | "preview_text" | "body_text" | "status" | "updated_at"
+      >)
+    : null;
+  const latestNewsletterHtml = latestNewsletter
+    ? renderEmailPreview({
+        subject: latestNewsletter.subject || "(No subject)",
+        previewText: latestNewsletter.preview_text ?? "",
+        bodyMarkdown: latestNewsletter.body_text ?? "",
+      }).html
+    : "";
 
   return (
     <div className="space-y-8">
@@ -368,6 +395,44 @@ export default async function DashboardPage() {
           </div>
         </section>
       </div>
+
+      {latestNewsletter && (
+        <section className="card-padded">
+          <div className="section-title">
+            <div>
+              <h2>Latest newsletter</h2>
+              <p>
+                {`"${latestNewsletter.subject || "(No subject)"}" · ${
+                  latestNewsletter.status
+                } · updated ${formatRelative(latestNewsletter.updated_at)}`}
+              </p>
+            </div>
+            <Link
+              href={`/email?id=${latestNewsletter.id}`}
+              className="btn-primary text-xs"
+            >
+              <Mail size={14} />
+              Continue editing
+            </Link>
+          </div>
+          <div className="mt-4 overflow-hidden rounded-xl border border-ink-800 bg-ink-950">
+            <div className="flex items-center justify-between gap-2 border-b border-ink-800 px-3 py-1.5">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-ink-300">
+                Inbox preview
+              </p>
+              <p className="text-[10px] text-ink-400">
+                Same shell ships when n8n relays
+              </p>
+            </div>
+            <iframe
+              title="Latest newsletter preview"
+              srcDoc={latestNewsletterHtml}
+              sandbox=""
+              className="block h-[320px] w-full bg-ink-950"
+            />
+          </div>
+        </section>
+      )}
 
       {owner && (
         <section className="card-padded">

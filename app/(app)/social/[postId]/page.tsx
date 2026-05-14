@@ -2,11 +2,17 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
+import { SocialComposer } from "@/components/social/SocialComposer";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatusPill } from "@/components/ui/StatusPill";
-import { getCurrentProfile, getSupabaseServerClient } from "@/lib/supabase/server";
-import { formatDate } from "@/lib/utils";
-import type { SocialPost } from "@/types/database";
+import { loadOrgUploadedImageAssets } from "@/lib/admin/orgAssets";
+import { imageLibrary } from "@/lib/assets";
+import { getServerEnv } from "@/lib/env";
+import {
+  getCurrentProfile,
+  getSupabaseServerClient,
+} from "@/lib/supabase/server";
+import type { GeneratedMedia, SocialPost } from "@/types/database";
 
 export const dynamic = "force-dynamic";
 
@@ -18,13 +24,72 @@ export default async function SocialPostPage({
   const profile = await getCurrentProfile();
   if (!profile) return null;
   const supabase = getSupabaseServerClient();
-  const { data } = await supabase
-    .from("social_posts")
-    .select("*")
-    .eq("id", params.postId)
-    .maybeSingle();
-  if (!data) notFound();
-  const post = data as SocialPost;
+  const env = getServerEnv();
+
+  // Read the post + the same merged media library the create page uses, so
+  // the composer can render attached thumbnails for any of the three id
+  // shapes (generated_media UUID, uploaded shared_resources UUID,
+  // manifest slug).
+  const [{ data: postRow }, { data: generated }, uploadedImages] =
+    await Promise.all([
+      supabase
+        .from("social_posts")
+        .select("*")
+        .eq("id", params.postId)
+        .maybeSingle(),
+      supabase
+        .from("generated_media")
+        .select("id,prompt,preview_url,status,created_at,provider,model")
+        .order("created_at", { ascending: false })
+        .limit(60),
+      loadOrgUploadedImageAssets(),
+    ]);
+
+  if (!postRow) notFound();
+  const post = postRow as SocialPost;
+
+  const generatedRows = (generated ?? []) as Pick<
+    GeneratedMedia,
+    | "id"
+    | "prompt"
+    | "preview_url"
+    | "status"
+    | "created_at"
+    | "provider"
+    | "model"
+  >[];
+
+  const manifestAssetEntries: Pick<
+    GeneratedMedia,
+    "id" | "prompt" | "preview_url" | "status" | "created_at" | "provider" | "model"
+  >[] = imageLibrary().map((a) => ({
+    id: a.id,
+    prompt: a.label,
+    preview_url: a.public_path,
+    status: "succeeded",
+    created_at: new Date(0).toISOString(),
+    provider: `asset:${a.category}`,
+    model: null,
+  }));
+
+  const uploadedAssetEntries: Pick<
+    GeneratedMedia,
+    "id" | "prompt" | "preview_url" | "status" | "created_at" | "provider" | "model"
+  >[] = uploadedImages.map((a) => ({
+    id: a.id,
+    prompt: a.label,
+    preview_url: a.public_path,
+    status: "succeeded",
+    created_at: new Date().toISOString(),
+    provider: `asset:uploaded:${a.category}`,
+    model: null,
+  }));
+
+  const mediaLibrary = [
+    ...generatedRows,
+    ...uploadedAssetEntries,
+    ...manifestAssetEntries,
+  ];
 
   return (
     <div className="space-y-5">
@@ -34,34 +99,27 @@ export default async function SocialPostPage({
       </Link>
       <SectionHeader
         eyebrow="Social post"
-        title={post.title ?? "Untitled draft"}
-        description="View-only for now. Edit in the composer to publish or schedule."
-        action={<StatusPill status={post.status as never} />}
+        title={post.title ?? "Edit draft"}
+        description="Saved attachments and channels are preselected — tweak and re-save."
+        action={
+          <div className="flex flex-wrap gap-2">
+            <StatusPill status={post.status as never} />
+            <StatusPill
+              status={env.SAFETY.allowLiveSocialPublish ? "ok" : "warn"}
+              label={
+                env.SAFETY.allowLiveSocialPublish
+                  ? "external publishing enabled"
+                  : "external publishing disabled"
+              }
+            />
+          </div>
+        }
       />
-      <article className="card-padded space-y-3">
-        <p className="whitespace-pre-wrap text-sm text-ink-100">{post.body}</p>
-        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-ink-300">
-          <div className="flex flex-wrap gap-1">
-            {post.channels.map((c) => (
-              <span key={c} className="chip">
-                {c.replace(/_/g, " ")}
-              </span>
-            ))}
-          </div>
-          <div>
-            {post.scheduled_at ? (
-              <span>Scheduled · {formatDate(post.scheduled_at)}</span>
-            ) : (
-              <span>Saved · {formatDate(post.updated_at)}</span>
-            )}
-          </div>
-        </div>
-        {post.error_message && (
-          <p className="rounded-lg border border-status-err/30 bg-status-err/10 px-3 py-2 text-xs text-status-err">
-            {post.error_message}
-          </p>
-        )}
-      </article>
+      <SocialComposer
+        userId={profile.id}
+        mediaLibrary={mediaLibrary}
+        initialDraft={post}
+      />
     </div>
   );
 }

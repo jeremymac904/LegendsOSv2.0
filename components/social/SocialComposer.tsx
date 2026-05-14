@@ -15,7 +15,7 @@ import {
 import { PostPreview, type ChannelId } from "@/components/social/PostPreview";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn, truncate } from "@/lib/utils";
-import type { GeneratedMedia } from "@/types/database";
+import type { GeneratedMedia, SocialPost } from "@/types/database";
 
 const CHANNELS: { id: ChannelId; label: string }[] = [
   { id: "facebook", label: "Facebook" },
@@ -33,27 +33,99 @@ interface Props {
   userId: string;
   mediaLibrary: MediaSummary[];
   initialSelectedMediaId?: string | null;
+  /**
+   * When set, the composer opens in EDIT mode against this saved row:
+   * every field (title, body, channels, schedule, youtube_title) is
+   * hydrated from the row, and Save / Schedule updates the row instead
+   * of inserting a new one.
+   */
+  initialDraft?: SocialPost | null;
+}
+
+// Convert a SocialPost.scheduled_at ISO string into the format the native
+// <input type="datetime-local"> expects (yyyy-MM-ddTHH:mm). Browser timezone.
+function toLocalDateTimeInput(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function initialMediaIds(args: {
+  initialDraft?: SocialPost | null;
+  initialSelectedMediaId?: string | null;
+}): string[] {
+  const { initialDraft, initialSelectedMediaId } = args;
+  if (initialDraft) {
+    // Saved drafts persist EVERY id in metadata.media_ids; media_id is the
+    // first UUID-shaped one. Prefer metadata.media_ids when present so the
+    // full attachment list (including non-UUID asset tokens) survives reload.
+    const meta = (initialDraft.metadata ?? {}) as { media_ids?: unknown };
+    if (Array.isArray(meta.media_ids)) {
+      const arr = meta.media_ids.filter(
+        (v): v is string => typeof v === "string" && v.length > 0
+      );
+      if (arr.length > 0) return arr;
+    }
+    if (initialDraft.media_id) return [initialDraft.media_id];
+    return [];
+  }
+  return initialSelectedMediaId ? [initialSelectedMediaId] : [];
 }
 
 export function SocialComposer({
   userId,
   mediaLibrary,
   initialSelectedMediaId,
+  initialDraft,
 }: Props) {
   const router = useRouter();
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
-  const [youtubeTitle, setYoutubeTitle] = useState("");
-  const [selected, setSelected] = useState<ChannelId[]>(["facebook"]);
-  const [scheduledAt, setScheduledAt] = useState("");
+  const editing = Boolean(initialDraft?.id);
+  const postId = initialDraft?.id ?? null;
+  const initialYoutubeTitle =
+    (initialDraft?.metadata as { youtube_title?: string } | null)
+      ?.youtube_title ?? "";
+
+  const [title, setTitle] = useState(initialDraft?.title ?? "");
+  const [body, setBody] = useState(initialDraft?.body ?? "");
+  const [youtubeTitle, setYoutubeTitle] = useState(initialYoutubeTitle);
+  const [selected, setSelected] = useState<ChannelId[]>(
+    initialDraft?.channels && initialDraft.channels.length > 0
+      ? (initialDraft.channels as ChannelId[])
+      : ["facebook"]
+  );
+  const [scheduledAt, setScheduledAt] = useState(
+    toLocalDateTimeInput(initialDraft?.scheduled_at ?? null)
+  );
   const [library, setLibrary] = useState<MediaSummary[]>(mediaLibrary);
   const [selectedMediaIds, setSelectedMediaIds] = useState<string[]>(
-    initialSelectedMediaId ? [initialSelectedMediaId] : []
+    initialMediaIds({ initialDraft, initialSelectedMediaId })
   );
   const [showLibrary, setShowLibrary] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  // Reseed state if the parent passes in a different draft (e.g. routing
+  // between /social and /social/[postId]). Re-running setters from props is
+  // safe because the composer is the only thing holding this state.
+  useEffect(() => {
+    if (!initialDraft) return;
+    setTitle(initialDraft.title ?? "");
+    setBody(initialDraft.body ?? "");
+    setYoutubeTitle(
+      (initialDraft.metadata as { youtube_title?: string } | null)
+        ?.youtube_title ?? ""
+    );
+    setSelected(
+      initialDraft.channels && initialDraft.channels.length > 0
+        ? (initialDraft.channels as ChannelId[])
+        : ["facebook"]
+    );
+    setScheduledAt(toLocalDateTimeInput(initialDraft.scheduled_at ?? null));
+    setSelectedMediaIds(initialMediaIds({ initialDraft }));
+  }, [initialDraft]);
 
   useEffect(() => {
     if (initialSelectedMediaId) {
@@ -144,6 +216,10 @@ export function SocialComposer({
             accept: "application/json",
           },
           body: JSON.stringify({
+            // When editing, the API UPDATEs the existing row instead of
+            // inserting a new draft. Leaving this null keeps the legacy
+            // create-new-draft path identical to before.
+            post_id: postId,
             title: title || undefined,
             body,
             channels: selected,
@@ -178,17 +254,24 @@ export function SocialComposer({
         }
         setInfo(
           action === "draft"
-            ? "Draft saved."
+            ? editing
+              ? "Changes saved."
+              : "Draft saved."
             : data.job?.status === "sent"
             ? "Scheduled and dispatched to n8n."
             : `Scheduled. n8n status: ${data.job?.status ?? "queued"}.`
         );
-        setTitle("");
-        setBody("");
-        setYoutubeTitle("");
-        setSelected(["facebook"]);
-        setScheduledAt("");
-        setSelectedMediaIds([]);
+        if (!editing) {
+          // Only reset to a blank composer for the legacy create-new-draft
+          // path. In edit mode we keep the form populated so the owner can
+          // make further tweaks without re-opening the row.
+          setTitle("");
+          setBody("");
+          setYoutubeTitle("");
+          setSelected(["facebook"]);
+          setScheduledAt("");
+          setSelectedMediaIds([]);
+        }
         router.refresh();
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed.");
