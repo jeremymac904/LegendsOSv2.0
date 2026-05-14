@@ -186,9 +186,13 @@ export function detectAtlasIntent(message: string): AtlasIntent {
 
   // --- Social -------------------------------------------------------------
   // Triggers: "draft a post", "create a social draft", "post to X about Y",
-  // "write a social post".
+  // "write a social post", "draft a Facebook post about Y", "write an IG
+  // caption", "make a YouTube post about Y". The optional channel adjective
+  // (facebook|instagram|fb|ig|youtube|yt|gbp|gmb|google business) is allowed
+  // BETWEEN the article and the noun so "Draft a Facebook post about FHA
+  // loans" classifies as create_social, not a generic chat.
   const socialRe =
-    /^(?:please\s+)?(?:draft|create|write|make|generate|post)\s+(?:a\s+|an\s+|the\s+)?(?:social\s+)?(?:post|draft|update|status)\b(?:\s+(?:to|on|for|about|regarding)\s+(.+))?$/i;
+    /^(?:please\s+)?(?:draft|create|write|make|generate|post|compose|put\s+together)\s+(?:a\s+|an\s+|the\s+)?(?:(?:social|facebook|fb|instagram|ig|insta|youtube|yt|gbp|gmb|google\s+business)\s+)?(?:post|draft|update|status|caption|tweet|share|blurb)\b(?:\s+(?:to|on|for|about|regarding)\s+(.+))?$/i;
   const altSocialRe =
     /^(?:please\s+)?post\s+(?:to|on)\s+(facebook|instagram|youtube|gbp|gmb|google\s+business)\b(?:\s+about\s+(.+))?$/i;
   const m1 = text.match(socialRe);

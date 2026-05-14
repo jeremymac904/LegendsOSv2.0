@@ -161,13 +161,20 @@ export function AtlasShell({
     }
   }, [messages]);
 
-  // Sync state when navigating to a different thread (initialMessages prop
-  // changes because Next streams new server data).
+  // Sync state when navigating to a different thread. We intentionally do NOT
+  // depend on initialMessages array identity — Next.js streams a fresh array
+  // every time the server component renders (including after router.refresh
+  // and after the chat route persists a new message), and re-running this
+  // effect would wipe the optimistic user + assistant bubbles we just added
+  // client-side, leaving the user stuck on "Atlas is thinking" forever.
+  // Resetting on currentThread.id is the right trigger — that's the only
+  // moment we actually want to load a different thread's history.
   useEffect(() => {
     setThreadId(currentThread?.id ?? null);
     setMessages(initialMessages);
     setAssistantId(currentThread?.assistant_id ?? null);
-  }, [currentThread?.id, currentThread?.assistant_id, initialMessages]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- see comment above
+  }, [currentThread?.id, currentThread?.assistant_id]);
 
   function handleAttach(files: FileList | null) {
     if (!files || files.length === 0) return;
