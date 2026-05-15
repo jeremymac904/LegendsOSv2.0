@@ -53,7 +53,16 @@ supabase/.temp
 .vscode
 *.swp
 *.swo
-.claude/
+
+# Claude Code repo-local config — ignore the directory by default, but
+# explicitly track the shared multi-agent system (agents + commands).
+# Per-machine bits (settings.local.json, launch.json, scheduled_tasks.lock)
+# stay ignored.
+.claude/*
+!.claude/agents/
+!.claude/agents/**
+!.claude/commands/
+!.claude/commands/**
 
 # logs
 logs
