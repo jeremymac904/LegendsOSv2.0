@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 
+import { loadSocialAssetUsageCounts } from "@/lib/admin/orgAssets";
 import { isOwner } from "@/lib/permissions";
 import {
   getCurrentProfile,
   getSupabaseServerClient,
   getSupabaseServiceClient,
 } from "@/lib/supabase/server";
+import { recordAudit } from "@/lib/usage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -223,6 +225,23 @@ export async function POST(req: Request) {
     );
   }
 
+  // Audit trail: every privileged asset upload lands in audit_logs so the
+  // owner timeline reflects who added what + when. Best-effort — a failed
+  // audit insert must not roll back the successful upload.
+  await recordAudit({
+    actor: profile,
+    action: "asset_uploaded",
+    target_type: "shared_resources",
+    target_id: row.id,
+    metadata: {
+      category,
+      visibility,
+      mime_type: file.type || null,
+      size_bytes: file.size,
+      kind,
+    },
+  });
+
   return NextResponse.json({ ok: true, asset: row });
 }
 
@@ -247,7 +266,7 @@ export async function DELETE(req: Request) {
   const supabase = getSupabaseServerClient();
   const { data: existing } = await supabase
     .from("shared_resources")
-    .select("id,payload")
+    .select("id,payload,title,resource_type")
     .eq("id", id)
     .single();
   if (!existing) {
@@ -256,6 +275,32 @@ export async function DELETE(req: Request) {
       { status: 404 }
     );
   }
+
+  // Delete-only-if-unused guard. We refuse the delete when ANY social_posts
+  // row still references the asset (either by media_id or in
+  // metadata.media_ids). The Asset Library UI already renders a "Used in N
+  // posts" chip from the same counter, so the owner has visibility before
+  // they try. Caller can still detach the asset from the post and retry.
+  // The check is best-effort: if the count read errors, we let the delete
+  // proceed so a transient DB issue can't permanently block clean-up.
+  try {
+    const counts = await loadSocialAssetUsageCounts();
+    const usage = counts.get(id) ?? 0;
+    if (usage > 0) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "asset_in_use",
+          message: `Cannot delete — this asset is attached to ${usage} social post${usage === 1 ? "" : "s"}. Detach it first.`,
+          usage_count: usage,
+        },
+        { status: 409 }
+      );
+    }
+  } catch {
+    /* best effort — allow delete on counter failure */
+  }
+
   const storagePath =
     (existing.payload as { storage_path?: string })?.storage_path ?? null;
   await supabase.from("shared_resources").delete().eq("id", id);
@@ -266,5 +311,19 @@ export async function DELETE(req: Request) {
       /* best effort */
     }
   }
+
+  // Audit trail: privileged asset delete lands in audit_logs.
+  await recordAudit({
+    actor: profile,
+    action: "asset_deleted",
+    target_type: "shared_resources",
+    target_id: id,
+    metadata: {
+      title: existing.title ?? null,
+      resource_type: existing.resource_type ?? null,
+      storage_path: storagePath,
+    },
+  });
+
   return NextResponse.json({ ok: true });
 }

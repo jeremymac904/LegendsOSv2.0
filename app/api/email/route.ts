@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { getServerEnv, PUBLIC_ENV } from "@/lib/env";
 import { enqueueAutomationJob } from "@/lib/automation/n8n";
+import { isOwner } from "@/lib/permissions";
 import { getCurrentProfile, getSupabaseServerClient } from "@/lib/supabase/server";
 import { logUsage, recordAudit } from "@/lib/usage";
 
@@ -171,11 +172,27 @@ export async function POST(req: Request) {
       metadata: { dispatch: env.SAFETY.allowLiveEmailSend, job_id: job.job_id },
     });
   } else if (data.action === "request_test") {
-    // Owner-only inbox test. The recipient is HARD-CODED to the owner's
-    // email — even if the form's recipient_list pointed at an audience,
-    // it is ignored here. This is what keeps "Queue test to me" from ever
-    // hitting the broader list.
-    testRecipient = profile.email || PUBLIC_ENV.OWNER_EMAIL;
+    // Owner-only inbox test. Two guards:
+    //   1. Role gate — only profiles with role=owner can queue a test send.
+    //     Anyone else gets a 403. This prevents an operator from queuing a
+    //     test send through the API directly, even if they crafted the
+    //     payload by hand.
+    //   2. Recipient lock — the recipient is HARD-CODED to the configured
+    //     owner email (PUBLIC_ENV.OWNER_EMAIL) and never the caller's email.
+    //     Even though the role gate already restricts who can call this,
+    //     locking the recipient to the owner address removes any ambiguity
+    //     and matches the "Queue test to me" intent in the composer.
+    if (!isOwner(profile)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "forbidden",
+          message: "Only the owner can queue a test send.",
+        },
+        { status: 403 }
+      );
+    }
+    testRecipient = PUBLIC_ENV.OWNER_EMAIL || profile.email;
     if (!testRecipient) {
       return NextResponse.json(
         {

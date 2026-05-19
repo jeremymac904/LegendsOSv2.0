@@ -16,7 +16,8 @@ import type { AtlasIntent } from "./intentDetection";
 export type AtlasToolKind =
   | "create_social"
   | "create_email"
-  | "create_calendar";
+  | "create_calendar"
+  | "create_knowledge_note";
 
 export interface AtlasToolSuccess {
   ok: true;
@@ -132,6 +133,113 @@ export async function runAtlasTool(
       link: `/email/${data.id}`,
       summary: `Newsletter draft "${data.subject}"`,
       title: data.subject ?? null,
+    };
+  }
+
+  if (intent.kind === "create_knowledge_note") {
+    const { title, body, collection_hint } = intent.extracted;
+    // Knowledge items belong to a collection. Find one the caller owns —
+    // prefer a name match against `collection_hint`, otherwise fall back to
+    // any private collection the user already has, otherwise auto-create a
+    // default "Atlas Notes" collection for this user. This keeps the tool
+    // call a single round-trip from the user's perspective.
+    let collectionId: string | null = null;
+
+    if (collection_hint) {
+      const { data: hinted } = await supabase
+        .from("knowledge_collections")
+        .select("id")
+        .eq("user_id", profile.id)
+        .ilike("name", collection_hint)
+        .limit(1)
+        .maybeSingle();
+      if (hinted?.id) collectionId = hinted.id;
+    }
+
+    if (!collectionId) {
+      const { data: anyOwned } = await supabase
+        .from("knowledge_collections")
+        .select("id,name")
+        .eq("user_id", profile.id)
+        .order("created_at", { ascending: true })
+        .limit(50);
+      const atlasNotes = (anyOwned ?? []).find(
+        (c) => (c.name ?? "").toLowerCase() === "atlas notes"
+      );
+      if (atlasNotes?.id) {
+        collectionId = atlasNotes.id;
+      } else if ((anyOwned ?? []).length > 0) {
+        collectionId = anyOwned![0].id;
+      }
+    }
+
+    if (!collectionId) {
+      const { data: created, error: createErr } = await supabase
+        .from("knowledge_collections")
+        .insert({
+          user_id: profile.id,
+          organization_id: profile.organization_id,
+          name: "Atlas Notes",
+          description: "Notes Atlas captured for you. Edit or move at any time.",
+          visibility: "private",
+          metadata: { source: "atlas_tool", auto_created: true },
+        })
+        .select("id")
+        .single();
+      if (createErr || !created) {
+        return {
+          ok: false,
+          kind: "create_knowledge_note",
+          error: "collection_create_failed",
+          message:
+            createErr?.message ??
+            "Could not create the Atlas Notes collection — try again in a moment.",
+        };
+      }
+      collectionId = created.id;
+    }
+
+    const { data, error } = await supabase
+      .from("knowledge_items")
+      .insert({
+        collection_id: collectionId,
+        user_id: profile.id,
+        organization_id: profile.organization_id,
+        title,
+        content: body,
+        source_type: "atlas_note",
+        metadata: {
+          source: "atlas_tool",
+          collection_hint: collection_hint ?? null,
+        },
+      })
+      .select("id,title,collection_id")
+      .single();
+    if (error || !data) {
+      return {
+        ok: false,
+        kind: "create_knowledge_note",
+        error: "insert_failed",
+        message: error?.message ?? "knowledge note insert failed",
+      };
+    }
+    await recordAudit({
+      actor: profile,
+      action: "atlas_tool_call",
+      target_type: "knowledge_items",
+      target_id: data.id,
+      metadata: {
+        kind: "create_knowledge_note",
+        collection_id: collectionId,
+      },
+    });
+    return {
+      ok: true,
+      kind: "create_knowledge_note",
+      itemId: data.id,
+      link: `/knowledge/${collectionId}`,
+      summary: `Knowledge note "${data.title}" saved`,
+      title: data.title ?? null,
     };
   }
 

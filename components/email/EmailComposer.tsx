@@ -635,19 +635,21 @@ export function EmailComposer({
           <CheckCircle size={14} />
           Mark ready
         </button>
-        <button
-          className="btn"
-          onClick={() => submit("request_test")}
-          disabled={isPending || !body.trim() || !ownerEmail}
-          title={
-            ownerEmail
-              ? `Routes only to ${ownerEmail}${ownerName ? ` (${ownerName})` : ""}, never to the selected audience.`
-              : "Owner email not configured."
-          }
-        >
-          <UserCheck size={14} />
-          {ownerEmail ? `Queue test to ${ownerName || "me"}` : "Queue test"}
-        </button>
+        {isOwner && (
+          <button
+            className="btn"
+            onClick={() => submit("request_test")}
+            disabled={isPending || !body.trim() || !ownerEmail}
+            title={
+              ownerEmail
+                ? `Routes only to ${ownerEmail}${ownerName ? ` (${ownerName})` : ""}, never to the selected audience.`
+                : "Owner email not configured."
+            }
+          >
+            <UserCheck size={14} />
+            {ownerEmail ? `Queue test to ${ownerName || "me"}` : "Queue test"}
+          </button>
+        )}
         <button
           className="btn-primary"
           onClick={() => submit("request_send")}
