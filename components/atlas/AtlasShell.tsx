@@ -682,15 +682,48 @@ function MessageRow({ message }: { message: ChatMessage }) {
       )}
     >
       {showKnowledgePill && (
-        <span
-          className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-accent-gold/30 bg-accent-gold/10 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.18em] text-accent-gold"
-          title={knowledgeSources
-            .map((s) => s.title + (s.source_path ? ` (${s.source_path})` : ""))
-            .join("\n")}
-        >
-          <Sparkles size={9} />
-          Using {khits} knowledge source{khits === 1 ? "" : "s"}
-        </span>
+        // Render up to 3 reference chips (title + optional source path) plus a
+        // "+N more" overflow chip. Hovering any chip reveals the full source
+        // path. This matches Hermes-style citation surfacing instead of a
+        // single opaque pill — the user can SEE which references grounded the
+        // reply without expanding anything.
+        <div className="flex max-w-full flex-wrap items-center gap-1.5">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-accent-gold/30 bg-accent-gold/10 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.18em] text-accent-gold">
+            <Sparkles size={9} />
+            {khits} source{khits === 1 ? "" : "s"}
+          </span>
+          {knowledgeSources.slice(0, 3).map((s, idx) => {
+            const label = s.source_path
+              ? `${s.title} · ${s.source_path.split("/").slice(-2).join("/")}`
+              : s.title;
+            const tip = s.source_path
+              ? `${s.title} — ${s.source_path}`
+              : s.title;
+            return (
+              <span
+                key={`${idx}-${s.title}`}
+                title={tip}
+                className="inline-flex max-w-[18rem] items-center gap-1 truncate rounded-full border border-ink-700/70 bg-ink-900/70 px-2 py-0.5 text-[10px] text-ink-200"
+              >
+                <span aria-hidden className="text-accent-gold/70">·</span>
+                <span className="truncate">{label}</span>
+              </span>
+            );
+          })}
+          {knowledgeSources.length > 3 && (
+            <span
+              className="inline-flex items-center rounded-full border border-ink-700/70 bg-ink-900/70 px-2 py-0.5 text-[10px] text-ink-300"
+              title={knowledgeSources
+                .slice(3)
+                .map(
+                  (s) => s.title + (s.source_path ? ` (${s.source_path})` : "")
+                )
+                .join("\n")}
+            >
+              +{knowledgeSources.length - 3} more
+            </span>
+          )}
+        </div>
       )}
       <div
         className={cn(
