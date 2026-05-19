@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 export type CalendarKind = "social" | "email" | "calendar";
 
@@ -20,6 +20,12 @@ interface Props {
   /** YYYY-MM of the currently visible month */
   month: string;
   entries: CalendarEntry[];
+  /**
+   * Optional entry id to highlight + scroll-into-view. Driven by the
+   * `?focus=<uuid>` query param, used by Atlas after creating a calendar
+   * item so the user can immediately see what was added.
+   */
+  focusId?: string | null;
 }
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -60,12 +66,35 @@ function kindClasses(kind: CalendarKind): string {
   }
 }
 
-export function CalendarMonthGrid({ month, entries }: Props) {
+export function CalendarMonthGrid({ month, entries, focusId }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  // Holds the DOM node for the focused entry so we can scroll it into view.
+  // We keep the highlight active for ~3s, then fade so the rest of the
+  // calendar reads normally on a manual revisit.
+  const focusRef = useRef<HTMLAnchorElement | null>(null);
+  const [highlightActive, setHighlightActive] = useState<boolean>(
+    Boolean(focusId)
+  );
+  useEffect(() => {
+    if (!focusId) return;
+    setHighlightActive(true);
+    // Scroll into view in the next paint so the DOM is settled.
+    const id = window.requestAnimationFrame(() => {
+      focusRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    });
+    const t = window.setTimeout(() => setHighlightActive(false), 3000);
+    return () => {
+      window.cancelAnimationFrame(id);
+      window.clearTimeout(t);
+    };
+  }, [focusId]);
 
   const { year, month0 } = parseMonth(month);
 
@@ -257,12 +286,17 @@ export function CalendarMonthGrid({ month, entries }: Props) {
                 {visible.map((entry) => {
                   const canDelete = entry.kind === "calendar";
                   const isDeleting = deletingId === entry.id;
+                  const isFocused =
+                    !!focusId &&
+                    entry.kind === "calendar" &&
+                    entry.id === focusId;
                   return (
                     <div
                       key={`${entry.kind}-${entry.id}`}
                       className="group relative"
                     >
                       <Link
+                        ref={isFocused ? focusRef : null}
                         href={entry.link}
                         title={`${entry.title} — ${new Date(
                           entry.whenIso
@@ -271,11 +305,15 @@ export function CalendarMonthGrid({ month, entries }: Props) {
                           minute: "2-digit",
                         })}`}
                         className={[
-                          "block truncate rounded-md border px-1.5 py-0.5 text-[10.5px] font-medium leading-tight",
+                          "block truncate rounded-md border px-1.5 py-0.5 text-[10.5px] font-medium leading-tight transition-shadow",
                           canDelete ? "pr-4" : "",
                           kindClasses(entry.kind),
                           isDeleting ? "opacity-50" : "",
+                          isFocused && highlightActive
+                            ? "ring-2 ring-accent-gold/80 shadow-[0_0_0_3px_rgba(245,180,0,0.18)]"
+                            : "",
                         ].join(" ")}
+                        data-focused={isFocused ? "true" : undefined}
                       >
                         {entry.title || "Untitled"}
                       </Link>

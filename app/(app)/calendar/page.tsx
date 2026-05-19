@@ -23,7 +23,7 @@ import type {
 export const dynamic = "force-dynamic";
 
 interface PageProps {
-  searchParams?: { month?: string; filter?: string };
+  searchParams?: { month?: string; filter?: string; focus?: string };
 }
 
 function normalizeMonth(input: string | undefined): string {
@@ -55,6 +55,12 @@ export default async function CalendarPage({ searchParams }: PageProps) {
 
   const month = normalizeMonth(searchParams?.month);
   const filter = normalizeFilter(searchParams?.filter);
+  // `?focus=<id>` is the deep-link target Atlas uses after creating a
+  // calendar item. We only accept UUID-shaped strings so a stray param
+  // can never inject anything weird into the rendered grid.
+  const rawFocus = searchParams?.focus ?? "";
+  const focusId =
+    /^[0-9a-f-]{36}$/i.test(rawFocus) ? rawFocus : null;
   const { startIso, endIso } = monthBounds(month);
 
   // Pull entries that intersect the month. For the "Upcoming next 7 days" list
@@ -216,7 +222,11 @@ export default async function CalendarPage({ searchParams }: PageProps) {
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[2fr_1fr]">
         <section className="card-padded">
-          <CalendarMonthGrid month={month} entries={monthEntries} />
+          <CalendarMonthGrid
+            month={month}
+            entries={monthEntries}
+            focusId={focusId}
+          />
         </section>
 
         <aside className="space-y-4">

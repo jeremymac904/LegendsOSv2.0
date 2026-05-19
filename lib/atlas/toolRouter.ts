@@ -7,6 +7,8 @@
 // Important: we trust existing tables and existing column names. We do NOT
 // add migrations from here. If a row insert fails for any reason, we surface
 // the error and the chat route falls back to normal AI chat.
+import { getN8nConfigState } from "@/lib/automation/n8n";
+import { getAIProviderStatuses, getServerEnv } from "@/lib/env";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/usage";
 import type { Profile, SocialChannel } from "@/types/database";
@@ -16,7 +18,37 @@ import type { AtlasIntent } from "./intentDetection";
 export type AtlasToolKind =
   | "create_social"
   | "create_email"
-  | "create_calendar";
+  | "create_calendar"
+  | "explain_capabilities";
+
+export interface AtlasCapabilityProvider {
+  id: "openrouter" | "deepseek" | "nvidia" | "fal" | "huggingface";
+  label: string;
+  status: "ready" | "configured" | "disabled" | "missing";
+  env_var: string;
+  next_action: string | null;
+}
+
+export interface AtlasCapabilityAutomation {
+  n8n_configured: boolean;
+  n8n_base_url_present: boolean;
+  social_webhook: boolean;
+  email_webhook: boolean;
+}
+
+export interface AtlasCapabilitySafety {
+  live_social_publish: boolean;
+  live_email_send: boolean;
+  paid_text_generation: boolean;
+  paid_image_generation: boolean;
+}
+
+export interface AtlasCapabilitySnapshot {
+  tools: { id: AtlasToolKind; label: string; description: string }[];
+  providers: AtlasCapabilityProvider[];
+  automation: AtlasCapabilityAutomation;
+  safety: AtlasCapabilitySafety;
+}
 
 export interface AtlasToolSuccess {
   ok: true;
@@ -27,6 +59,10 @@ export interface AtlasToolSuccess {
   // Short structured title for the result chip (so the UI can show
   // "Drafted: <title>" without slicing the long human-readable summary).
   title: string | null;
+  // Optional structured payload — currently only populated by the
+  // `explain_capabilities` tool so the chat UI can render a structured
+  // capability card instead of plain text.
+  capabilities?: AtlasCapabilitySnapshot;
 }
 
 export interface AtlasToolFailure {
@@ -46,11 +82,168 @@ export function canRunAtlasTools(profile: Profile | null): boolean {
   return profile.role !== "viewer";
 }
 
+// Build a plain-English capability snapshot from the live env. Never
+// includes secrets or env var VALUES — only NAMES and human-friendly
+// status copy. Safe to render directly in the chat UI.
+export function buildCapabilitySnapshot(): AtlasCapabilitySnapshot {
+  const env = getServerEnv();
+  const statuses = getAIProviderStatuses();
+  const n8n = getN8nConfigState();
+  const providers: AtlasCapabilityProvider[] = statuses.map((p) => {
+    let status: AtlasCapabilityProvider["status"];
+    let next_action: string | null = null;
+    if (!p.configured) {
+      status = "missing";
+      next_action = `Set ${p.envVarNames[0]} in Netlify env to enable live ${p.label} calls.`;
+    } else if (!p.enabled) {
+      status = "disabled";
+      next_action = `Re-enable ${p.label} in Settings — AI_ENABLE_${p.id.toUpperCase()} is off.`;
+    } else {
+      status = "ready";
+    }
+    return {
+      id: p.id,
+      label: p.label,
+      status,
+      env_var: p.envVarNames[0],
+      next_action,
+    };
+  });
+  return {
+    tools: [
+      {
+        id: "create_social",
+        label: "Draft a social post",
+        description: "Insert a draft into Social Studio (no live publishing).",
+      },
+      {
+        id: "create_email",
+        label: "Draft a newsletter",
+        description: "Insert a draft into Email Studio (no live sending).",
+      },
+      {
+        id: "create_calendar",
+        label: "Add a calendar item",
+        description: "Insert a planning row into Calendar.",
+      },
+      {
+        id: "explain_capabilities",
+        label: "Explain what Atlas can do",
+        description:
+          "Show this list and the live env / connector readiness state.",
+      },
+    ],
+    providers,
+    automation: {
+      n8n_configured: n8n.configured,
+      n8n_base_url_present: n8n.base_url_present,
+      social_webhook: Boolean(env.N8N_WEBHOOKS.social_publish),
+      email_webhook: Boolean(env.N8N_WEBHOOKS.email_send),
+    },
+    safety: {
+      live_social_publish: env.SAFETY.allowLiveSocialPublish,
+      live_email_send: env.SAFETY.allowLiveEmailSend,
+      paid_text_generation: env.SAFETY.allowPaidTextGeneration,
+      paid_image_generation: env.SAFETY.allowPaidImageGeneration,
+    },
+  };
+}
+
+// Render the snapshot as a single chat message body. Uses plain prose
+// + bullets so it reads naturally without markdown rendering (the chat
+// UI shows raw text). Lists missing env vars by NAME, never by value.
+export function renderCapabilityMessage(snap: AtlasCapabilitySnapshot): string {
+  const lines: string[] = [];
+  lines.push(
+    "I'm Atlas — the orchestrator for LegendsOS. Here's what I can do right now:"
+  );
+  lines.push("");
+  lines.push("Tools (deterministic, no AI cost):");
+  for (const t of snap.tools) {
+    lines.push(`• ${t.label} — ${t.description}`);
+  }
+  lines.push("");
+  lines.push("AI providers (chat + image generation):");
+  for (const p of snap.providers) {
+    if (p.status === "ready") {
+      lines.push(`• ${p.label} — ready.`);
+    } else if (p.status === "disabled") {
+      lines.push(
+        `• ${p.label} — configured but disabled by the owner. ${p.next_action ?? ""}`
+      );
+    } else {
+      lines.push(`• ${p.label} — not configured. ${p.next_action ?? ""}`);
+    }
+  }
+  lines.push("");
+  lines.push("Automation (n8n outbound):");
+  if (snap.automation.n8n_configured) {
+    const parts: string[] = [];
+    if (snap.automation.social_webhook) parts.push("social publish webhook");
+    if (snap.automation.email_webhook) parts.push("email send webhook");
+    lines.push(
+      `• n8n connected (${parts.length > 0 ? parts.join(", ") : "no specific webhooks wired"}).`
+    );
+  } else if (snap.automation.n8n_base_url_present) {
+    lines.push(
+      "• n8n base URL present but no webhook URLs are set. Set N8N_WEBHOOK_SOCIAL_PUBLISH and / or N8N_WEBHOOK_EMAIL_SEND in Netlify env to enable outbound dispatch."
+    );
+  } else {
+    lines.push(
+      "• n8n not configured. Set N8N_BASE_URL plus the matching N8N_WEBHOOK_* URLs in Netlify env."
+    );
+  }
+  lines.push("");
+  lines.push("Safety flags (owner-controlled):");
+  lines.push(
+    `• Live social publish: ${snap.safety.live_social_publish ? "ENABLED" : "off (drafts only)"}.`
+  );
+  lines.push(
+    `• Live email send: ${snap.safety.live_email_send ? "ENABLED" : "off (drafts only)"}.`
+  );
+  lines.push(
+    `• Paid text generation: ${snap.safety.paid_text_generation ? "enabled" : "off"}.`
+  );
+  lines.push(
+    `• Paid image generation: ${snap.safety.paid_image_generation ? "enabled" : "off"}.`
+  );
+  lines.push("");
+  lines.push(
+    "What I can't do: send anything live without Jeremy flipping the matching ALLOW_LIVE_* flag, and call any AI provider whose env var is missing or whose enable flag is off."
+  );
+  return lines.join("\n");
+}
+
 export async function runAtlasTool(
   intent: AtlasIntent,
   profile: Profile
 ): Promise<AtlasToolResult> {
   const supabase = getSupabaseServerClient();
+
+  if (intent.kind === "explain_capabilities") {
+    const snap = buildCapabilitySnapshot();
+    // Best-effort audit — never block the response on this.
+    try {
+      await recordAudit({
+        actor: profile,
+        action: "atlas_tool_call",
+        target_type: "atlas",
+        target_id: null,
+        metadata: { kind: "explain_capabilities" },
+      });
+    } catch {
+      // swallow — informational tool must always answer
+    }
+    return {
+      ok: true,
+      kind: "explain_capabilities",
+      itemId: "capabilities",
+      link: "/settings",
+      summary: "Capability snapshot rendered",
+      title: "Atlas capabilities",
+      capabilities: snap,
+    };
+  }
 
   if (intent.kind === "create_social") {
     const { title, body, channels } = intent.extracted;
@@ -175,7 +368,13 @@ export async function runAtlasTool(
       ok: true,
       kind: "create_calendar",
       itemId: data.id,
-      link: `/calendar?id=${data.id}`,
+      // Use `?focus=<id>` so the calendar page can scroll-into-view and
+      // highlight the new item. Also stamp `?month=YYYY-MM` so the grid
+      // auto-navigates to the month the item was created in instead of
+      // defaulting to today's month and silently dropping the focus.
+      link: `/calendar?month=${new Date(starts_at)
+        .toISOString()
+        .slice(0, 7)}&focus=${data.id}`,
       summary: `Calendar item "${data.title}" on ${when}`,
       title: data.title ?? null,
     };

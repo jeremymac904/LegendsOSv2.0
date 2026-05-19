@@ -12,6 +12,7 @@ import {
   Calendar as CalendarIcon,
   Check,
   ChevronDown,
+  Info,
   Mail,
   Paperclip,
   Send,
@@ -503,10 +504,10 @@ export function AtlasShell({
 }
 
 const STARTER_PROMPTS = [
-  "Write a Facebook post for a first-time homebuyer in Florida.",
-  "Draft a 30-second video script explaining FHA vs conventional loans.",
-  "Outline a 4-email newsletter sequence for past clients about refinancing.",
-  "Explain DTI in plain language for a borrower with a 720 credit score.",
+  "What can you do?",
+  "Draft a Facebook post about FHA loans for first-time homebuyers.",
+  "Write a newsletter about refinancing for past clients.",
+  "Schedule a team standup on Monday.",
 ];
 
 function EmptyChat({
@@ -557,13 +558,27 @@ function EmptyChat({
 }
 
 interface AtlasToolResultMeta {
-  kind: "create_social" | "create_email" | "create_calendar";
+  kind:
+    | "create_social"
+    | "create_email"
+    | "create_calendar"
+    | "explain_capabilities";
   itemId: string;
   link: string;
   summary: string;
   // Optional structured title surfaced separately from the long summary so
   // the chip can show "Drafted: <title>" without truncating mid-word.
   title?: string | null;
+  // Structured capability snapshot — only set when kind === explain_capabilities.
+  capabilities?: {
+    providers: {
+      id: string;
+      label: string;
+      status: "ready" | "configured" | "disabled" | "missing";
+      env_var: string;
+      next_action: string | null;
+    }[];
+  };
 }
 
 // Extract the short title for display from the structured `title` field when
@@ -595,19 +610,33 @@ function ToolResultCard({
     create_social: {
       icon: Share2,
       label: "Social draft",
+      openLabel: "Open" as const,
     },
     create_email: {
       icon: Mail,
       label: "Newsletter draft",
+      openLabel: "Open" as const,
     },
     create_calendar: {
       icon: CalendarIcon,
       label: "Calendar item",
+      openLabel: "Open" as const,
+    },
+    explain_capabilities: {
+      icon: Info,
+      label: "Atlas capabilities",
+      openLabel: "Settings" as const,
     },
   }[result.kind];
   if (!config) return null;
   const Icon = config.icon;
   const title = deriveToolTitle(result);
+  // Capability chip shows tiny status dots for each provider so Jeremy
+  // can read provider readiness at a glance without expanding the body.
+  const providerDots =
+    result.kind === "explain_capabilities"
+      ? result.capabilities?.providers?.slice(0, 5) ?? []
+      : [];
   // HH:MM in the viewer's locale. Falls back gracefully when the timestamp
   // is malformed so we never crash the chat UI.
   let timeLabel = "";
@@ -632,20 +661,46 @@ function ToolResultCard({
           {config.label}
           {timeLabel ? (
             <span className="ml-1.5 font-normal text-ink-300">
-              · Created {timeLabel}
+              · {result.kind === "explain_capabilities" ? "Snapshot" : "Created"}{" "}
+              {timeLabel}
             </span>
           ) : null}
         </p>
         <p className="truncate text-[12px] font-medium text-ink-100">
           {title}
         </p>
+        {providerDots.length > 0 && (
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+            {providerDots.map((p) => (
+              <span
+                key={p.id}
+                title={
+                  p.next_action ?? `${p.label} is ${p.status}`
+                }
+                className="inline-flex items-center gap-1 rounded-full border border-ink-700/80 bg-ink-900/60 px-1.5 py-[1px] text-[9.5px] uppercase tracking-[0.14em] text-ink-300"
+              >
+                <span
+                  className={[
+                    "h-1.5 w-1.5 rounded-full",
+                    p.status === "ready"
+                      ? "bg-status-ok"
+                      : p.status === "disabled"
+                      ? "bg-status-off"
+                      : "bg-status-warn",
+                  ].join(" ")}
+                />
+                {p.label}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
       <a
         href={result.link}
         className="btn-secondary h-8 shrink-0 px-2.5 text-[11px]"
         aria-label={`Open ${config.label.toLowerCase()}`}
       >
-        Open →
+        {config.openLabel} →
       </a>
     </div>
   );

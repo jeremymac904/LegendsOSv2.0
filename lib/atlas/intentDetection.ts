@@ -16,6 +16,7 @@ export type AtlasIntentKind =
   | "create_social"
   | "create_email"
   | "create_calendar"
+  | "explain_capabilities"
   | "none";
 
 export interface AtlasIntentSocial {
@@ -44,6 +45,11 @@ export interface AtlasIntentCalendar {
   };
 }
 
+export interface AtlasIntentExplain {
+  kind: "explain_capabilities";
+  extracted: Record<string, never>;
+}
+
 export interface AtlasIntentNone {
   kind: "none";
   extracted: Record<string, never>;
@@ -53,6 +59,7 @@ export type AtlasIntent =
   | AtlasIntentSocial
   | AtlasIntentEmail
   | AtlasIntentCalendar
+  | AtlasIntentExplain
   | AtlasIntentNone;
 
 // Strip leading filler words ("for", "about", "regarding") so the extracted
@@ -136,6 +143,19 @@ function resolveDatePhrase(phrase: string | null): {
 export function detectAtlasIntent(message: string): AtlasIntent {
   const text = (message ?? "").trim();
   if (!text) return { kind: "none", extracted: {} };
+
+  // --- Explain capabilities ----------------------------------------------
+  // Short, deterministic answer for "what can you do?", "what tools do you
+  // have?", "what's connected?", "help", "capabilities", etc. We answer
+  // BEFORE hitting the AI provider so even when OpenRouter / DeepSeek /
+  // NVIDIA are unconfigured, Atlas still tells Jeremy exactly what's wired.
+  // Stay specific on phrasing so we don't swallow general questions —
+  // require an explicit capability or help intent.
+  const capRe =
+    /^(?:please\s+)?(?:(?:what\s+(?:can|do)\s+you\s+(?:do|help\s+with|offer))|(?:what(?:'s|\s+is)?\s+(?:connected|configured|available|set\s+up))|(?:show\s+(?:me\s+)?(?:your\s+)?(?:tools|capabilities|connectors|integrations))|(?:list\s+(?:your\s+)?(?:tools|capabilities|connectors|integrations))|(?:atlas\s+(?:help|capabilities|status))|(?:how\s+can\s+you\s+help)|(?:help|capabilities|status))[.?!]?\s*$/i;
+  if (capRe.test(text)) {
+    return { kind: "explain_capabilities", extracted: {} };
+  }
 
   // --- Calendar (most specific patterns first, since "schedule a post" can
   // collide with "schedule a meeting") -------------------------------------

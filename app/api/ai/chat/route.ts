@@ -7,7 +7,11 @@ import {
   retrieveForAssistant,
   renderKnowledgeBlock,
 } from "@/lib/atlas/retrieval";
-import { canRunAtlasTools, runAtlasTool } from "@/lib/atlas/toolRouter";
+import {
+  canRunAtlasTools,
+  renderCapabilityMessage,
+  runAtlasTool,
+} from "@/lib/atlas/toolRouter";
 import {
   getCurrentProfile,
   getSupabaseServerClient,
@@ -136,13 +140,23 @@ export async function POST(req: Request) {
   if (intent.kind !== "none" && canRunAtlasTools(profile)) {
     const toolResult = await runAtlasTool(intent, profile);
     if (toolResult.ok) {
-      const assistantText = `Created your ${
-        toolResult.kind === "create_social"
-          ? "social draft"
-          : toolResult.kind === "create_email"
-          ? "newsletter draft"
-          : "calendar item"
-      }. Open it: ${toolResult.link}`;
+      // Build the assistant message body. For draft-creation tools this is
+      // the short "Created your X. Open it: <link>" confirmation. For the
+      // explain_capabilities tool it's the rendered plain-English snapshot
+      // of what Atlas can do, which providers are configured, and what the
+      // owner needs to flip to unlock more.
+      let assistantText: string;
+      if (toolResult.kind === "explain_capabilities" && toolResult.capabilities) {
+        assistantText = renderCapabilityMessage(toolResult.capabilities);
+      } else {
+        assistantText = `Created your ${
+          toolResult.kind === "create_social"
+            ? "social draft"
+            : toolResult.kind === "create_email"
+            ? "newsletter draft"
+            : "calendar item"
+        }. Open it: ${toolResult.link}`;
+      }
       const { data: toolMsg } = await supabase
         .from("chat_messages")
         .insert({
@@ -156,6 +170,15 @@ export async function POST(req: Request) {
               itemId: toolResult.itemId,
               link: toolResult.link,
               summary: toolResult.summary,
+              // Title surfaces in MessageRow's ToolResultCard. Keep it so
+              // the chip can show "Atlas capabilities" / "Refi options" etc.
+              title: toolResult.title,
+              // Structured capability data for the capability tool only.
+              // Plain-text in `content` is the canonical render — this
+              // payload lets the chip optionally show a richer card later.
+              ...(toolResult.capabilities
+                ? { capabilities: toolResult.capabilities }
+                : {}),
             },
           },
         })
@@ -184,6 +207,10 @@ export async function POST(req: Request) {
           itemId: toolResult.itemId,
           link: toolResult.link,
           summary: toolResult.summary,
+          title: toolResult.title,
+          ...(toolResult.capabilities
+            ? { capabilities: toolResult.capabilities }
+            : {}),
         },
         content: assistantText,
         assistant_message: assistantText,
