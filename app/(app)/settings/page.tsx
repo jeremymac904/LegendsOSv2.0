@@ -1,4 +1,5 @@
 import { ProviderToggle } from "@/components/settings/ProviderToggle";
+import { MCPConnections } from "@/components/settings/MCPConnections";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatusPill } from "@/components/ui/StatusPill";
 import {
@@ -238,6 +239,8 @@ export default async function SettingsPage() {
           platform and redeploy — keys never travel through the browser.
         </p>
       </section>
+
+      <MCPConnections />
 
       <section className="card-padded">
         <div className="section-title">

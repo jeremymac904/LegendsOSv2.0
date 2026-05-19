@@ -90,6 +90,19 @@ export type AIProviderId =
   | "fal"
   | "huggingface";
 
+export interface MCPConnection {
+  /** Unique label the user gave this server (e.g. "My Zapier") */
+  label: string;
+  /** MCP server URL */
+  url: string;
+  /** Optional auth header (Bearer token, etc.) */
+  auth_token?: string;
+  /** Provider name — "zapier" | "composio" | "custom" */
+  provider: "zapier" | "composio" | "custom";
+  /** When the user last saved this config */
+  saved_at: string | null;
+}
+
 export interface AIProviderStatus {
   id: AIProviderId;
   label: string;
