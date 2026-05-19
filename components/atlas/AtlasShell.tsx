@@ -9,6 +9,7 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import {
+  BookOpen,
   Calendar as CalendarIcon,
   Check,
   ChevronDown,
@@ -557,7 +558,11 @@ function EmptyChat({
 }
 
 interface AtlasToolResultMeta {
-  kind: "create_social" | "create_email" | "create_calendar";
+  kind:
+    | "create_social"
+    | "create_email"
+    | "create_calendar"
+    | "create_knowledge_note";
   itemId: string;
   link: string;
   summary: string;
@@ -603,6 +608,10 @@ function ToolResultCard({
     create_calendar: {
       icon: CalendarIcon,
       label: "Calendar item",
+    },
+    create_knowledge_note: {
+      icon: BookOpen,
+      label: "Knowledge note",
     },
   }[result.kind];
   if (!config) return null;
