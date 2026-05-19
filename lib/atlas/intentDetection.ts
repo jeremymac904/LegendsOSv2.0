@@ -17,6 +17,8 @@ export type AtlasIntentKind =
   | "create_email"
   | "create_calendar"
   | "explain_capabilities"
+  | "create_knowledge_note"
+  | "capability_query"
   | "none";
 
 export interface AtlasIntentSocial {
@@ -50,6 +52,20 @@ export interface AtlasIntentExplain {
   extracted: Record<string, never>;
 }
 
+export interface AtlasIntentKnowledgeNote {
+  kind: "create_knowledge_note";
+  extracted: {
+    title: string;
+    body: string;
+    collection_hint: string | null;
+  };
+}
+
+export interface AtlasIntentCapabilityQuery {
+  kind: "capability_query";
+  extracted: Record<string, never>;
+}
+
 export interface AtlasIntentNone {
   kind: "none";
   extracted: Record<string, never>;
@@ -60,6 +76,8 @@ export type AtlasIntent =
   | AtlasIntentEmail
   | AtlasIntentCalendar
   | AtlasIntentExplain
+  | AtlasIntentKnowledgeNote
+  | AtlasIntentCapabilityQuery
   | AtlasIntentNone;
 
 // Strip leading filler words ("for", "about", "regarding") so the extracted
@@ -138,13 +156,32 @@ function resolveDatePhrase(phrase: string | null): {
   return { iso: base.toISOString(), matched: null };
 }
 
+// Capability queries — "what can you do", "what tools do you have", "what are
+// your capabilities", "help", "what can Atlas do". Owners type these to learn
+// what Atlas can act on. The handler in the chat route turns this into a
+// live, plain-English summary of the tool list + connector status.
+function isCapabilityQuery(text: string): boolean {
+  const t = text.toLowerCase().trim().replace(/[?.!]+$/, "");
+  if (/^what can (you|atlas) do$/.test(t)) return true;
+  if (/^what are your capabilit(?:y|ies)$/.test(t)) return true;
+  if (/^what tools do you have$/.test(t)) return true;
+  if (/^what tools do you support$/.test(t)) return true;
+  if (/^(?:show|list|tell me) (?:your|the) (?:tools|capabilities|commands)$/.test(t))
+    return true;
+  if (/^what (?:can you|do you) help (?:me )?with$/.test(t)) return true;
+  if (/^(?:list|show) (?:available )?(?:tools|capabilities)$/.test(t)) return true;
+  if (/^atlas[, ]+what can you do$/.test(t)) return true;
+  return false;
+}
+
 // Main entry point. Caller must pass the raw user message string. The
 // function never throws — when nothing matches we return `{ kind: 'none' }`.
 export function detectAtlasIntent(message: string): AtlasIntent {
   const text = (message ?? "").trim();
   if (!text) return { kind: "none", extracted: {} };
 
-  // --- Explain capabilities ----------------------------------------------
+  // --- Capability query (highest priority — short-circuit any other verb
+  // matching since "what can you do" should never become a draft) ----------
   // Short, deterministic answer for "what can you do?", "what tools do you
   // have?", "what's connected?", "help", "capabilities", etc. We answer
   // BEFORE hitting the AI provider so even when OpenRouter / DeepSeek /
@@ -153,8 +190,69 @@ export function detectAtlasIntent(message: string): AtlasIntent {
   // require an explicit capability or help intent.
   const capRe =
     /^(?:please\s+)?(?:(?:what\s+(?:can|do)\s+you\s+(?:do|help\s+with|offer))|(?:what(?:'s|\s+is)?\s+(?:connected|configured|available|set\s+up))|(?:show\s+(?:me\s+)?(?:your\s+)?(?:tools|capabilities|connectors|integrations))|(?:list\s+(?:your\s+)?(?:tools|capabilities|connectors|integrations))|(?:atlas\s+(?:help|capabilities|status))|(?:how\s+can\s+you\s+help)|(?:help|capabilities|status))[.?!]?\s*$/i;
-  if (capRe.test(text)) {
-    return { kind: "explain_capabilities", extracted: {} };
+  const cap2Re = /^what can (you|atlas) do$/i;
+  const cap3Re = /^what are your capabilit(?:y|ies)$/i;
+  const cap4Re = /^what tools do you have$/i;
+  const cap5Re = /^what tools do you support$/i;
+  const cap6Re = /^(?:show|list|tell me) (?:your|the) (?:tools|capabilities|commands)$/i;
+  const cap7Re = /^what (?:can you|do you) help (?:me )?with$/i;
+  const cap8Re = /^(?:list|show) (?:available )?(?:tools|capabilities)$/i;
+  const cap9Re = /^atlas[, ]+what can you do$/i;
+  if (
+    capRe.test(text) ||
+    cap2Re.test(text) ||
+    cap3Re.test(text) ||
+    cap4Re.test(text) ||
+    cap5Re.test(text) ||
+    cap6Re.test(text) ||
+    cap7Re.test(text) ||
+    cap8Re.test(text) ||
+    cap9Re.test(text)
+  ) {
+    return { kind: "capability_query", extracted: {} };
+  }
+
+  // --- Knowledge note (specific noun first so "save a note about X" never
+  // collides with the social/email patterns below) ------------------------
+  // Triggers: "save a note about X", "save a knowledge note about X",
+  // "add to (my )knowledge X", "remember that X", "note: X",
+  // "save this as a note: X", "create a knowledge note about X in <collection>".
+  const knowledgeRe1 =
+    /^(?:please\s+)?(?:save|add|create|make|draft|write)\s+(?:a\s+|an\s+|the\s+)?(?:knowledge\s+)?note\b(?:\s+(?:about|on|for|regarding|titled|called)\s+(.+))?$/i;
+  const knowledgeRe2 =
+    /^(?:please\s+)?(?:add|save|store)\s+(?:this\s+)?(?:to|in|into)\s+(?:my\s+|our\s+|the\s+)?knowledge(?:\s+base)?\b[: ]*(.*)$/i;
+  const knowledgeRe3 = /^(?:remember|note)\s+that\s+(.+)$/i;
+  const knowledgeRe4 = /^note[\-:]\s*(.+)$/i;
+  const k1 = text.match(knowledgeRe1);
+  const k2 = text.match(knowledgeRe2);
+  const k3 = text.match(knowledgeRe3);
+  const k4 = text.match(knowledgeRe4);
+  if (k1 || k2 || k3 || k4) {
+    const raw = (k1?.[1] ?? k2?.[1] ?? k3?.[1] ?? k4?.[1] ?? "").trim();
+    // "X in Collection Name" → split off the collection hint so the tool
+    // can prefer a matching collection when one exists.
+    let topic = raw;
+    let collectionHint: string | null = null;
+    const inCollection = raw.match(/^(.*)\s+in\s+([a-z0-9_\- ]{2,60})$/i);
+    if (inCollection) {
+      topic = inCollection[1].trim();
+      collectionHint = inCollection[2].trim();
+    }
+    const cleanedTopic = trimTopic(topic);
+    const title = cleanedTopic
+      ? cleanedTopic.replace(/[.!?]+$/, "").slice(0, 140)
+      : "Atlas note";
+    const body = cleanedTopic
+      ? cleanedTopic
+      : "(empty note — edit me)";
+    return {
+      kind: "create_knowledge_note",
+      extracted: {
+        title: title.charAt(0).toUpperCase() + title.slice(1),
+        body,
+        collection_hint: collectionHint,
+      },
+    };
   }
 
   // --- Calendar (most specific patterns first, since "schedule a post" can

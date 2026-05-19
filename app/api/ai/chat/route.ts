@@ -12,12 +12,54 @@ import {
   renderCapabilityMessage,
   runAtlasTool,
 } from "@/lib/atlas/toolRouter";
+import { getN8nConfigState } from "@/lib/automation/n8n";
+import { getAIProviderStatuses } from "@/lib/env";
 import {
   getCurrentProfile,
   getSupabaseServerClient,
   getSupabaseServiceClient,
 } from "@/lib/supabase/server";
 import { checkDailyCap, logUsage } from "@/lib/usage";
+
+// Human-readable label per tool — used in both the assistant text response
+// for capability queries and in the friendly error text when a tool insert
+// fails. Keep this list in sync with `AtlasToolKind` in lib/atlas/toolRouter.ts.
+const TOOL_LABELS: Record<string, string> = {
+  create_social: "Draft a social post (Facebook, Instagram, YouTube, Google Business)",
+  create_email: "Draft a newsletter / email campaign",
+  create_calendar: "Schedule a calendar item (team event, reminder)",
+  create_knowledge_note: "Save a knowledge note to your collections",
+};
+
+// Plain-English re-mapping for the most common Atlas tool failure modes.
+// We deliberately avoid leaking raw DB error text to the chat surface.
+function friendlyToolFailure(kind: string, raw: string): string {
+  const lower = (raw ?? "").toLowerCase();
+  const subject =
+    kind === "create_social"
+      ? "social draft"
+      : kind === "create_email"
+      ? "newsletter draft"
+      : kind === "create_calendar"
+      ? "calendar item"
+      : kind === "create_knowledge_note"
+      ? "knowledge note"
+      : "draft";
+  if (lower.includes("row-level security") || lower.includes("policy")) {
+    return `I tried to save your ${subject} but Supabase blocked it (row-level security). That usually means your account doesn't have write access — ask the owner to check your role.`;
+  }
+  if (lower.includes("violates foreign key") || lower.includes("foreign key")) {
+    return `I tried to save your ${subject} but a required reference is missing. Try opening the matching studio (e.g. /knowledge, /social) and saving from there once.`;
+  }
+  if (lower.includes("duplicate key") || lower.includes("unique constraint")) {
+    return `I tried to save your ${subject} but a duplicate already exists. Edit the existing one instead of creating a new draft.`;
+  }
+  if (lower.includes("null value") || lower.includes("not-null")) {
+    return `I tried to save your ${subject} but a required field was empty. Give me a topic or title and try again.`;
+  }
+  // Fallback — keep it concise, do not leak the raw message.
+  return `I tried to save your ${subject} but the database rejected it. Try rephrasing or open the studio directly to create it manually.`;
+}
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -133,10 +175,79 @@ export async function POST(req: Request) {
   // ---- Atlas tool router --------------------------------------------------
   // Before paying the provider, check whether the message is a deterministic
   // "do a thing" command (draft a post, write a newsletter, schedule an
-  // event). If yes AND the caller has write permission, run the tool and
-  // short-circuit. Tool failures fall through to normal chat so the user
+  // event, save a knowledge note) OR a capability query. Side-effects are
+  // DRAFT-ONLY — Atlas never posts, sends, or publishes externally. Tool
+  // failures fall through to normal chat with a friendly message so the user
   // never sees a dead end.
   const intent = detectAtlasIntent(message);
+
+  // Capability query handler — pure read, no DB write, returns the live
+  // tool inventory + connector status (so Atlas never lies about what's
+  // wired up).
+  if (intent.kind === "capability_query") {
+    const providers = getAIProviderStatuses();
+    const n8n = getN8nConfigState();
+    const toolLines = Object.values(TOOL_LABELS)
+      .map((label) => `• ${label}`)
+      .join("\n");
+    const providerLines = providers
+      .map((p) => {
+        const status = !p.configured
+          ? "missing key"
+          : !p.enabled
+          ? "disabled by owner"
+          : "ready";
+        return `• ${p.label} — ${status}`;
+      })
+      .join("\n");
+    const n8nLine = n8n.configured
+      ? "• n8n automation — configured"
+      : "• n8n automation — not configured (drafts stay local)";
+    const safetyLine =
+      "Safety: live social publishing and live email sending are OFF by default. Everything I create lands as a draft for you to review.";
+    const assistantText = `Here's what I can do right now:\n\n${toolLines}\n\nAI providers:\n${providerLines}\n${n8nLine}\n\n${safetyLine}`;
+    const { data: capMsg } = await supabase
+      .from("chat_messages")
+      .insert({
+        thread_id: threadId,
+        user_id: profile.id,
+        role: "assistant",
+        content: assistantText,
+        metadata: {
+          source: "atlas_capability_query",
+          providers: providers.map((p) => ({
+            id: p.id,
+            configured: p.configured,
+            enabled: p.enabled,
+          })),
+          n8n_configured: n8n.configured,
+        },
+      })
+      .select("id")
+      .single();
+    await supabase
+      .from("chat_threads")
+      .update({ last_message_at: new Date().toISOString() })
+      .eq("id", threadId);
+    await logUsage(profile, {
+      module: "atlas",
+      event_type: "capability_query",
+      metadata: { thread_id: threadId },
+    });
+    return NextResponse.json({
+      ok: true,
+      thread_id: threadId,
+      message_id: capMsg?.id ?? null,
+      kind: "capability_query",
+      content: assistantText,
+      assistant_message: assistantText,
+      provider: "atlas_tool",
+      model: null,
+      usage: { daily_count: cap.used + 1, daily_limit: cap.cap },
+      knowledge: { count: 0, sources: [] },
+    });
+  }
+
   if (intent.kind !== "none" && canRunAtlasTools(profile)) {
     const toolResult = await runAtlasTool(intent, profile);
     if (toolResult.ok) {
@@ -149,13 +260,20 @@ export async function POST(req: Request) {
       if (toolResult.kind === "explain_capabilities" && toolResult.capabilities) {
         assistantText = renderCapabilityMessage(toolResult.capabilities);
       } else {
-        assistantText = `Created your ${
-          toolResult.kind === "create_social"
-            ? "social draft"
-            : toolResult.kind === "create_email"
-            ? "newsletter draft"
-            : "calendar item"
-        }. Open it: ${toolResult.link}`;
+        // Honest wording — always "Saved as draft" / "Saved to your
+        // knowledge", never "Posted" or "Sent". Atlas does not perform live
+        // external actions.
+        const subjectByKind: Record<string, string> = {
+          create_social: "social draft",
+          create_email: "newsletter draft",
+          create_calendar: "calendar item",
+          create_knowledge_note: "knowledge note",
+        };
+        const subject = subjectByKind[toolResult.kind] ?? "draft";
+        assistantText =
+          toolResult.kind === "create_knowledge_note"
+            ? `Saved as a ${subject}. Open the collection: ${toolResult.link}`
+            : `Saved your ${subject} (not posted, not sent — review it first). Open it: ${toolResult.link}`;
       }
       const { data: toolMsg } = await supabase
         .from("chat_messages")
@@ -220,8 +338,50 @@ export async function POST(req: Request) {
         knowledge: { count: 0, sources: [] },
       });
     }
-    // If the tool failed, log and fall through to the AI provider.
+    // Friendly failure — log internally with the raw error for debugging,
+    // surface a plain-English message to the chat so the user can recover.
     console.error("atlas_tool_failed", toolResult);
+    const friendly = friendlyToolFailure(toolResult.kind, toolResult.message);
+    const { data: errMsg } = await supabase
+      .from("chat_messages")
+      .insert({
+        thread_id: threadId,
+        user_id: profile.id,
+        role: "assistant",
+        content: friendly,
+        metadata: {
+          source: "atlas_tool_failure",
+          kind: toolResult.kind,
+          error: toolResult.error,
+        },
+      })
+      .select("id")
+      .single();
+    await supabase
+      .from("chat_threads")
+      .update({ last_message_at: new Date().toISOString() })
+      .eq("id", threadId);
+    await logUsage(profile, {
+      module: "atlas",
+      event_type: "tool_call_failed",
+      metadata: {
+        thread_id: threadId,
+        kind: toolResult.kind,
+        error: toolResult.error,
+      },
+    });
+    return NextResponse.json({
+      ok: true,
+      thread_id: threadId,
+      message_id: errMsg?.id ?? null,
+      kind: "tool_call_failed",
+      content: friendly,
+      assistant_message: friendly,
+      provider: "atlas_tool",
+      model: null,
+      usage: { daily_count: cap.used + 1, daily_limit: cap.cap },
+      knowledge: { count: 0, sources: [] },
+    });
   }
 
   // Fetch prior turns for context.
