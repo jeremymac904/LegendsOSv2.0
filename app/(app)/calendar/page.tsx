@@ -1,4 +1,3 @@
-import { Calendar as CalendarIcon } from "lucide-react";
 import Link from "next/link";
 
 import { CreateCalendarItem } from "@/components/calendar/CreateCalendarItem";
@@ -10,7 +9,6 @@ import {
   CalendarMonthGrid,
   type CalendarEntry,
 } from "@/components/calendar/CalendarMonthGrid";
-import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { getCurrentProfile, getSupabaseServerClient } from "@/lib/supabase/server";
 import { formatDate } from "@/lib/utils";
@@ -230,22 +228,17 @@ export default async function CalendarPage({ searchParams }: PageProps) {
         </section>
 
         <aside className="space-y-4">
-          <section className="card-padded">
-            <div className="section-title">
-              <div>
-                <h2>Next 7 days</h2>
-                <p>Flat view for quick planning.</p>
+          <WeekStrip upcoming={upcoming} />
+          {upcoming.length > 0 && (
+            <section className="card-padded">
+              <div className="section-title">
+                <div>
+                  <h2>Quick links</h2>
+                  <p>Jump straight into the next few items.</p>
+                </div>
               </div>
-            </div>
-            <div className="mt-3 grid gap-2">
-              {upcoming.length === 0 ? (
-                <EmptyState
-                  icon={CalendarIcon}
-                  title="Nothing in the next week"
-                  description="Schedule a post, queue an email, or add a planning item."
-                />
-              ) : (
-                upcoming.slice(0, 6).map((row) => (
+              <div className="mt-3 grid gap-2">
+                {upcoming.slice(0, 4).map((row) => (
                   <Link
                     key={`${row.kind}-${row.id}`}
                     href={row.link}
@@ -271,10 +264,10 @@ export default async function CalendarPage({ searchParams }: PageProps) {
                       {row.kind}
                     </span>
                   </Link>
-                ))
-              )}
-            </div>
-          </section>
+                ))}
+              </div>
+            </section>
+          )}
 
           <CreateCalendarItem
             userId={profile.id}
@@ -283,5 +276,130 @@ export default async function CalendarPage({ searchParams }: PageProps) {
         </aside>
       </div>
     </div>
+  );
+}
+
+// Server-rendered week strip — surfaces all 7 upcoming days (incl. today)
+// as their own row even when empty, so it reads as a true "week view"
+// rather than a flat top-N list. Items on the same day stack inside the
+// same row, sorted by time. Today's row is ringed in gold.
+function WeekStrip({ upcoming }: { upcoming: CalendarEntry[] }) {
+  const today = new Date();
+  // Build 7 day buckets starting from today's local midnight.
+  const buckets: { date: Date; key: string; entries: CalendarEntry[] }[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate() + i
+    );
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
+      2,
+      "0"
+    )}-${String(d.getDate()).padStart(2, "0")}`;
+    buckets.push({ date: d, key, entries: [] });
+  }
+  for (const e of upcoming) {
+    const d = new Date(e.whenIso);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
+      2,
+      "0"
+    )}-${String(d.getDate()).padStart(2, "0")}`;
+    const slot = buckets.find((b) => b.key === key);
+    if (slot) slot.entries.push(e);
+  }
+  for (const b of buckets) {
+    b.entries.sort(
+      (a, b2) => new Date(a.whenIso).getTime() - new Date(b2.whenIso).getTime()
+    );
+  }
+  const todayKey = buckets[0].key;
+
+  return (
+    <section className="card-padded">
+      <div className="section-title">
+        <div>
+          <h2>This week</h2>
+          <p>Day-by-day view of the next 7 days.</p>
+        </div>
+      </div>
+      <div className="mt-3 flex flex-col gap-2">
+        {buckets.map((b) => {
+          const isToday = b.key === todayKey;
+          const weekday = b.date.toLocaleDateString(undefined, {
+            weekday: "short",
+          });
+          const day = b.date.getDate();
+          return (
+            <div
+              key={b.key}
+              className={[
+                "rounded-xl border bg-ink-900/40 p-2.5",
+                isToday
+                  ? "border-accent-gold/40 ring-1 ring-inset ring-accent-gold/25"
+                  : "border-ink-800",
+              ].join(" ")}
+            >
+              <div className="mb-1.5 flex items-baseline justify-between gap-2">
+                <p
+                  className={[
+                    "text-[10px] font-semibold uppercase tracking-[0.18em]",
+                    isToday ? "text-accent-gold" : "text-ink-300",
+                  ].join(" ")}
+                >
+                  {isToday ? "Today" : weekday}{" "}
+                  <span
+                    className={[
+                      "ml-0.5 font-normal tabular-nums",
+                      isToday ? "text-accent-gold" : "text-ink-400",
+                    ].join(" ")}
+                  >
+                    {day}
+                  </span>
+                </p>
+                {b.entries.length > 0 && (
+                  <span className="text-[9.5px] uppercase tracking-[0.18em] text-ink-500">
+                    {b.entries.length} item
+                    {b.entries.length === 1 ? "" : "s"}
+                  </span>
+                )}
+              </div>
+              {b.entries.length === 0 ? (
+                <p className="text-[11px] italic text-ink-500">No items</p>
+              ) : (
+                <div className="flex flex-col gap-1">
+                  {b.entries.map((row) => (
+                    <Link
+                      key={`${row.kind}-${row.id}`}
+                      href={row.link}
+                      className="flex items-center justify-between gap-2 rounded-lg px-1.5 py-1 hover:bg-ink-800/70"
+                    >
+                      <span className="min-w-0 flex-1 truncate text-[11.5px] text-ink-100">
+                        {new Date(row.whenIso).toLocaleTimeString(undefined, {
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}{" "}
+                        — {row.title}
+                      </span>
+                      <span
+                        className={[
+                          "h-1.5 w-1.5 shrink-0 rounded-full",
+                          row.kind === "social"
+                            ? "bg-accent-gold/60"
+                            : row.kind === "email"
+                            ? "bg-accent-gold/80"
+                            : "bg-accent-gold/30",
+                        ].join(" ")}
+                        title={row.kind}
+                      />
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
