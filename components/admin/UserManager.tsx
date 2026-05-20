@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Check,
   Copy,
+  Eye,
   KeyRound,
   Pencil,
   Power,
@@ -463,8 +464,9 @@ function ImpersonateButton({ userId }: { userId: string }) {
   return (
     <button
       type="button"
-      className="btn-ghost p-1.5"
-      title="Preview the app as this user"
+      className="btn-secondary h-8 px-2 text-[11px]"
+      title="Preview as user"
+      aria-label="Preview as user"
       onClick={() =>
         start(async () => {
           const res = await fetch("/api/admin/impersonate", {
@@ -479,24 +481,15 @@ function ImpersonateButton({ userId }: { userId: string }) {
           if (!ct.includes("application/json")) return;
           const data = await res.json();
           if (data.ok) {
+            router.push("/dashboard");
             router.refresh();
           }
         })
       }
       disabled={pending}
     >
-      {/* lucide doesn't have a great "view as" — use a clean eye glyph */}
-      <svg
-        width="14"
-        height="14"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-      >
-        <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
-        <circle cx="12" cy="12" r="3" />
-      </svg>
+      <Eye size={13} />
+      {pending ? "Starting..." : "Preview as user"}
     </button>
   );
 }

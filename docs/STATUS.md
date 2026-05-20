@@ -35,6 +35,9 @@ Phase 0 → Phase 7 scaffold complete. Clean v2 foundation is in place.
 - **Image Studio** (`/images`) — brand presets, aspect ratio picker, Fal.ai generation, library grid.
 - **Email Studio** (`/email`, `/email/[campaignId]`) — composer with draft/approve/request-send, status pills.
 - **Calendar** (`/calendar`) — merged view of calendar items, scheduled social posts, scheduled emails.
+- **Training** (`/training`) — team training, YouTube-safe embeds, training nuggets, and owner-managed shared training items.
+- **Marketing Materials** (`/marketing-materials`) — templates, scripts, campaign packs, usage instructions, and owner-managed shared materials.
+- **LF Resources** (`/lf-resources`) — Loan Factory resource directory seeded from Jeremy's provided Drive folder and owner-managed shared links.
 - **Admin Center** (`/admin`, `/admin/users`, `/admin/usage`) — owner-only; team list, usage rollups, audit log, automation queue.
 - **Settings** (`/settings`) — profile, safety flags, provider gateway snapshot, compliance line preview.
 

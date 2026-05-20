@@ -61,20 +61,28 @@ work above is priority 1 right now.
 
 ## Do next
 
-6. **DeepSeek audit pass.** Hand DeepSeek the prompt at
+1. **Curate Training, Marketing Materials, and LF Resources.** Open the new
+   `/training`, `/marketing-materials`, and `/lf-resources` pages as owner and
+   add the highest-value Drive links from Jeremy's Loan Factory training
+   folder as team-shared resources.
+2. **Use owner preview mode.** On `/admin/users`, click **Preview as user** for
+   the LO test account, confirm the sidebar hides Owner Only tools, then click
+   **Stop preview** from the banner.
+
+3. **DeepSeek audit pass.** Hand DeepSeek the prompt at
    `LegendsOS_v2_Execution_Command_Pack/prompts/DEEPSEEK_AUDIT_PROMPT.md`
    against this repo. Write its output to `docs/deepseek-audit/`.
-7. **Codex validation pass.** Hand Codex the prompt at
+4. **Codex validation pass.** Hand Codex the prompt at
    `LegendsOS_v2_Execution_Command_Pack/prompts/CODEX_VALIDATION_PROMPT.md`.
    Write its output to `docs/codex-validation/`.
-8. **Provider keys.** Add `OPENROUTER_API_KEY` (text) and `FAL_KEY` (images).
+5. **Provider keys.** Add `OPENROUTER_API_KEY` (text) and `FAL_KEY` (images).
    Flip `ALLOW_PAID_TEXT_GENERATION=true` and
    `ALLOW_PAID_IMAGE_GENERATION=true` once billing is confirmed.
-9. **n8n workflows.** Sandbox workflows are live on Jeremy's n8n instance
+6. **n8n workflows.** Sandbox workflows are live on Jeremy's n8n instance
    (https://n8n.srv1124745.hstgr.cloud/webhook/legendsos/*). HMAC removed —
    plain JSON POSTs accepted. Keep `ALLOW_LIVE_*` flags off until end-to-end
    test posts confirm correctness.
-10. **Atlas knowledge attach.** Add server logic to inject the top
+7. **Atlas knowledge attach.** Add server logic to inject the top
     `retrieval_references` for the current thread into the chat system prompt.
     Tables and policies already support it.
 

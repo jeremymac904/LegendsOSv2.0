@@ -5,6 +5,9 @@ import {
   BookOpen,
   Calendar,
   Clock,
+  Factory,
+  FileStack,
+  GraduationCap,
   ImageIcon,
   Mail,
   MessageCircle,
@@ -71,6 +74,24 @@ const QUICK_LAUNCH = [
     label: "Add Knowledge",
     description: "Upload reference material for Atlas.",
     icon: BookOpen,
+  },
+  {
+    href: "/training",
+    label: "Open Training",
+    description: "Videos, tutorials, and coaching paths.",
+    icon: GraduationCap,
+  },
+  {
+    href: "/marketing-materials",
+    label: "Use Marketing Materials",
+    description: "Templates and campaign assets for LOs.",
+    icon: FileStack,
+  },
+  {
+    href: "/lf-resources",
+    label: "Find LF Resources",
+    description: "Loan Factory folders, forms, and support links.",
+    icon: Factory,
   },
 ];
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, LogOut } from "lucide-react";
 
@@ -22,11 +22,12 @@ export function ImpersonationBanner({
   targetRole,
 }: Props) {
   const router = useRouter();
+  const [hidden, setHidden] = useState(false);
   const [pending, start] = useTransition();
 
   function stop() {
     start(async () => {
-      await fetch("/api/admin/impersonate", {
+      const res = await fetch("/api/admin/impersonate", {
         method: "POST",
         headers: {
           "content-type": "application/json",
@@ -34,11 +35,17 @@ export function ImpersonationBanner({
         },
         body: JSON.stringify({ user_id: null }),
       });
-      router.refresh();
+      if (res.ok) {
+        setHidden(true);
+        router.replace("/dashboard");
+        router.refresh();
+      }
     });
   }
 
   const label = targetName || targetEmail;
+
+  if (hidden) return null;
 
   return (
     <div className="sticky top-0 z-50 border-b border-accent-gold/40 bg-gradient-to-r from-accent-gold/15 via-accent-gold/10 to-accent-gold/15 px-3 py-1.5 text-xs text-accent-gold shadow-glow backdrop-blur">

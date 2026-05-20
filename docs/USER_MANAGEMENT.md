@@ -101,7 +101,8 @@ user clicks it and is prompted to set a new password.
 
 How it works:
 
-1. Owner clicks the "eye" button next to a user on `/admin/users`.
+1. Owner clicks the **Preview as user** button next to a non-owner user on
+   `/admin/users`.
 2. Browser POSTs `/api/admin/impersonate { user_id }`.
 3. Server sets a `legendsos-impersonate` cookie (HttpOnly, SameSite=Lax,
    24h) whose value is the target user_id.
@@ -109,10 +110,11 @@ How it works:
    every request. If present and the real user is owner, it loads the
    target user's profile via the service-role client and returns that as
    the "effective" profile.
-5. The protected layout renders the orange `ImpersonationBanner` and
+5. The owner is redirected to `/dashboard`.
+6. The protected layout renders the orange `ImpersonationBanner` and
    passes the impersonated profile to all child components, so sidebar +
    role gates render as that user.
-6. Clicking "Stop preview" POSTs the same endpoint with `user_id: null`,
+7. Clicking "Stop preview" POSTs the same endpoint with `user_id: null`,
    which clears the cookie. `DELETE /api/admin/impersonate` also works.
 
 Audit log entries are recorded as `impersonation_started` /
@@ -136,6 +138,8 @@ role-based views.
 - A non-owner cookie is ignored. If a user's role is downgraded after
   the cookie was set, the next request silently treats them as their
   current role.
+- The API rejects owner, inactive, self, missing, and cross-organization
+  preview targets.
 - Writes happen as the owner. Don't use preview mode to test access
   denial — use a real test user instead.
 - The cookie expires after 24h. Re-click the preview button to refresh.
