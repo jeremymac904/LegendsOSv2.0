@@ -19,6 +19,7 @@ export type AtlasIntentKind =
   | "explain_capabilities"
   | "create_knowledge_note"
   | "capability_query"
+  | "trigger_automation"
   | "none";
 
 export interface AtlasIntentSocial {
@@ -66,6 +67,13 @@ export interface AtlasIntentCapabilityQuery {
   extracted: Record<string, never>;
 }
 
+export interface AtlasIntentTriggerAutomation {
+  kind: "trigger_automation";
+  extracted: {
+    workflow_hint: string;
+  };
+}
+
 export interface AtlasIntentNone {
   kind: "none";
   extracted: Record<string, never>;
@@ -78,6 +86,7 @@ export type AtlasIntent =
   | AtlasIntentExplain
   | AtlasIntentKnowledgeNote
   | AtlasIntentCapabilityQuery
+  | AtlasIntentTriggerAutomation
   | AtlasIntentNone;
 
 // Strip leading filler words ("for", "about", "regarding") so the extracted
@@ -210,6 +219,31 @@ export function detectAtlasIntent(message: string): AtlasIntent {
     cap9Re.test(text)
   ) {
     return { kind: "capability_query", extracted: {} };
+  }
+
+  // --- Trigger automation -------------------------------------------------
+  // Phrases: "run automation X", "trigger workflow Y", "fire the n8n X",
+  // "run the social_publish workflow", "kick off the daily usage automation".
+  // The hint is captured verbatim so the toolRouter can pass it to
+  // n8n-bridge.resolveWorkflow for fuzzy matching against the catalog.
+  const automationRe =
+    /^(?:please\s+)?(?:run|trigger|fire|kick(?:\s+off)?|execute|start)\s+(?:the\s+)?(?:n8n\s+)?(?:automation|workflow|webhook|job)\s+(?:called\s+|named\s+|labeled\s+)?(.+)$/i;
+  const automationAltRe =
+    /^(?:please\s+)?(?:run|trigger|fire|execute|start)\s+(?:the\s+)?([a-z][a-z0-9_\- ]{1,80}?)\s+(?:automation|workflow|webhook|job)$/i;
+  const a1 = text.match(automationRe);
+  const a2 = text.match(automationAltRe);
+  if (a1 || a2) {
+    const hint = (a1?.[1] ?? a2?.[1] ?? "")
+      .trim()
+      .replace(/^the\s+/i, "")
+      .replace(/[.!?]+$/, "")
+      .trim();
+    if (hint) {
+      return {
+        kind: "trigger_automation",
+        extracted: { workflow_hint: hint },
+      };
+    }
   }
 
   // --- Knowledge note (specific noun first so "save a note about X" never

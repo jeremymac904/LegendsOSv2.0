@@ -76,6 +76,60 @@ Nothing technically blocked. Live action enabling depends on Jeremy explicitly s
 - `npm run build` ✓ 18 routes, middleware compiled, no errors
 - Playwright config + smoke test authored (not yet run; requires browser install)
 
+## Atlas Hermes Workspace 2 sprint — 2026-05-20
+
+Transformed Atlas from a single-column chat into a full 3-column
+command workspace. 7 coordinated parts shipped on the
+`claude/nice-rubin-006cdd` worktree branch.
+
+Added a shared type contract (`lib/atlas/types.ts`), the
+`atlas_connectors` Supabase migration with RLS + seed (n8n active,
+Zapier coming_soon, Telegram active), three new API routes
+(`/api/atlas/connectors`, `/api/atlas/connectors/[id]`,
+`/api/atlas/audit`), an n8n bridge (`lib/automation/n8n-bridge.ts`)
+with a typed workflow catalog and gated live-action behavior, a Zapier
+MCP stub (`lib/automation/zapier-mcp.ts`), and a `trigger_automation`
+Atlas tool wired through `lib/atlas/intentDetection.ts` +
+`lib/atlas/toolRouter.ts`. `/api/ai/chat` now stamps
+`metadata.router` + `metadata.knowledge_used` on every persisted
+assistant message.
+
+UI: `AtlasShell.tsx` rewrapped in a responsive 3-column layout.
+Left rail = ConnectorPanel, ToolManifestPanel, PipelineWidget,
+RateSheetWidget, LeadActivityFeed, CalculatorShortcut. Center =
+QuickActionsBar above the existing thread + composer. Right rail =
+PlannerPanel + collapsible AuditPanel. Every assistant message now
+displays a RouterChip + KnowledgeBadge + a ToolResultCard that
+variant-renders by `metadata.tool_result.kind` (including the new
+`mortgage_calc`, `loan_comparison`, `lead_summary`,
+`trigger_automation` variants). Mobile collapses sidebars to drawer
+toggles; Quick Actions bar remains visible across viewports.
+
+Premium dark-glass styling preserved — new components reuse existing
+tokens. No new global CSS, fonts, or dependencies. Gold accent
+reserved for primary headers, router/knowledge chips, and CTAs.
+
+### Verification (this sprint)
+
+- `npx tsc --noEmit`   ✓ exit 0
+- `npm run lint`       ✓ exit 0
+- `npm run build`      ✓ 44 routes, middleware 81.5 kB,
+  static + dynamic generation clean. 3 new API routes present:
+  `/api/atlas/audit`, `/api/atlas/connectors`,
+  `/api/atlas/connectors/[id]`.
+
+### Open / next pass
+
+- Apply migration `20260520000000_atlas_connectors.sql` to the live
+  Supabase project so the panel + APIs return real data.
+- Authenticated Playwright visual sweep against the new `/atlas` layout
+  while signed in as `jeremy@mcdonald-mtg.com`.
+- Wire `PipelineWidget` + `LeadActivityFeed` to a real `leads` table
+  when one exists (today they render labeled sample data).
+- Provider-side OpenAI-style tool-calling for `trigger_automation` can
+  graduate from the deterministic intent router later without breaking
+  the type contract.
+
 ## Premium command-center sprint — 2026-05-14 (commit 2b93c40)
 
 Lead integrator dispatched four parallel agents and merged the output.

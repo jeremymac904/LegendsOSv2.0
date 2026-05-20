@@ -9,16 +9,13 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import {
-  BookOpen,
-  Calendar as CalendarIcon,
   Check,
   ChevronDown,
-  Info,
-  Mail,
+  PanelLeft,
+  PanelRight,
   Paperclip,
   Send,
   Settings as SettingsIcon,
-  Share2,
   Sparkles,
   Trash2,
   X,
@@ -26,7 +23,26 @@ import {
 
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn, formatRelative, truncate } from "@/lib/utils";
+import type {
+  AtlasMessageMetadata,
+  AtlasPlanStep,
+  AtlasRouter,
+  AtlasToolResultMeta,
+} from "@/lib/atlas/types";
 import type { AtlasAssistant, ChatMessage, ChatThread } from "@/types/database";
+
+import { AuditPanel } from "./AuditPanel";
+import { CalculatorShortcut } from "./CalculatorShortcut";
+import { ConnectorPanel } from "./ConnectorPanel";
+import { KnowledgeBadge } from "./KnowledgeBadge";
+import { LeadActivityFeed } from "./LeadActivityFeed";
+import { PipelineWidget } from "./PipelineWidget";
+import { PlannerPanel } from "./PlannerPanel";
+import { QuickActionsBar } from "./QuickActionsBar";
+import { RateSheetWidget } from "./RateSheetWidget";
+import { RouterChip } from "./RouterChip";
+import { ToolManifestPanel } from "./ToolManifestPanel";
+import { ToolResultCard } from "./ToolResultCard";
 
 type ProviderId = "openrouter" | "deepseek" | "nvidia";
 
@@ -57,9 +73,11 @@ export interface AtlasShellProps {
   defaultProvider: ProviderId;
 }
 
-// Full-width ChatGPT-style chat surface. No top hero, no right column.
-// Compose pill is pinned at the bottom of the viewport area (centered, max
-// width ~768px). Provider/model/assistant live behind a Settings popover.
+// Hermes Workspace 2 layout — 3-column responsive workspace.
+//   • LEFT  rail (lg+): Connectors, Tools, Pipeline, Rate sheet, Lead activity, Calc shortcut
+//   • CENTER:           Quick Actions, thread messages, composer
+//   • RIGHT rail (lg+): Planner (latest plan), Audit (collapsible)
+// Mobile collapses both rails behind toggle pills above the composer.
 export function AtlasShell({
   ownerId,
   currentThread,
@@ -82,6 +100,8 @@ export function AtlasShell({
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [mobileLeftOpen, setMobileLeftOpen] = useState(false);
+  const [mobileRightOpen, setMobileRightOpen] = useState(false);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
 
@@ -108,11 +128,7 @@ export function AtlasShell({
       }
     } catch {
       // localStorage can throw in private-mode / locked-down browsers.
-      // Failing silently is fine — we just stay on the server-supplied
-      // default provider.
     }
-    // We intentionally only run this once on mount; providerCatalog is a
-    // server-prop and won't change inside this render lifetime.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -163,20 +179,27 @@ export function AtlasShell({
     }
   }, [messages]);
 
-  // Sync state when navigating to a different thread. We intentionally do NOT
-  // depend on initialMessages array identity — Next.js streams a fresh array
-  // every time the server component renders (including after router.refresh
-  // and after the chat route persists a new message), and re-running this
-  // effect would wipe the optimistic user + assistant bubbles we just added
-  // client-side, leaving the user stuck on "Atlas is thinking" forever.
-  // Resetting on currentThread.id is the right trigger — that's the only
-  // moment we actually want to load a different thread's history.
+  // Sync state when navigating to a different thread.
   useEffect(() => {
     setThreadId(currentThread?.id ?? null);
     setMessages(initialMessages);
     setAssistantId(currentThread?.assistant_id ?? null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- see comment above
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
   }, [currentThread?.id, currentThread?.assistant_id]);
+
+  // Latest plan steps surfaced to the right-rail Planner. The planner reads
+  // the most recent assistant message that carries plan_steps; falls back to
+  // null when none of the visible messages have a plan.
+  const latestPlanSteps: AtlasPlanStep[] | null = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      const meta = (m.metadata ?? {}) as AtlasMessageMetadata;
+      if (Array.isArray(meta.plan_steps) && meta.plan_steps.length > 0) {
+        return meta.plan_steps;
+      }
+    }
+    return null;
+  }, [messages]);
 
   function handleAttach(files: FileList | null) {
     if (!files || files.length === 0) return;
@@ -215,8 +238,9 @@ export function AtlasShell({
     return uploaded;
   }
 
-  async function send() {
-    if (!input.trim() || isPending) return;
+  async function sendText(textOverride?: string) {
+    const trimmed = (textOverride ?? input).trim();
+    if (!trimmed || isPending) return;
     if (providerEntry && !providerEntry.configured) {
       setError(
         `${providerEntry.label} is not configured. Owner: add the matching env var.`
@@ -230,7 +254,7 @@ export function AtlasShell({
       return;
     }
     setError(null);
-    const userText = input.trim();
+    const userText = trimmed;
     setInput("");
     const tempUserMsg: ChatMessage = {
       id: `local-${Date.now()}`,
@@ -243,7 +267,6 @@ export function AtlasShell({
       created_at: new Date().toISOString(),
     };
     setMessages((m) => [...m, tempUserMsg]);
-    // Refocus the composer so the user can keep typing immediately.
     composerRef.current?.focus();
 
     startTransition(async () => {
@@ -267,27 +290,18 @@ export function AtlasShell({
           }),
         });
 
-        // Defensive parsing — if the server returned HTML (a login redirect,
-        // a 500 page, a CDN error page), we MUST NOT call `res.json()` on it.
-        // That throws "Unexpected token '<'" and confuses Jeremy. Instead,
-        // surface a plain English message based on the status code.
         const contentType = res.headers.get("content-type") ?? "";
         if (!contentType.includes("application/json")) {
           if (res.status === 401) {
-            setError(
-              "Your session expired. Refresh the page and sign in again."
-            );
+            setError("Your session expired. Refresh the page and sign in again.");
           } else {
-            setError(
-              "Atlas received a non JSON response. Please refresh and try again."
-            );
+            setError("Atlas received a non JSON response. Please refresh and try again.");
           }
           return;
         }
 
         const data = await res.json();
         if (!data.ok) {
-          // Friendly mapping for the common cases.
           let friendly = `${data.error}: ${data.message}`;
           if (data.error === "unauthenticated") {
             friendly = "Your session expired. Refresh and sign in again.";
@@ -324,18 +338,17 @@ export function AtlasShell({
             metadata: {
               provider: data.provider,
               model: data.model,
+              router: (data.router as AtlasRouter | undefined) ?? null,
+              knowledge_used: Boolean(data.knowledge?.used ?? data.knowledge_used),
               knowledge_hits: data.knowledge?.count ?? 0,
               knowledge_sources: data.knowledge?.sources ?? [],
-              // When the chat route fired the Atlas tool router, persist
-              // the structured result so MessageRow can render the action
-              // chip (icon + summary + Open link).
               ...(data.tool_result ? { tool_result: data.tool_result } : {}),
-            },
+              ...(data.plan_steps ? { plan_steps: data.plan_steps } : {}),
+            } satisfies AtlasMessageMetadata,
             token_count: null,
             created_at: new Date().toISOString(),
           },
         ]);
-        // Refresh server data so the sidebar threads list picks up the new thread.
         router.refresh();
       } catch (e) {
         setError(e instanceof Error ? e.message : "Send failed.");
@@ -343,20 +356,41 @@ export function AtlasShell({
     });
   }
 
+  function send() {
+    sendText();
+  }
+
   function handleKey(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    // ChatGPT-style: Enter sends, Shift+Enter inserts a newline.
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       send();
     }
   }
 
+  // Pre-fill composer + drop the caret inside it. Centralizes the focus-defer
+  // pattern so every shortcut (Quick Actions, Calculator, EmptyChat) behaves
+  // identically.
+  function fillComposer(prompt: string) {
+    setInput(prompt);
+    setMobileLeftOpen(false);
+    setTimeout(() => composerRef.current?.focus(), 0);
+  }
+
   return (
     <div className="flex h-[calc(100vh-3.25rem)] w-full flex-col">
-      {/* Branded title strip — gold rune mark + thread title on the left,
-          provider/model selector + assistant settings on the right. */}
-      <div className="flex items-center justify-between gap-3 border-b border-ink-800 bg-ink-950/70 px-4 py-2 backdrop-blur sm:px-6">
+      {/* Branded title strip */}
+      <div className="flex items-center justify-between gap-3 border-b border-ink-800 bg-ink-950/70 px-3 py-2 backdrop-blur sm:px-6">
         <div className="flex min-w-0 items-center gap-2.5">
+          {/* Mobile-only: toggle left rail */}
+          <button
+            type="button"
+            onClick={() => setMobileLeftOpen(!mobileLeftOpen)}
+            className="grid h-7 w-7 place-items-center rounded-md border border-ink-700/80 bg-ink-900/70 text-ink-300 transition hover:border-accent-gold/40 hover:text-accent-gold lg:hidden"
+            aria-label="Toggle workspace tools"
+            aria-expanded={mobileLeftOpen}
+          >
+            <PanelLeft size={13} />
+          </button>
           <span
             aria-hidden
             className="grid h-6 w-6 shrink-0 place-items-center rounded-md border border-accent-gold/40 bg-gradient-to-br from-accent-gold/25 via-accent-gold/10 to-accent-orange/10 text-[10px] font-bold tracking-tight text-accent-gold shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15)]"
@@ -390,115 +424,221 @@ export function AtlasShell({
             open={settingsOpen}
             setOpen={setSettingsOpen}
           />
+          {/* Mobile-only: toggle right rail */}
+          <button
+            type="button"
+            onClick={() => setMobileRightOpen(!mobileRightOpen)}
+            className="grid h-7 w-7 place-items-center rounded-md border border-ink-700/80 bg-ink-900/70 text-ink-300 transition hover:border-accent-gold/40 hover:text-accent-gold lg:hidden"
+            aria-label="Toggle planner + audit"
+            aria-expanded={mobileRightOpen}
+          >
+            <PanelRight size={13} />
+          </button>
         </div>
       </div>
 
-      {/* Scrollable conversation */}
-      <div
-        ref={scrollerRef}
-        className="flex-1 overflow-y-auto px-4 py-6 scrollbar-thin"
-      >
-        <div className="mx-auto flex max-w-3xl flex-col gap-5">
-          {messages.length === 0 && (
-            <EmptyChat
-              provider={provider}
-              configured={Boolean(providerEntry?.configured)}
-              onPick={(prompt) => {
-                setInput(prompt);
-                // Defer focus until after state flushes so the textarea
-                // shows the new value before we drop the cursor in it.
-                setTimeout(() => composerRef.current?.focus(), 0);
-              }}
-            />
-          )}
-          {messages.map((m) => (
-            <MessageRow key={m.id} message={m} />
-          ))}
-          {isPending && (
-            <div className="flex items-center gap-2 text-xs text-ink-300">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent-gold" />
-              Atlas is thinking…
-            </div>
-          )}
-        </div>
-      </div>
+      {/* 3-column workspace body */}
+      <div className="relative grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[18rem_minmax(0,1fr)_18rem] xl:grid-cols-[20rem_minmax(0,1fr)_20rem]">
+        {/* LEFT rail */}
+        <aside
+          aria-label="Atlas workspace tools"
+          className="hidden min-h-0 flex-col gap-2.5 overflow-y-auto border-r border-ink-800 bg-ink-950/40 px-3 py-3 scrollbar-thin lg:flex"
+        >
+          <ConnectorPanel />
+          <ToolManifestPanel />
+          <PipelineWidget />
+          <RateSheetWidget />
+          <LeadActivityFeed />
+          <CalculatorShortcut onPrompt={fillComposer} onSend={sendText} />
+        </aside>
 
-      {/* Pinned composer */}
-      <div className="border-t border-ink-800 bg-ink-950/80 px-3 pb-4 pt-3 backdrop-blur sm:px-6">
-        <div className="mx-auto w-full max-w-3xl">
-          {error && (
-            <p className="mb-2 rounded-lg border border-status-err/30 bg-status-err/10 px-3 py-2 text-xs text-status-err">
-              {error}
-            </p>
-          )}
-          {attachments.length > 0 && (
-            <div className="mb-2 flex flex-wrap gap-1">
-              {attachments.map((file, i) => (
-                <span key={i} className="chip">
-                  {truncate(file.name, 28)}
-                  <button
-                    type="button"
-                    className="text-ink-300 hover:text-status-err"
-                    onClick={() =>
-                      setAttachments((prev) =>
-                        prev.filter((_, idx) => idx !== i)
-                      )
-                    }
-                  >
-                    <Trash2 size={10} />
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
-          <div className="flex items-end gap-2 rounded-2xl border border-ink-700 bg-ink-900/80 px-2 py-1.5 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.7)] focus-within:border-accent-gold/40">
-            <label
-              className="grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-xl text-ink-300 hover:bg-ink-800 hover:text-ink-100"
-              title="Attach file (uploads stored privately under your user folder)"
-            >
-              <Paperclip size={15} />
-              <input
-                type="file"
-                multiple
-                hidden
-                onChange={(e) => handleAttach(e.target.files)}
-              />
-            </label>
-            <textarea
-              ref={composerRef}
-              className="max-h-[40vh] min-h-[40px] flex-1 resize-none bg-transparent px-1 py-2 text-sm text-ink-100 outline-none placeholder:text-ink-400"
-              placeholder="Ask Atlas. Enter to send, Shift+Enter for a new line."
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKey}
-              disabled={isPending}
-              rows={1}
-              onInput={(e) => {
-                const el = e.target as HTMLTextAreaElement;
-                el.style.height = "auto";
-                el.style.height = `${Math.min(el.scrollHeight, 320)}px`;
-              }}
+        {/* Mobile left drawer */}
+        {mobileLeftOpen && (
+          <div className="absolute inset-0 z-40 flex lg:hidden">
+            <div
+              className="absolute inset-0 bg-ink-950/70 backdrop-blur-sm"
+              onClick={() => setMobileLeftOpen(false)}
+              aria-hidden
             />
-            <button
-              onClick={send}
-              className="btn-primary h-9 shrink-0 px-3"
-              disabled={isPending || !input.trim()}
-              aria-label="Send message"
+            <aside
+              role="dialog"
+              aria-label="Atlas workspace tools"
+              className="relative ml-0 flex w-[88%] max-w-[20rem] flex-col gap-2.5 overflow-y-auto border-r border-ink-800 bg-ink-950/95 px-3 py-3 scrollbar-thin shadow-card"
             >
-              <Send size={14} />
-              <span className="hidden sm:inline">Send</span>
-            </button>
+              <div className="flex items-center justify-between pb-1">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent-gold">
+                  Workspace
+                </p>
+                <button
+                  type="button"
+                  className="text-ink-300 hover:text-ink-100"
+                  onClick={() => setMobileLeftOpen(false)}
+                  aria-label="Close"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+              <ConnectorPanel />
+              <ToolManifestPanel />
+              <PipelineWidget />
+              <RateSheetWidget />
+              <LeadActivityFeed />
+              <CalculatorShortcut onPrompt={fillComposer} onSend={sendText} />
+            </aside>
           </div>
-          <p className="mt-1.5 text-center text-[10px] text-ink-400">
-            via <span className="text-ink-300">{provider}</span>
-            {model && (
-              <>
-                {" · "}
-                <span className="text-ink-300">{truncate(model.split("/").slice(-1)[0], 40)}</span>
-              </>
-            )}
-          </p>
-        </div>
+        )}
+
+        {/* CENTER — chat surface */}
+        <main className="relative flex min-h-0 min-w-0 flex-col">
+          {/* Quick Actions bar */}
+          <div className="border-b border-ink-800/80 bg-ink-950/40 px-3 py-2 sm:px-6">
+            <QuickActionsBar onPick={fillComposer} />
+          </div>
+
+          {/* Scrollable conversation */}
+          <div
+            ref={scrollerRef}
+            className="flex-1 overflow-y-auto px-3 py-5 scrollbar-thin sm:px-6"
+          >
+            <div className="mx-auto flex max-w-3xl flex-col gap-5">
+              {messages.length === 0 && (
+                <EmptyChat
+                  provider={provider}
+                  configured={Boolean(providerEntry?.configured)}
+                  onPick={fillComposer}
+                />
+              )}
+              {messages.map((m) => (
+                <MessageRow key={m.id} message={m} />
+              ))}
+              {isPending && (
+                <div className="flex items-center gap-2 text-xs text-ink-300">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent-gold" />
+                  Atlas is thinking…
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Composer */}
+          <div className="border-t border-ink-800 bg-ink-950/80 px-3 pb-4 pt-3 backdrop-blur sm:px-6">
+            <div className="mx-auto w-full max-w-3xl">
+              {error && (
+                <p className="mb-2 rounded-lg border border-status-err/30 bg-status-err/10 px-3 py-2 text-xs text-status-err">
+                  {error}
+                </p>
+              )}
+              {attachments.length > 0 && (
+                <div className="mb-2 flex flex-wrap gap-1">
+                  {attachments.map((file, i) => (
+                    <span key={i} className="chip">
+                      {truncate(file.name, 28)}
+                      <button
+                        type="button"
+                        className="text-ink-300 hover:text-status-err"
+                        onClick={() =>
+                          setAttachments((prev) => prev.filter((_, idx) => idx !== i))
+                        }
+                      >
+                        <Trash2 size={10} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="flex items-end gap-2 rounded-2xl border border-ink-700 bg-ink-900/80 px-2 py-1.5 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.7)] focus-within:border-accent-gold/40">
+                <label
+                  className="grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-xl text-ink-300 hover:bg-ink-800 hover:text-ink-100"
+                  title="Attach file (uploads stored privately under your user folder)"
+                >
+                  <Paperclip size={15} />
+                  <input
+                    type="file"
+                    multiple
+                    hidden
+                    onChange={(e) => handleAttach(e.target.files)}
+                  />
+                </label>
+                <textarea
+                  ref={composerRef}
+                  className="max-h-[40vh] min-h-[40px] flex-1 resize-none bg-transparent px-1 py-2 text-sm text-ink-100 outline-none placeholder:text-ink-400"
+                  placeholder="Ask Atlas. Enter to send, Shift+Enter for a new line."
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKey}
+                  disabled={isPending}
+                  rows={1}
+                  onInput={(e) => {
+                    const el = e.target as HTMLTextAreaElement;
+                    el.style.height = "auto";
+                    el.style.height = `${Math.min(el.scrollHeight, 320)}px`;
+                  }}
+                />
+                <button
+                  onClick={send}
+                  className="btn-primary h-9 shrink-0 px-3"
+                  disabled={isPending || !input.trim()}
+                  aria-label="Send message"
+                >
+                  <Send size={14} />
+                  <span className="hidden sm:inline">Send</span>
+                </button>
+              </div>
+              <p className="mt-1.5 text-center text-[10px] text-ink-400">
+                via <span className="text-ink-300">{provider}</span>
+                {model && (
+                  <>
+                    {" · "}
+                    <span className="text-ink-300">
+                      {truncate(model.split("/").slice(-1)[0], 40)}
+                    </span>
+                  </>
+                )}
+              </p>
+            </div>
+          </div>
+        </main>
+
+        {/* RIGHT rail */}
+        <aside
+          aria-label="Atlas planner and audit"
+          className="hidden min-h-0 flex-col gap-2.5 overflow-y-auto border-l border-ink-800 bg-ink-950/40 px-3 py-3 scrollbar-thin lg:flex"
+        >
+          <PlannerPanel steps={latestPlanSteps} />
+          <AuditPanel />
+        </aside>
+
+        {/* Mobile right drawer */}
+        {mobileRightOpen && (
+          <div className="absolute inset-0 z-40 flex justify-end lg:hidden">
+            <div
+              className="absolute inset-0 bg-ink-950/70 backdrop-blur-sm"
+              onClick={() => setMobileRightOpen(false)}
+              aria-hidden
+            />
+            <aside
+              role="dialog"
+              aria-label="Atlas planner and audit"
+              className="relative flex w-[88%] max-w-[20rem] flex-col gap-2.5 overflow-y-auto border-l border-ink-800 bg-ink-950/95 px-3 py-3 scrollbar-thin shadow-card"
+            >
+              <div className="flex items-center justify-between pb-1">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent-gold">
+                  Planner · Audit
+                </p>
+                <button
+                  type="button"
+                  className="text-ink-300 hover:text-ink-100"
+                  onClick={() => setMobileRightOpen(false)}
+                  aria-label="Close"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+              <PlannerPanel steps={latestPlanSteps} />
+              <AuditPanel />
+            </aside>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -521,8 +661,8 @@ function EmptyChat({
   onPick: (prompt: string) => void;
 }) {
   return (
-    <div className="grid place-items-center py-16">
-      <div className="w-full max-w-xl rounded-2xl border border-ink-800 bg-ink-900/40 p-6">
+    <div className="grid place-items-center py-12">
+      <div className="card-padded w-full max-w-xl">
         <div className="flex flex-col items-center text-center">
           <div className="grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-accent-gold via-accent-gold to-accent-orange text-ink-950">
             <Sparkles size={16} />
@@ -558,175 +698,16 @@ function EmptyChat({
   );
 }
 
-interface AtlasToolResultMeta {
-  kind:
-    | "create_social"
-    | "create_email"
-    | "create_calendar"
-    | "explain_capabilities"
-    | "create_knowledge_note";
-  itemId: string;
-  link: string;
-  summary: string;
-  // Optional structured title surfaced separately from the long summary so
-  // the chip can show "Drafted: <title>" without truncating mid-word.
-  title?: string | null;
-  // Structured capability snapshot — only set when kind === explain_capabilities.
-  capabilities?: {
-    providers: {
-      id: string;
-      label: string;
-      status: "ready" | "configured" | "disabled" | "missing";
-      env_var: string;
-      next_action: string | null;
-    }[];
-  };
-}
-
-// Extract the short title for display from the structured `title` field when
-// present, otherwise fall back to slicing the summary down to its key clause.
-// Never returns raw JSON — the source data is plain strings produced by the
-// tool router.
-function deriveToolTitle(result: AtlasToolResultMeta): string {
-  if (result.title && result.title.trim().length > 0) {
-    return result.title.trim();
-  }
-  // The router's summary looks like:
-  //   `Social draft "Buying a home" on facebook, instagram`
-  //   `Newsletter draft "Refi options"`
-  //   `Calendar item "Coffee with Ana" on May 14, 9:00 AM`
-  // Pull the quoted segment if present; otherwise return the first 60 chars.
-  const quoted = result.summary.match(/"([^"]+)"/);
-  if (quoted && quoted[1]) return quoted[1];
-  return truncate(result.summary, 60);
-}
-
-function ToolResultCard({
-  result,
-  createdAt,
-}: {
-  result: AtlasToolResultMeta;
-  createdAt: string;
-}) {
-  const config = {
-    create_social: {
-      icon: Share2,
-      label: "Social draft",
-      openLabel: "Open" as const,
-    },
-    create_email: {
-      icon: Mail,
-      label: "Newsletter draft",
-      openLabel: "Open" as const,
-    },
-    create_calendar: {
-      icon: CalendarIcon,
-      label: "Calendar item",
-      openLabel: "Open" as const,
-    },
-    explain_capabilities: {
-      icon: Info,
-      label: "Atlas capabilities",
-      openLabel: "Settings" as const,
-    },
-    create_knowledge_note: {
-      icon: BookOpen,
-      label: "Knowledge note",
-      openLabel: "Open" as const,
-    },
-  }[result.kind];
-  if (!config) return null;
-  const Icon = config.icon;
-  const title = deriveToolTitle(result);
-  // Capability chip shows tiny status dots for each provider so Jeremy
-  // can read provider readiness at a glance without expanding the body.
-  const providerDots =
-    result.kind === "explain_capabilities"
-      ? result.capabilities?.providers?.slice(0, 5) ?? []
-      : [];
-  // HH:MM in the viewer's locale. Falls back gracefully when the timestamp
-  // is malformed so we never crash the chat UI.
-  let timeLabel = "";
-  try {
-    const d = new Date(createdAt);
-    if (!isNaN(d.getTime())) {
-      timeLabel = d.toLocaleTimeString(undefined, {
-        hour: "numeric",
-        minute: "2-digit",
-      });
-    }
-  } catch {
-    timeLabel = "";
-  }
-  return (
-    <div className="mt-2.5 flex items-center gap-3 rounded-xl border border-accent-gold/30 bg-accent-gold/5 px-3 py-2.5 backdrop-blur-sm">
-      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-accent-gold/30 bg-accent-gold/15 text-accent-gold">
-        <Icon size={14} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent-gold">
-          {config.label}
-          {timeLabel ? (
-            <span className="ml-1.5 font-normal text-ink-300">
-              · {result.kind === "explain_capabilities" ? "Snapshot" : "Created"}{" "}
-              {timeLabel}
-            </span>
-          ) : null}
-        </p>
-        <p className="truncate text-[12px] font-medium text-ink-100">
-          {title}
-        </p>
-        {providerDots.length > 0 && (
-          <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            {providerDots.map((p) => (
-              <span
-                key={p.id}
-                title={
-                  p.next_action ?? `${p.label} is ${p.status}`
-                }
-                className="inline-flex items-center gap-1 rounded-full border border-ink-700/80 bg-ink-900/60 px-1.5 py-[1px] text-[9.5px] uppercase tracking-[0.14em] text-ink-300"
-              >
-                <span
-                  className={[
-                    "h-1.5 w-1.5 rounded-full",
-                    p.status === "ready"
-                      ? "bg-status-ok"
-                      : p.status === "disabled"
-                      ? "bg-status-off"
-                      : "bg-status-warn",
-                  ].join(" ")}
-                />
-                {p.label}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-      <a
-        href={result.link}
-        className="btn-secondary h-8 shrink-0 px-2.5 text-[11px]"
-        aria-label={`Open ${config.label.toLowerCase()}`}
-      >
-        {config.openLabel} →
-      </a>
-    </div>
-  );
-}
-
 function MessageRow({ message }: { message: ChatMessage }) {
   const isUser = message.role === "user";
   const isSystem = message.role === "system";
-  const meta = (message.metadata ?? {}) as {
-    knowledge_hits?: number;
-    knowledge_sources?: { title: string; source_path: string | null }[];
-    tool_result?: AtlasToolResultMeta;
-  };
+  const meta = (message.metadata ?? {}) as AtlasMessageMetadata;
   const khits = meta.knowledge_hits ?? 0;
   const knowledgeSources = meta.knowledge_sources ?? [];
-  const toolResult = meta.tool_result;
-  // Show the knowledge pill above the assistant bubble per spec — it reads
-  // as a citation badge rather than something stuffed inside the prose.
-  const showKnowledgePill = !isUser && !isSystem && khits > 0;
+  const toolResult = meta.tool_result as AtlasToolResultMeta | null | undefined;
+  const router = meta.router as AtlasRouter | null | undefined;
+  const knowledgeUsed = Boolean(meta.knowledge_used) || khits > 0;
+
   return (
     <div
       className={cn(
@@ -734,31 +715,24 @@ function MessageRow({ message }: { message: ChatMessage }) {
         isUser ? "items-end" : isSystem ? "items-center" : "items-start"
       )}
     >
-      {showKnowledgePill && (
-        // Render up to 3 reference chips (title + optional source path) plus a
-        // "+N more" overflow chip. Hovering any chip reveals the full source
-        // path. This matches Hermes-style citation surfacing instead of a
-        // single opaque pill — the user can SEE which references grounded the
-        // reply without expanding anything.
+      {!isUser && !isSystem && (router || knowledgeUsed) && (
         <div className="flex max-w-full flex-wrap items-center gap-1.5">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-accent-gold/30 bg-accent-gold/10 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.18em] text-accent-gold">
-            <Sparkles size={9} />
-            {khits} source{khits === 1 ? "" : "s"}
-          </span>
+          <RouterChip router={router} />
+          <KnowledgeBadge used={knowledgeUsed} count={khits} />
           {knowledgeSources.slice(0, 3).map((s, idx) => {
             const label = s.source_path
               ? `${s.title} · ${s.source_path.split("/").slice(-2).join("/")}`
               : s.title;
-            const tip = s.source_path
-              ? `${s.title} — ${s.source_path}`
-              : s.title;
+            const tip = s.source_path ? `${s.title} — ${s.source_path}` : s.title;
             return (
               <span
                 key={`${idx}-${s.title}`}
                 title={tip}
                 className="inline-flex max-w-[18rem] items-center gap-1 truncate rounded-full border border-ink-700/70 bg-ink-900/70 px-2 py-0.5 text-[10px] text-ink-200"
               >
-                <span aria-hidden className="text-accent-gold/70">·</span>
+                <span aria-hidden className="text-accent-gold/70">
+                  ·
+                </span>
                 <span className="truncate">{label}</span>
               </span>
             );
@@ -768,9 +742,7 @@ function MessageRow({ message }: { message: ChatMessage }) {
               className="inline-flex items-center rounded-full border border-ink-700/70 bg-ink-900/70 px-2 py-0.5 text-[10px] text-ink-300"
               title={knowledgeSources
                 .slice(3)
-                .map(
-                  (s) => s.title + (s.source_path ? ` (${s.source_path})` : "")
-                )
+                .map((s) => s.title + (s.source_path ? ` (${s.source_path})` : ""))
                 .join("\n")}
             >
               +{knowledgeSources.length - 3} more
@@ -780,7 +752,7 @@ function MessageRow({ message }: { message: ChatMessage }) {
       )}
       <div
         className={cn(
-          "max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap shadow-sm",
+          "max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap shadow-sm",
           isUser
             ? "bg-gradient-to-br from-accent-orange/80 to-accent-gold/80 text-ink-950"
             : isSystem
@@ -790,10 +762,7 @@ function MessageRow({ message }: { message: ChatMessage }) {
       >
         {message.content}
         {!isUser && !isSystem && toolResult && (
-          <ToolResultCard
-            result={toolResult}
-            createdAt={message.created_at}
-          />
+          <ToolResultCard result={toolResult} createdAt={message.created_at} />
         )}
         <p
           className={cn(
@@ -811,12 +780,6 @@ function MessageRow({ message }: { message: ChatMessage }) {
 // =====================================================================
 // Provider + model selector chip
 // =====================================================================
-//
-// Renders as a glass chip top-right of the chat surface. Click opens a
-// dropdown listing the configured providers and their curated models.
-// Unconfigured providers stay visible but disabled with a "not configured"
-// tooltip so Jeremy can SEE that DeepSeek/NVIDIA exist as options, even
-// when the env var isn't set yet.
 function ProviderModelChip(props: {
   provider: ProviderId;
   setProvider: (p: ProviderId) => void;
@@ -825,8 +788,7 @@ function ProviderModelChip(props: {
   providerCatalog: ProviderEntry[];
   modelCatalog: Record<ProviderId, ModelEntry[]>;
 }) {
-  const { provider, setProvider, model, setModel, providerCatalog, modelCatalog } =
-    props;
+  const { provider, setProvider, model, setModel, providerCatalog, modelCatalog } = props;
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -849,14 +811,9 @@ function ProviderModelChip(props: {
 
   const providerEntry = providerCatalog.find((p) => p.id === provider);
   const providerLabel = providerEntry?.label ?? provider;
-  // Friendly short model name for the chip face. The catalog gives us
-  // "default — <full-id>" or "Kimi K2 5 — <full-id>" etc; we just want
-  // the trailing segment so the chip stays compact.
-  const currentModelEntry = (modelCatalog[provider] ?? []).find(
-    (m) => m.id === model
-  );
+  const currentModelEntry = (modelCatalog[provider] ?? []).find((m) => m.id === model);
   const modelShort = currentModelEntry
-    ? (currentModelEntry.id.split("/").slice(-1)[0] || currentModelEntry.id)
+    ? currentModelEntry.id.split("/").slice(-1)[0] || currentModelEntry.id
     : "default";
 
   return (
@@ -910,7 +867,7 @@ function ProviderModelChip(props: {
           </div>
           <div className="max-h-96 overflow-y-auto px-1.5 py-2 scrollbar-thin">
             {providerCatalog.map((p) => {
-              const models = modelCatalog[p.id] ?? [];
+              const localModels = modelCatalog[p.id] ?? [];
               const isDisabled = !p.configured || !p.enabled;
               return (
                 <div key={p.id} className="mb-2 last:mb-0">
@@ -934,9 +891,7 @@ function ProviderModelChip(props: {
                           : "bg-status-warn"
                       )}
                     />
-                    <span className={cn(isDisabled && "text-ink-500")}>
-                      {p.label}
-                    </span>
+                    <span className={cn(isDisabled && "text-ink-500")}>{p.label}</span>
                     {!p.configured && (
                       <span className="ml-auto text-[9px] font-normal tracking-normal text-status-warn">
                         Provider not configured
@@ -948,7 +903,7 @@ function ProviderModelChip(props: {
                       </span>
                     )}
                   </p>
-                  {models.length === 0 ? (
+                  {localModels.length === 0 ? (
                     <button
                       type="button"
                       disabled={isDisabled}
@@ -977,7 +932,7 @@ function ProviderModelChip(props: {
                       )}
                     </button>
                   ) : (
-                    models.map((m) => {
+                    localModels.map((m) => {
                       const isSelected = provider === p.id && model === m.id;
                       return (
                         <button
@@ -1024,9 +979,6 @@ function ProviderModelChip(props: {
   );
 }
 
-// Assistant settings popover (split out from the old combined panel so the
-// provider/model chip can live in its own affordance). Keeps the gear icon
-// for "which assistant profile does Atlas use right now".
 function AssistantSettingsButton(props: {
   assistantId: string | null;
   setAssistantId: (id: string | null) => void;
@@ -1083,9 +1035,7 @@ function AssistantSettingsButton(props: {
               <X size={12} />
             </button>
           </div>
-          <p className="text-[10px] uppercase tracking-[0.18em] text-ink-300">
-            Profile
-          </p>
+          <p className="text-[10px] uppercase tracking-[0.18em] text-ink-300">Profile</p>
           <select
             className="input mt-1"
             value={assistantId ?? ""}

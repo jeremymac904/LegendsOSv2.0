@@ -8,9 +8,14 @@
 // add migrations from here. If a row insert fails for any reason, we surface
 // the error and the chat route falls back to normal AI chat.
 import { getN8nConfigState } from "@/lib/automation/n8n";
+import {
+  triggerWorkflow,
+  type TriggerResult,
+} from "@/lib/automation/n8n-bridge";
 import { getAIProviderStatuses, getServerEnv } from "@/lib/env";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/usage";
+import type { AtlasTriggerAutomationPayload } from "@/lib/atlas/types";
 import type { Profile, SocialChannel } from "@/types/database";
 
 import type { AtlasIntent } from "./intentDetection";
@@ -20,7 +25,8 @@ export type AtlasToolKind =
   | "create_email"
   | "create_calendar"
   | "explain_capabilities"
-  | "create_knowledge_note";
+  | "create_knowledge_note"
+  | "trigger_automation";
 
 export interface AtlasCapabilityProvider {
   id: "openrouter" | "deepseek" | "nvidia" | "fal" | "huggingface";
@@ -64,6 +70,9 @@ export interface AtlasToolSuccess {
   // `explain_capabilities` tool so the chat UI can render a structured
   // capability card instead of plain text.
   capabilities?: AtlasCapabilitySnapshot;
+  // Optional structured payload for the `trigger_automation` tool so the
+  // chat UI can render the workflow's run state directly.
+  trigger_automation?: AtlasTriggerAutomationPayload;
 }
 
 export interface AtlasToolFailure {
@@ -220,6 +229,63 @@ export async function runAtlasTool(
   profile: Profile
 ): Promise<AtlasToolResult> {
   const supabase = getSupabaseServerClient();
+
+  if (intent.kind === "trigger_automation") {
+    const hint = intent.extracted.workflow_hint;
+    let triggered: TriggerResult;
+    try {
+      triggered = await triggerWorkflow(hint, { source: "atlas_chat" });
+    } catch (e) {
+      triggered = {
+        status: "failed",
+        workflow_id: hint,
+        workflow_label: null,
+        message: e instanceof Error ? e.message : "dispatch failed",
+      };
+    }
+    // Always audit — including stub / not_configured so the owner sees
+    // every dispatch attempt. We never block the response on this.
+    try {
+      await recordAudit({
+        actor: profile,
+        action: "atlas_tool_call",
+        target_type: "atlas_automation",
+        target_id: triggered.workflow_id,
+        metadata: {
+          kind: "trigger_automation",
+          status: triggered.status,
+          execution_id: triggered.execution_id ?? null,
+          hint,
+        },
+      });
+    } catch {
+      // never block — audit failure is non-fatal here
+    }
+    const payload: AtlasTriggerAutomationPayload = {
+      workflow_id: triggered.workflow_id,
+      workflow_label: triggered.workflow_label ?? null,
+      execution_id: triggered.execution_id ?? null,
+      status: triggered.status,
+      message: triggered.message ?? null,
+    };
+    const summary =
+      triggered.status === "not_configured"
+        ? `Automation "${hint}" is not configured.`
+        : triggered.status === "stub"
+        ? `Automation "${triggered.workflow_label ?? hint}" is gated by ALLOW_LIVE_*.`
+        : triggered.status === "failed"
+        ? `Automation "${triggered.workflow_label ?? hint}" failed to dispatch.`
+        : `Automation "${triggered.workflow_label ?? hint}" ${triggered.status}.`;
+    return {
+      ok: true,
+      kind: "trigger_automation",
+      itemId: triggered.workflow_id,
+      link: "/settings",
+      summary,
+      title: triggered.workflow_label ?? hint,
+      trigger_automation: payload,
+    };
+  }
 
   if (intent.kind === "explain_capabilities") {
     const snap = buildCapabilitySnapshot();

@@ -12,6 +12,10 @@ import {
   renderCapabilityMessage,
   runAtlasTool,
 } from "@/lib/atlas/toolRouter";
+import type {
+  AtlasMessageMetadata,
+  AtlasToolResultMeta,
+} from "@/lib/atlas/types";
 import { getN8nConfigState } from "@/lib/automation/n8n";
 import { getAIProviderStatuses } from "@/lib/env";
 import {
@@ -206,6 +210,22 @@ export async function POST(req: Request) {
     const safetyLine =
       "Safety: live social publishing and live email sending are OFF by default. Everything I create lands as a draft for you to review.";
     const assistantText = `Here's what I can do right now:\n\n${toolLines}\n\nAI providers:\n${providerLines}\n${n8nLine}\n\n${safetyLine}`;
+    const capMetadata: AtlasMessageMetadata & {
+      providers: Array<{ id: string; configured: boolean; enabled: boolean }>;
+      n8n_configured: boolean;
+    } = {
+      source: "atlas_capability_query",
+      router: "tool",
+      knowledge_used: false,
+      knowledge_hits: 0,
+      knowledge_sources: [],
+      providers: providers.map((p) => ({
+        id: p.id,
+        configured: p.configured,
+        enabled: p.enabled,
+      })),
+      n8n_configured: n8n.configured,
+    };
     const { data: capMsg } = await supabase
       .from("chat_messages")
       .insert({
@@ -213,15 +233,7 @@ export async function POST(req: Request) {
         user_id: profile.id,
         role: "assistant",
         content: assistantText,
-        metadata: {
-          source: "atlas_capability_query",
-          providers: providers.map((p) => ({
-            id: p.id,
-            configured: p.configured,
-            enabled: p.enabled,
-          })),
-          n8n_configured: n8n.configured,
-        },
+        metadata: capMetadata,
       })
       .select("id")
       .single();
@@ -259,6 +271,22 @@ export async function POST(req: Request) {
       let assistantText: string;
       if (toolResult.kind === "explain_capabilities" && toolResult.capabilities) {
         assistantText = renderCapabilityMessage(toolResult.capabilities);
+      } else if (toolResult.kind === "trigger_automation" && toolResult.trigger_automation) {
+        // Workflow result narrative — explicit about gating + status so the
+        // user knows whether n8n actually ran anything.
+        const ta = toolResult.trigger_automation;
+        const label = ta.workflow_label ?? ta.workflow_id;
+        if (ta.status === "not_configured") {
+          assistantText = `I can't run "${label}" — ${ta.message ?? "N8N is not configured."}`;
+        } else if (ta.status === "stub") {
+          assistantText = `I held back on running "${label}". ${ta.message ?? "Live publish is gated by the matching ALLOW_LIVE_* flag."}`;
+        } else if (ta.status === "failed") {
+          assistantText = `I tried to run "${label}" but it failed. ${ta.message ?? ""}`.trim();
+        } else {
+          assistantText = `Triggered "${label}" — status ${ta.status}${
+            ta.execution_id ? ` (execution ${ta.execution_id})` : ""
+          }.`;
+        }
       } else {
         // Honest wording — always "Saved as draft" / "Saved to your
         // knowledge", never "Posted" or "Sent". Atlas does not perform live
@@ -275,6 +303,28 @@ export async function POST(req: Request) {
             ? `Saved as a ${subject}. Open the collection: ${toolResult.link}`
             : `Saved your ${subject} (not posted, not sent — review it first). Open it: ${toolResult.link}`;
       }
+      // Build the structured tool_result payload (mirrors AtlasToolResultMeta
+      // in lib/atlas/types). Only one variant-specific payload is populated.
+      const toolMeta: AtlasToolResultMeta = {
+        kind: toolResult.kind as AtlasToolResultMeta["kind"],
+        itemId: toolResult.itemId,
+        link: toolResult.link,
+        summary: toolResult.summary,
+        title: toolResult.title,
+        ...(toolResult.capabilities
+          ? { capabilities: { providers: toolResult.capabilities.providers } }
+          : {}),
+        ...(toolResult.trigger_automation
+          ? { trigger_automation: toolResult.trigger_automation }
+          : {}),
+      };
+      const toolMetadata: AtlasMessageMetadata = {
+        router: toolResult.kind === "trigger_automation" ? "n8n" : "tool",
+        knowledge_used: false,
+        knowledge_hits: 0,
+        knowledge_sources: [],
+        tool_result: toolMeta,
+      };
       const { data: toolMsg } = await supabase
         .from("chat_messages")
         .insert({
@@ -282,23 +332,7 @@ export async function POST(req: Request) {
           user_id: profile.id,
           role: "assistant",
           content: assistantText,
-          metadata: {
-            tool_result: {
-              kind: toolResult.kind,
-              itemId: toolResult.itemId,
-              link: toolResult.link,
-              summary: toolResult.summary,
-              // Title surfaces in MessageRow's ToolResultCard. Keep it so
-              // the chip can show "Atlas capabilities" / "Refi options" etc.
-              title: toolResult.title,
-              // Structured capability data for the capability tool only.
-              // Plain-text in `content` is the canonical render — this
-              // payload lets the chip optionally show a richer card later.
-              ...(toolResult.capabilities
-                ? { capabilities: toolResult.capabilities }
-                : {}),
-            },
-          },
+          metadata: toolMetadata,
         })
         .select("id")
         .single();
@@ -320,6 +354,7 @@ export async function POST(req: Request) {
         thread_id: threadId,
         message_id: toolMsg?.id ?? null,
         kind: "tool_call",
+        router: toolResult.kind === "trigger_automation" ? "n8n" : "tool",
         tool_result: {
           kind: toolResult.kind,
           itemId: toolResult.itemId,
@@ -328,6 +363,9 @@ export async function POST(req: Request) {
           title: toolResult.title,
           ...(toolResult.capabilities
             ? { capabilities: toolResult.capabilities }
+            : {}),
+          ...(toolResult.trigger_automation
+            ? { trigger_automation: toolResult.trigger_automation }
             : {}),
         },
         content: assistantText,
@@ -342,6 +380,18 @@ export async function POST(req: Request) {
     // surface a plain-English message to the chat so the user can recover.
     console.error("atlas_tool_failed", toolResult);
     const friendly = friendlyToolFailure(toolResult.kind, toolResult.message);
+    const failureMetadata: AtlasMessageMetadata & {
+      kind: string;
+      error: string;
+    } = {
+      source: "atlas_tool_failure",
+      router: "tool",
+      knowledge_used: false,
+      knowledge_hits: 0,
+      knowledge_sources: [],
+      kind: toolResult.kind,
+      error: toolResult.error,
+    };
     const { data: errMsg } = await supabase
       .from("chat_messages")
       .insert({
@@ -349,11 +399,7 @@ export async function POST(req: Request) {
         user_id: profile.id,
         role: "assistant",
         content: friendly,
-        metadata: {
-          source: "atlas_tool_failure",
-          kind: toolResult.kind,
-          error: toolResult.error,
-        },
+        metadata: failureMetadata,
       })
       .select("id")
       .single();
@@ -465,6 +511,22 @@ export async function POST(req: Request) {
   }
 
   // Persist assistant response.
+  const knowledgeSources = knowledgeHits.map((h) => ({
+    title: h.title,
+    source_path: h.source_path,
+  }));
+  // Router classification: when retrieval grounded the answer, the message
+  // is provider-generated but knowledge-fed — we mark router='provider' and
+  // flip knowledge_used so the chip can render the "knowledge" variant on
+  // top of the provider answer.
+  const providerMetadata: AtlasMessageMetadata = {
+    provider: result.provider,
+    model: result.model,
+    router: "provider",
+    knowledge_used: knowledgeHits.length > 0,
+    knowledge_hits: knowledgeHits.length,
+    knowledge_sources: knowledgeSources,
+  };
   const { data: assistantMsg } = await supabase
     .from("chat_messages")
     .insert({
@@ -473,11 +535,7 @@ export async function POST(req: Request) {
       role: "assistant",
       content: result.content,
       token_count: result.usage?.total_tokens ?? null,
-      metadata: {
-        provider: result.provider,
-        model: result.model,
-        knowledge_hits: knowledgeHits.length,
-      },
+      metadata: providerMetadata,
     })
     .select("id")
     .single();
@@ -513,13 +571,12 @@ export async function POST(req: Request) {
     content: result.content,
     provider: result.provider,
     model: result.model,
+    router: "provider",
+    knowledge_used: knowledgeHits.length > 0,
     usage: { daily_count: cap.used + 1, daily_limit: cap.cap },
     knowledge: {
       count: knowledgeHits.length,
-      sources: knowledgeHits.map((h) => ({
-        title: h.title,
-        source_path: h.source_path,
-      })),
+      sources: knowledgeSources,
     },
   });
 }
