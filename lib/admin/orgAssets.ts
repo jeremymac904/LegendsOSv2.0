@@ -100,15 +100,21 @@ export async function loadOrgUploadedImageAssets(): Promise<UploadedAsset[]> {
 }
 
 // Returns a Map<assetId, count> describing how many `social_posts` rows
-// reference each asset id, either via the legacy `media_id` column (UUID
-// only) or via the `metadata.media_ids` JSON array (which can hold UUIDs OR
-// non-UUID tokens like manifest slugs / asset library ids).
+// reference each asset id. We count across THREE fields per post and dedupe
+// within the post so a single attachment never double-counts:
+//   1. The legacy `media_id` column (UUID only — primary thumbnail).
+//   2. `metadata.media_ids[]` (current contract — SocialComposer + T3's
+//      attach_asset_to_social_draft mirror writes here).
+//   3. `metadata.assets[]` (legacy Atlas contract — T2/early-T3 Atlas-attached
+//      drafts ONLY wrote here. SocialComposer reads both fields when
+//      hydrating, so the usage chip + delete-guard must do the same or
+//      Atlas-attached assets would appear unused and get silently deletable).
 //
 // One Supabase query — RLS scopes results to rows the caller can see, which
 // is fine for owner/team views. We do the aggregation in-process because
-// `metadata.media_ids` is a JSON array, not a relational column. The same
-// pattern is used by the admin assets page; this helper centralizes it so
-// Social Studio can reuse it without duplicating logic.
+// `metadata.*` is JSON, not a relational column. Centralized here so Social
+// Studio + the Asset Library + the /api/admin/assets DELETE guard all share
+// one definition of "used in N posts".
 export async function loadSocialAssetUsageCounts(): Promise<
   Map<string, number>
 > {
@@ -121,15 +127,22 @@ export async function loadSocialAssetUsageCounts(): Promise<
   for (const row of data as {
     id: string;
     media_id: string | null;
-    metadata: { media_ids?: unknown } | null;
+    metadata: { media_ids?: unknown; assets?: unknown } | null;
   }[]) {
-    // Dedupe within a post — a post that references the same asset in both
-    // `media_id` and `metadata.media_ids` should still count as one usage.
+    // Dedupe within a post — a post that references the same asset in
+    // `media_id`, `metadata.media_ids`, AND `metadata.assets` still counts as
+    // exactly one usage of that asset.
     const seen = new Set<string>();
     if (row.media_id) seen.add(row.media_id);
     const ids = row.metadata?.media_ids;
     if (Array.isArray(ids)) {
       for (const v of ids) {
+        if (typeof v === "string" && v) seen.add(v);
+      }
+    }
+    const legacyAssets = row.metadata?.assets;
+    if (Array.isArray(legacyAssets)) {
+      for (const v of legacyAssets) {
         if (typeof v === "string" && v) seen.add(v);
       }
     }
