@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Mail, Users2 } from "lucide-react";
+import { ExternalLink, Mail, PlugZap, Users2 } from "lucide-react";
 
 import {
   EmailComposer,
@@ -101,6 +101,36 @@ export default async function EmailStudioPage({
         }
       />
 
+      <section className="card-padded">
+        <div className="section-title">
+          <div>
+            <h2>Campaign workflow</h2>
+            <p>Daily-use newsletter drafting, audience counts, preview, owner test send, and safe queueing.</p>
+          </div>
+          <Link href="/settings" className="btn-ghost text-xs">
+            <ExternalLink size={13} />
+            Setup
+          </Link>
+        </div>
+        <div className="mt-3 grid gap-2 md:grid-cols-3">
+          <EmailSetupCard
+            title="Owner send flag"
+            detail="ALLOW_LIVE_EMAIL_SEND"
+            ready={env.SAFETY.allowLiveEmailSend}
+          />
+          <EmailSetupCard
+            title="n8n email broker"
+            detail="N8N_WEBHOOK_EMAIL_SEND"
+            ready={Boolean(env.N8N_WEBHOOKS.email_send)}
+          />
+          <EmailSetupCard
+            title="Audiences"
+            detail={`${audiences.length} active list${audiences.length === 1 ? "" : "s"}`}
+            ready={audiences.length > 0}
+          />
+        </div>
+      </section>
+
       {/* Starter templates panel — visible only when the org has zero
           campaigns (no drafts, no sends, nothing). Once the owner picks
           a template, /api/email returns the new draft id and we route to
@@ -190,6 +220,29 @@ export default async function EmailStudioPage({
           )}
         </aside>
       </div>
+    </div>
+  );
+}
+
+function EmailSetupCard({
+  title,
+  detail,
+  ready,
+}: {
+  title: string;
+  detail: string;
+  ready: boolean;
+}) {
+  return (
+    <div className="rounded-xl border border-ink-800 bg-ink-900/35 p-3">
+      <div className="flex items-center justify-between gap-2">
+        <span className="grid h-8 w-8 place-items-center rounded-lg border border-accent-gold/20 bg-accent-gold/10 text-accent-gold">
+          <PlugZap size={14} />
+        </span>
+        <StatusPill status={ready ? "ok" : "warn"} label={ready ? "ready" : "setup needed"} />
+      </div>
+      <p className="mt-3 text-sm font-medium text-ink-100">{title}</p>
+      <p className="mt-1 text-[11px] text-ink-400">{detail}</p>
     </div>
   );
 }

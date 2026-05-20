@@ -1,4 +1,9 @@
-export type ProviderId = "openrouter" | "deepseek" | "nvidia" | "fal";
+export type ProviderId =
+  | "openrouter"
+  | "deepseek"
+  | "nvidia"
+  | "minimax"
+  | "fal";
 
 export interface ChatTurn {
   role: "user" | "assistant" | "system";

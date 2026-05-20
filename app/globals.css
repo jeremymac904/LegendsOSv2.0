@@ -7,8 +7,8 @@
   --bg: 5 6 10;
   --fg: 231 234 242;
   --muted: 140 147 175;
-  --accent: 245 180 0;
-  --accent-2: 255 138 31;
+  --accent: 216 179 90;
+  --accent-2: 185 138 46;
 }
 
 html,
@@ -22,7 +22,7 @@ body {
   /* Pewter / gold command-center background from the walkthrough. */
   background-image:
     linear-gradient(180deg, rgba(5, 6, 10, 0.72), rgba(5, 6, 10, 0.9)),
-    radial-gradient(70% 55% at 30% 8%, rgba(245, 180, 0, 0.18) 0%, rgba(245, 180, 0, 0) 62%),
+    radial-gradient(70% 55% at 30% 8%, rgba(216, 179, 90, 0.11) 0%, rgba(216, 179, 90, 0) 62%),
     radial-gradient(45% 50% at 88% 20%, rgba(198, 166, 93, 0.12) 0%, rgba(198, 166, 93, 0) 64%),
     url("/assets/backgrounds/command-center-futuristic.jpg");
   background-size: cover;
@@ -33,10 +33,10 @@ body {
 @layer components {
   /* ─── Glass surfaces ─────────────────────────────────────────────── */
   .card {
-    @apply relative rounded-2xl border border-ink-800/80 bg-ink-900/55 backdrop-blur-md shadow-card transition-colors;
+    @apply relative rounded-2xl border border-ink-800/70 bg-ink-900/40 backdrop-blur-xl shadow-card transition-colors;
     background-image:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.025) 0%, rgba(255, 255, 255, 0) 36%),
-      linear-gradient(180deg, rgba(10, 12, 18, 0.4) 0%, rgba(10, 12, 18, 0.65) 100%);
+      linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0%, rgba(255, 255, 255, 0.012) 42%),
+      linear-gradient(180deg, rgba(10, 12, 18, 0.25) 0%, rgba(10, 12, 18, 0.58) 100%);
   }
   .card::before {
     content: "";
@@ -47,8 +47,8 @@ body {
     box-shadow:
       0 1px 0 0 rgba(255, 255, 255, 0.04) inset,
       0 12px 32px -16px rgba(0, 0, 0, 0.8),
-      0 0 0 1px rgba(245, 180, 0, 0.08),
-      0 8px 36px -18px rgba(245, 180, 0, 0.18);
+      0 0 0 1px rgba(216, 179, 90, 0.08),
+      0 8px 36px -18px rgba(216, 179, 90, 0.16);
   }
   .card-padded {
     @apply card p-5;
@@ -64,14 +64,14 @@ body {
     box-shadow:
       inset 0 1px 0 0 rgba(255, 255, 255, 0.4),
       inset 0 -1px 0 0 rgba(0, 0, 0, 0.15),
-      0 8px 24px -10px rgba(245, 180, 0, 0.45);
+      0 8px 24px -10px rgba(216, 179, 90, 0.38);
   }
   .btn-primary:hover {
     @apply from-accent-orange to-accent-gold;
     box-shadow:
       inset 0 1px 0 0 rgba(255, 255, 255, 0.5),
       inset 0 -1px 0 0 rgba(0, 0, 0, 0.15),
-      0 10px 32px -8px rgba(255, 138, 31, 0.55);
+      0 10px 32px -8px rgba(185, 138, 46, 0.42);
   }
   .btn-secondary {
     @apply btn border-accent-gold/30 bg-ink-900/60 text-ink-100 backdrop-blur-sm hover:border-accent-gold/55 hover:bg-ink-800/70;
@@ -137,11 +137,11 @@ body {
     @apply relative flex items-center gap-3 rounded-xl border border-transparent px-3 py-2 text-sm text-ink-300 transition-colors hover:bg-ink-800/40 hover:text-ink-100;
   }
   .nav-item-active {
-    @apply relative flex items-center gap-3 rounded-xl border border-accent-gold/20 bg-gradient-to-r from-accent-gold/10 via-ink-800/60 to-ink-800/30 px-3 py-2 text-sm font-medium text-ink-100 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)] transition-colors;
+    @apply relative flex items-center gap-3 rounded-xl border border-accent-gold/20 bg-gradient-to-r from-accent-gold/10 via-ink-800/55 to-ink-800/25 px-3 py-2 text-sm font-medium text-ink-100 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)] transition-colors;
   }
   .nav-item-active::before {
     content: "";
-    @apply absolute left-0 top-1/2 h-5 w-[2px] -translate-y-1/2 rounded-r-full bg-gradient-to-b from-accent-gold to-accent-orange shadow-[0_0_8px_rgba(245,180,0,0.6)];
+    @apply absolute left-0 top-1/2 h-5 w-[2px] -translate-y-1/2 rounded-r-full bg-gradient-to-b from-accent-gold to-accent-orange shadow-[0_0_8px_rgba(216,179,90,0.48)];
   }
 
   .scrollbar-thin::-webkit-scrollbar {

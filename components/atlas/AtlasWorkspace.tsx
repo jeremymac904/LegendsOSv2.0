@@ -16,10 +16,13 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Info,
+  Layers3,
   Mail,
+  MonitorUp,
   PanelLeft,
   PanelRight,
   Paperclip,
+  Search,
   Send,
   Share2,
   Sparkles,
@@ -31,12 +34,18 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn, formatRelative, truncate } from "@/lib/utils";
 import type { AtlasAssistant, ChatMessage, ChatThread } from "@/types/database";
 
-import { ConnectorPanel } from "./ConnectorPanel";
+import {
+  AtlasProjectsPanel,
+  type AtlasKnowledgeCollectionOption,
+  type AtlasProjectAccessMap,
+  type AtlasProjectSummary,
+  type AtlasThreadSummary,
+} from "./AtlasProjectsPanel";
 import { LOWorkspace } from "./LOWorkspace";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-type ProviderId = "openrouter" | "deepseek" | "nvidia";
+type ProviderId = "openrouter" | "deepseek" | "nvidia" | "minimax";
 
 const LS_PROVIDER_KEY = "legendsos-atlas-provider";
 const LS_MODEL_KEY = "legendsos-atlas-model";
@@ -61,6 +70,11 @@ export interface AtlasWorkspaceProps {
   providerCatalog: ProviderEntry[];
   modelCatalog: Record<ProviderId, ModelEntry[]>;
   defaultProvider: ProviderId;
+  organizationId: string | null;
+  projects: AtlasProjectSummary[];
+  knowledgeCollections: AtlasKnowledgeCollectionOption[];
+  projectAccess: AtlasProjectAccessMap;
+  recentThreads: AtlasThreadSummary[];
 }
 
 // ─── Tool result card ────────────────────────────────────────────────────────
@@ -133,6 +147,9 @@ function ToolResultCard({ result, createdAt }: { result: AtlasToolResultMeta; cr
             ))}
           </div>
         )}
+        <p className="mt-1 text-[11px] leading-relaxed text-ink-300">
+          {result.summary}
+        </p>
       </div>
       <a href={result.link} className="btn-secondary h-8 shrink-0 px-2.5 text-[11px]">{entry.openLabel} →</a>
     </div>
@@ -218,6 +235,166 @@ function EmptyChat({ provider, configured, onPick }: {
   );
 }
 
+interface WorkspaceResource {
+  id: string;
+  type: "source" | "action";
+  title: string;
+  detail: string;
+  link?: string;
+}
+
+function buildResources(messages: ChatMessage[]): WorkspaceResource[] {
+  const out: WorkspaceResource[] = [];
+  const seen = new Set<string>();
+  for (const message of messages) {
+    const meta = (message.metadata ?? {}) as {
+      knowledge_sources?: { title: string; source_path: string | null }[];
+      tool_result?: AtlasToolResultMeta;
+    };
+    for (const source of meta.knowledge_sources ?? []) {
+      const key = `source:${source.title}:${source.source_path ?? ""}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({
+        id: key,
+        type: "source",
+        title: source.title,
+        detail: source.source_path
+          ? source.source_path.split("/").slice(-3).join("/")
+          : "Knowledge source",
+      });
+    }
+    if (meta.tool_result) {
+      const result = meta.tool_result;
+      const key = `tool:${result.kind}:${result.itemId}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({
+        id: key,
+        type: "action",
+        title: deriveToolTitle(result),
+        detail: result.summary,
+        link: result.link,
+      });
+    }
+  }
+  return out.slice(-10).reverse();
+}
+
+function WorkspaceResourcePanel({
+  messages,
+  currentProject,
+  onPrompt,
+}: {
+  messages: ChatMessage[];
+  currentProject: AtlasProjectSummary | null;
+  onPrompt: (prompt: string) => void;
+}) {
+  const resources = buildResources(messages);
+  const tasks = taskList(currentProject?.metadata);
+  return (
+    <div className="flex h-full flex-col overflow-y-auto scrollbar-thin">
+      <div className="border-b border-ink-800 px-3 py-2">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-300">
+          Sources & resources
+        </p>
+        <p className="mt-1 text-[10.5px] leading-snug text-ink-500">
+          Knowledge hits, tool outputs, and project work stay visible here.
+        </p>
+      </div>
+      <div className="space-y-2 p-3">
+        {resources.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-ink-700 bg-ink-900/35 p-3">
+            <p className="text-[11px] font-medium text-ink-200">No sources yet</p>
+            <p className="mt-1 text-[10.5px] leading-snug text-ink-400">
+              Ask Atlas to use project knowledge, create a draft, schedule an item, or explain connected tools.
+            </p>
+            <div className="mt-3 grid gap-1.5">
+              {[
+                "What sources are attached to this project?",
+                "Draft a social post using this project knowledge.",
+                "What tools and connectors are available right now?",
+              ].map((prompt) => (
+                <button
+                  key={prompt}
+                  type="button"
+                  onClick={() => onPrompt(prompt)}
+                  className="rounded-lg border border-ink-800 bg-ink-950/45 px-2 py-1.5 text-left text-[10.5px] text-ink-300 hover:border-accent-gold/30 hover:text-ink-100"
+                >
+                  {prompt}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          resources.map((resource) => (
+            <div
+              key={resource.id}
+              className="rounded-xl border border-ink-800 bg-ink-900/45 p-2.5"
+            >
+              <div className="flex items-start gap-2">
+                <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-lg border border-accent-gold/20 bg-accent-gold/10 text-accent-gold">
+                  {resource.type === "source" ? <Search size={12} /> : <Sparkles size={12} />}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[11.5px] font-medium text-ink-100">
+                    {resource.title}
+                  </p>
+                  <p className="mt-0.5 line-clamp-3 text-[10.5px] leading-snug text-ink-400">
+                    {resource.detail}
+                  </p>
+                  {resource.link && (
+                    <a
+                      href={resource.link}
+                      className="mt-2 inline-flex text-[10.5px] text-accent-gold hover:text-ink-100"
+                    >
+                      Open result
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+      {currentProject && (
+        <div className="border-t border-ink-800 p-3">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-300">
+            Active project
+          </p>
+          <div className="mt-2 rounded-xl border border-accent-gold/25 bg-accent-gold/[0.06] p-3">
+            <p className="truncate text-[12px] font-semibold text-ink-100">
+              {currentProject.name}
+            </p>
+            <p className="mt-1 line-clamp-3 text-[10.5px] leading-snug text-ink-300">
+              {currentProject.description || "Project instructions and sources are active for new chats."}
+            </p>
+            {tasks.length > 0 && (
+              <ul className="mt-2 space-y-1">
+                {tasks.slice(0, 4).map((task) => (
+                  <li key={task} className="flex gap-1.5 text-[10.5px] text-ink-300">
+                    <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-accent-gold/70" />
+                    <span className="line-clamp-2">{task}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+      <div className="border-t border-ink-800">
+        <LOWorkspace onPrompt={onPrompt} />
+      </div>
+    </div>
+  );
+}
+
+function taskList(metadata: Record<string, unknown> | null | undefined): string[] {
+  const raw = metadata?.tasks;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((v): v is string => typeof v === "string" && v.trim().length > 0);
+}
+
 // ─── ProviderModelChip ───────────────────────────────────────────────────────
 
 function ProviderModelChip(props: {
@@ -293,6 +470,7 @@ function ProviderModelChip(props: {
 export function AtlasWorkspace({
   ownerId, currentThread, initialMessages = [],
   assistants: _assistants, providerCatalog, modelCatalog, defaultProvider,
+  organizationId, projects, knowledgeCollections, projectAccess, recentThreads,
 }: AtlasWorkspaceProps) {
   const router = useRouter();
   const [threadId, setThreadId] = useState<string | null>(currentThread?.id ?? null);
@@ -301,6 +479,9 @@ export function AtlasWorkspace({
   const [provider, setProvider] = useState<ProviderId>(defaultProvider);
   const [model, setModel] = useState<string>("");
   const [attachments, setAttachments] = useState<File[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
+    currentThread?.assistant_id ?? null
+  );
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [leftOpen, setLeftOpen] = useState(true);
@@ -313,7 +494,7 @@ export function AtlasWorkspace({
     try {
       const sp = window.localStorage.getItem(LS_PROVIDER_KEY) as ProviderId | null;
       const sm = window.localStorage.getItem(LS_MODEL_KEY);
-      if (sp && ["openrouter","deepseek","nvidia"].includes(sp)) {
+      if (sp && ["openrouter","deepseek","nvidia","minimax"].includes(sp)) {
         const entry = providerCatalog.find((p) => p.id === sp);
         if (entry?.configured && entry.enabled) { setProvider(sp); if (sm) setModel(sm); }
       }
@@ -330,23 +511,92 @@ export function AtlasWorkspace({
   }, [provider, models, model]);
 
   useEffect(() => { if (scrollerRef.current) scrollerRef.current.scrollTop = scrollerRef.current.scrollHeight; }, [messages]);
-  useEffect(() => { setThreadId(currentThread?.id ?? null); setMessages(initialMessages); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [currentThread?.id]);
+  useEffect(() => {
+    setThreadId(currentThread?.id ?? null);
+    setMessages(initialMessages);
+    setSelectedProjectId(currentThread?.assistant_id ?? null);
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [currentThread?.id]);
 
   const providerEntry = providerCatalog.find((p) => p.id === provider);
+  const currentProject = projects.find((p) => p.id === selectedProjectId) ?? null;
 
   function injectPrompt(prompt: string) { setInput(prompt); setTimeout(() => composerRef.current?.focus(), 0); }
 
-  function handleAttach(files: FileList | null) {
-    if (!files || files.length === 0) return;
-    setAttachments((prev) => [...prev, ...Array.from(files)]);
+  function addAttachments(files: File[]) {
+    if (files.length === 0) return;
+    setAttachments((prev) => [...prev, ...files]);
   }
 
-  async function uploadAttachments(ctid: string): Promise<string[]> {
+  function handleAttach(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    addAttachments(Array.from(files));
+  }
+
+  function handlePaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
+    const files = Array.from(e.clipboardData.files ?? []);
+    const itemFiles = Array.from(e.clipboardData.items ?? [])
+      .filter((item) => item.kind === "file")
+      .map((item) => item.getAsFile())
+      .filter((file): file is File => Boolean(file));
+    const combined = [...files, ...itemFiles];
+    if (combined.length > 0) {
+      e.preventDefault();
+      addAttachments(combined);
+      setError(null);
+    }
+  }
+
+  async function captureScreen() {
+    setError(null);
+    try {
+      if (!navigator.mediaDevices?.getDisplayMedia) {
+        setError("Screen capture is not available in this browser. Attach a screenshot file instead.");
+        return;
+      }
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+      const video = document.createElement("video");
+      video.srcObject = stream;
+      await video.play();
+      await new Promise((resolve) => window.setTimeout(resolve, 250));
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth || 1440;
+      canvas.height = video.videoHeight || 900;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Could not capture screen frame.");
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, "image/png")
+      );
+      stream.getTracks().forEach((track) => track.stop());
+      if (!blob) throw new Error("Could not encode screenshot.");
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+      addAttachments([
+        new File([blob], `atlas-screen-capture-${stamp}.png`, {
+          type: "image/png",
+        }),
+      ]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Screen capture failed.");
+    }
+  }
+
+  function selectProject(projectId: string | null) {
+    setSelectedProjectId(projectId);
+    if (threadId && currentThread?.assistant_id !== projectId) {
+      setThreadId(null);
+      setMessages([]);
+      router.replace("/atlas");
+    }
+    setTimeout(() => composerRef.current?.focus(), 0);
+  }
+
+  async function uploadAttachments(scopeId: string): Promise<string[]> {
     if (attachments.length === 0) return [];
     const supabase = getSupabaseBrowserClient();
     const uploaded: string[] = [];
     for (const file of attachments) {
-      const path = `${ownerId}/atlas/${ctid}/${Date.now()}-${file.name}`;
+      const path = `${ownerId}/atlas/${scopeId}/${Date.now()}-${file.name}`;
       const { error: upErr } = await supabase.storage.from("uploads").upload(path, file, { upsert: false });
       if (upErr) { setError(`Upload failed: ${upErr.message}`); continue; }
       const { data: row } = await supabase.from("uploaded_files").insert({
@@ -370,11 +620,17 @@ export function AtlasWorkspace({
     composerRef.current?.focus();
     startTransition(async () => {
       try {
-        const uploaded = threadId ? await uploadAttachments(threadId) : [];
+        const uploaded = await uploadAttachments(threadId ?? `new-${Date.now()}`);
         const res = await fetch("/api/ai/chat", {
           method: "POST",
           headers: { "content-type": "application/json", accept: "application/json" },
-          body: JSON.stringify({ thread_id: threadId, provider, ...(model ? { model } : {}), message: uploaded.length > 0 ? `${userText}\n\n[attached files: ${uploaded.join(", ")}]` : userText }),
+          body: JSON.stringify({
+            thread_id: threadId,
+            assistant_id: selectedProjectId,
+            provider,
+            ...(model ? { model } : {}),
+            message: uploaded.length > 0 ? `${userText}\n\n[attached files: ${uploaded.join(", ")}]` : userText,
+          }),
         });
         const ct = res.headers.get("content-type") ?? "";
         if (!ct.includes("application/json")) { setError(res.status === 401 ? "Your session expired." : "Atlas received a non-JSON response."); return; }
@@ -399,13 +655,22 @@ export function AtlasWorkspace({
 
   return (
     <div className="flex h-[calc(100vh-3.25rem)] w-full overflow-hidden">
-      {/* Left: Connector Panel */}
-      <div className={cn("flex flex-col border-r border-ink-800 bg-ink-950/60 backdrop-blur transition-all duration-200", leftOpen ? "w-48 shrink-0" : "w-0 overflow-hidden")}>
+      {/* Left: Projects */}
+      <div className={cn("flex flex-col border-r border-ink-800 bg-ink-950/65 backdrop-blur-xl transition-all duration-200", leftOpen ? "w-72 shrink-0 xl:w-80" : "w-0 overflow-hidden")}>
         <div className="flex items-center justify-between gap-2 border-b border-ink-800 px-3 py-2">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-gold-gradient">Atlas</span>
+          <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-gold-gradient">Atlas workspace</span>
           <button type="button" onClick={() => setLeftOpen(false)} className="text-ink-500 hover:text-ink-200"><ChevronsLeft size={12} /></button>
         </div>
-        <ConnectorPanel />
+        <AtlasProjectsPanel
+          ownerId={ownerId}
+          organizationId={organizationId}
+          projects={projects}
+          knowledgeCollections={knowledgeCollections}
+          projectAccess={projectAccess}
+          recentThreads={recentThreads}
+          selectedProjectId={selectedProjectId}
+          onSelectProject={selectProject}
+        />
       </div>
       {!leftOpen && (
         <button type="button" onClick={() => setLeftOpen(true)} title="Open connector panel"
@@ -429,25 +694,34 @@ export function AtlasWorkspace({
               <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-gold-gradient">Atlas</span>
               <span className="text-ink-700">·</span>
               <p className="truncate text-xs font-medium text-ink-100">{currentThread?.title ?? "New conversation"}</p>
+              {currentProject && (
+                <>
+                  <span className="hidden text-ink-700 sm:inline">·</span>
+                  <span className="hidden max-w-[16rem] items-center gap-1 truncate rounded-full border border-accent-gold/25 bg-accent-gold/10 px-2 py-0.5 text-[10px] text-accent-gold sm:inline-flex">
+                    <Layers3 size={10} />
+                    {currentProject.name}
+                  </span>
+                </>
+              )}
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <ProviderModelChip provider={provider} setProvider={setProvider} model={model} setModel={setModel} providerCatalog={providerCatalog} modelCatalog={modelCatalog} />
-            <button type="button" onClick={() => setRightOpen((o) => !o)} title={rightOpen ? "Close LO workspace" : "Open LO workspace"}
+            <button type="button" onClick={() => setRightOpen((o) => !o)} title={rightOpen ? "Close resources" : "Open resources"}
               className={cn("grid h-7 w-7 place-items-center rounded-full border border-ink-700/80 bg-ink-900/70 text-ink-300 backdrop-blur-sm transition hover:border-accent-gold/60 hover:text-accent-gold", rightOpen && "border-accent-gold/40 text-accent-gold")}>
               <PanelRight size={13} />
             </button>
           </div>
         </div>
         <div ref={scrollerRef} className="flex-1 overflow-y-auto px-4 py-6 scrollbar-thin">
-          <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
+          <div className="mx-auto flex w-full max-w-6xl flex-col gap-5">
             {messages.length === 0 && <EmptyChat provider={provider} configured={Boolean(providerEntry?.configured)} onPick={injectPrompt} />}
             {messages.map((m) => <MessageRow key={m.id} message={m} />)}
             {isPending && <div className="flex items-center gap-2 text-xs text-ink-300"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent-gold" />Atlas is thinking…</div>}
           </div>
         </div>
-        <div className="border-t border-ink-800 bg-ink-950/80 px-3 pb-4 pt-3 backdrop-blur sm:px-6">
-          <div className="mx-auto w-full max-w-5xl">
+        <div className="border-t border-ink-800 bg-ink-950/85 px-3 pb-8 pt-3 backdrop-blur-xl sm:px-6">
+          <div className="mx-auto w-full max-w-6xl">
             {error && <p className="mb-2 rounded-lg border border-status-err/30 bg-status-err/10 px-3 py-2 text-xs text-status-err">{error}</p>}
             {attachments.length > 0 && (
               <div className="mb-2 flex flex-wrap gap-1">
@@ -461,22 +735,38 @@ export function AtlasWorkspace({
                 <Paperclip size={15} />
                 <input type="file" multiple hidden onChange={(e) => handleAttach(e.target.files)} />
               </label>
-              <textarea ref={composerRef} className="max-h-[40vh] min-h-[40px] flex-1 resize-none bg-transparent px-1 py-2 text-sm text-ink-100 outline-none placeholder:text-ink-400" placeholder="Ask Atlas. Enter to send, Shift+Enter for a new line." value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKey} disabled={isPending} rows={1}
+              <button
+                type="button"
+                onClick={captureScreen}
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-ink-300 hover:bg-ink-800 hover:text-ink-100"
+                title="Capture screen or window"
+              >
+                <MonitorUp size={15} />
+              </button>
+              <textarea ref={composerRef} className="max-h-[40vh] min-h-[40px] flex-1 resize-none bg-transparent px-1 py-2 text-sm text-ink-100 outline-none placeholder:text-ink-400" placeholder="Ask Atlas. Paste screenshots or attach files. Enter to send, Shift+Enter for a new line." value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKey} onPaste={handlePaste} disabled={isPending} rows={1}
                 onInput={(e) => { const el = e.target as HTMLTextAreaElement; el.style.height = "auto"; el.style.height = `${Math.min(el.scrollHeight, 320)}px`; }} />
               <button onClick={send} className="btn-primary h-9 shrink-0 px-3" disabled={isPending || !input.trim()} aria-label="Send message"><Send size={14} /><span className="hidden sm:inline">Send</span></button>
             </div>
-            <p className="mt-1.5 text-center text-[10px] text-ink-400">via <span className="text-ink-300">{provider}</span>{model && <> · <span className="text-ink-300">{truncate(model.split("/").slice(-1)[0], 40)}</span></>}</p>
+            <p className="mt-1.5 text-center text-[10px] text-ink-400">
+              via <span className="text-ink-300">{provider}</span>
+              {model && <> · <span className="text-ink-300">{truncate(model.split("/").slice(-1)[0], 40)}</span></>}
+              {currentProject && <> · <span className="text-accent-gold">{truncate(currentProject.name, 36)}</span></>}
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Right: LO Workspace */}
-      <div className={cn("flex flex-col border-l border-ink-800 bg-ink-950/60 backdrop-blur transition-all duration-200", rightOpen ? "w-52 shrink-0" : "w-0 overflow-hidden")}>
+      {/* Right: Sources and action resources */}
+      <div className={cn("flex flex-col border-l border-ink-800 bg-ink-950/65 backdrop-blur-xl transition-all duration-200", rightOpen ? "w-72 shrink-0 xl:w-80" : "w-0 overflow-hidden")}>
         <div className="flex items-center justify-between gap-2 border-b border-ink-800 px-3 py-2">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-300">LO Workspace</span>
+          <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-300">Resources</span>
           <button type="button" onClick={() => setRightOpen(false)} className="text-ink-500 hover:text-ink-200"><ChevronsRight size={12} /></button>
         </div>
-        <LOWorkspace onPrompt={injectPrompt} />
+        <WorkspaceResourcePanel
+          messages={messages}
+          currentProject={currentProject}
+          onPrompt={injectPrompt}
+        />
       </div>
     </div>
   );

@@ -47,6 +47,7 @@ export default async function SettingsPage() {
     openrouter: env.OPENROUTER_API_KEY,
     deepseek: env.DEEPSEEK_API_KEY,
     nvidia: env.NVIDIA_API_KEY,
+    minimax: env.MINIMAX_API_KEY,
     fal: env.FAL_KEY,
     huggingface: env.HF_TOKEN,
   };
@@ -81,6 +82,18 @@ export default async function SettingsPage() {
       env_var: "ALLOW_LIVE_EMAIL_SEND",
     },
   ];
+  const modelLookup: Record<string, string[]> = {
+    openrouter: [env.OPENROUTER_DEFAULT_MODEL, ...env.OPENROUTER_FREE_MODELS].filter(Boolean),
+    deepseek: [env.DEEPSEEK_DEFAULT_MODEL].filter(Boolean),
+    nvidia: Object.values(env.NVIDIA_MODELS).filter(Boolean),
+    minimax: [env.MINIMAX_DEFAULT_MODEL, ...env.MINIMAX_MODELS].filter(Boolean),
+    fal: [
+      env.FAL_DEFAULT_MODEL,
+      env.FAL_FAST_IMAGE_MODEL,
+      env.FAL_PREMIUM_IMAGE_MODEL,
+    ].filter(Boolean),
+    huggingface: [env.HUGGINGFACE_DEFAULT_MODEL].filter(Boolean),
+  };
   const n8nWebhookCount = Object.values(env.N8N_WEBHOOKS).filter(Boolean).length;
   const connectionGuides = [
     {
@@ -116,6 +129,41 @@ export default async function SettingsPage() {
       href: "/calendar",
     },
     {
+      title: "Google Drive",
+      detail:
+        process.env.GOOGLE_OAUTH_CLIENT_ID && process.env.GOOGLE_OAUTH_CLIENT_SECRET
+          ? "OAuth client present"
+          : "OAuth client missing",
+      envNames: "GOOGLE_OAUTH_CLIENT_ID / GOOGLE_OAUTH_CLIENT_SECRET",
+      configured: Boolean(
+        process.env.GOOGLE_OAUTH_CLIENT_ID &&
+          process.env.GOOGLE_OAUTH_CLIENT_SECRET
+      ),
+      icon: CalendarDays,
+      href: "/knowledge",
+    },
+    {
+      title: "Meta, YouTube, GBP",
+      detail: "Social publishing stays draft-only until webhooks and owner flags are on",
+      envNames: "N8N_WEBHOOK_FACEBOOK_POST / N8N_WEBHOOK_INSTAGRAM_POST / N8N_WEBHOOK_YOUTUBE_POST / N8N_WEBHOOK_GBP_POST",
+      configured: Boolean(
+        env.N8N_WEBHOOKS.facebook_post ||
+          env.N8N_WEBHOOKS.instagram_post ||
+          env.N8N_WEBHOOKS.youtube_post ||
+          env.N8N_WEBHOOKS.gbp_post
+      ),
+      icon: PlugZap,
+      href: "/social",
+    },
+    {
+      title: "Zapier MCP",
+      detail: "Personal or team MCP endpoints can be saved below",
+      envNames: "Zapier MCP URL / token",
+      configured: true,
+      icon: PlugZap,
+      href: "#mcp-connections",
+    },
+    {
       title: "Telegram bot actions",
       detail: process.env.TELEGRAM_BOT_TOKEN
         ? "Bot token present"
@@ -136,7 +184,7 @@ export default async function SettingsPage() {
     {
       title: "AI subscriptions",
       detail: `${merged.filter((p) => p.configured).length} provider${merged.filter((p) => p.configured).length === 1 ? "" : "s"} configured`,
-      envNames: "OPENROUTER / FAL / HF / DeepSeek / NVIDIA",
+      envNames: "OPENROUTER / FAL / HF / DeepSeek / NVIDIA / MINIMAX",
       configured: merged.some((p) => p.configured),
       icon: KeyRound,
       href: "#ai-provider-gateway",
@@ -250,6 +298,35 @@ export default async function SettingsPage() {
         </div>
       </section>
 
+      <section className="card-padded">
+        <div className="section-title">
+          <div>
+            <h2>Setup tutorials</h2>
+            <p>Video lanes for owner, team, and personal connector onboarding.</p>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          {[
+            ["Owner broker setup", "n8n, provider keys, live action flags"],
+            ["Team connector setup", "MCP, Google, Gmail, Calendar, Drive"],
+            ["Personal workspace setup", "Per-user providers and project knowledge"],
+          ].map(([title, detail]) => (
+            <div
+              key={title}
+              className="overflow-hidden rounded-xl border border-ink-800 bg-ink-900/35"
+            >
+              <div className="grid aspect-video place-items-center border-b border-ink-800 bg-ink-950/70">
+                <Video size={22} className="text-accent-gold/80" />
+              </div>
+              <div className="p-3">
+                <p className="text-sm font-medium text-ink-100">{title}</p>
+                <p className="mt-1 text-xs text-ink-300">{detail}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
       <section id="ai-provider-gateway" className="card-padded">
         <div className="section-title">
           <div>
@@ -282,7 +359,9 @@ export default async function SettingsPage() {
                 <th className="px-3 py-2">Provider</th>
                 <th className="px-3 py-2">Env var(s)</th>
                 <th className="px-3 py-2">Masked preview</th>
+                <th className="px-3 py-2">Models</th>
                 <th className="px-3 py-2">Status</th>
+                <th className="px-3 py-2">Test</th>
                 <th className="px-3 py-2 text-right">Toggle</th>
               </tr>
             </thead>
@@ -311,6 +390,11 @@ export default async function SettingsPage() {
                   <td className="px-3 py-2 font-mono text-[11px] text-ink-300">
                     {p.preview || "—"}
                   </td>
+                  <td className="px-3 py-2 text-[11px] text-ink-300">
+                    {modelLookup[p.id]?.length
+                      ? modelLookup[p.id].slice(0, 2).join(" / ")
+                      : "—"}
+                  </td>
                   <td className="px-3 py-2">
                     <StatusPill
                       status={
@@ -328,6 +412,11 @@ export default async function SettingsPage() {
                           : "missing"
                       }
                     />
+                  </td>
+                  <td className="px-3 py-2">
+                    <Link href="/api/ai/status" className="btn-ghost h-7 px-2 text-[11px]">
+                      Test status
+                    </Link>
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex justify-end">

@@ -70,7 +70,7 @@ export default function LoginPage({
       />
       <span
         aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(5,6,10,0.84),rgba(5,6,10,0.58)_48%,rgba(5,6,10,0.86)),radial-gradient(65%_55%_at_30%_12%,rgba(245,180,0,0.20),transparent_62%)]"
+        className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(5,6,10,0.84),rgba(5,6,10,0.58)_48%,rgba(5,6,10,0.86)),radial-gradient(65%_55%_at_30%_12%,rgba(216,179,90,0.14),transparent_62%)]"
       />
       <div className="relative grid min-h-screen items-center gap-10 px-6 py-10 lg:grid-cols-[minmax(0,0.95fr)_420px] lg:px-14 xl:px-20">
       <section className="hidden min-h-[720px] max-w-[560px] flex-col justify-center lg:flex">

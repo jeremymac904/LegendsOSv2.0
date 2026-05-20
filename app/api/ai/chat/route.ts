@@ -70,7 +70,7 @@ const schema = z.object({
   thread_id: z.string().uuid().nullish(),
   assistant_id: z.string().uuid().nullish(),
   message: z.string().min(1).max(8000),
-  provider: z.enum(["openrouter", "deepseek", "nvidia"]).nullish(),
+  provider: z.enum(["openrouter", "deepseek", "nvidia", "minimax"]).nullish(),
   model: z.string().nullish(),
 });
 
@@ -137,6 +137,7 @@ export async function POST(req: Request) {
 
   // Create or reuse the thread.
   let threadId = thread_id ?? null;
+  let effectiveAssistantId = assistant_id ?? null;
   if (!threadId) {
     const { data: thread, error: tErr } = await supabase
       .from("chat_threads")
@@ -156,6 +157,13 @@ export async function POST(req: Request) {
       );
     }
     threadId = thread.id;
+  } else if (!effectiveAssistantId) {
+    const { data: thread } = await supabase
+      .from("chat_threads")
+      .select("assistant_id")
+      .eq("id", threadId)
+      .maybeSingle();
+    effectiveAssistantId = thread?.assistant_id ?? null;
   }
 
   // Persist user message.
@@ -399,10 +407,28 @@ export async function POST(req: Request) {
     ReturnType<typeof retrieveForAssistant>
   > = [];
   let knowledgeBlock = "";
+  let projectBlock = "";
   try {
-    if (assistant_id) {
+    if (effectiveAssistantId) {
+      const { data: assistant } = await supabase
+        .from("atlas_assistants")
+        .select("name,description,system_prompt")
+        .eq("id", effectiveAssistantId)
+        .maybeSingle();
+      if (assistant) {
+        projectBlock = [
+          "## Active Atlas project",
+          `Name: ${assistant.name}`,
+          assistant.description ? `Description: ${assistant.description}` : "",
+          assistant.system_prompt
+            ? `Project instructions:\n${assistant.system_prompt}`
+            : "Project instructions: none supplied.",
+        ]
+          .filter(Boolean)
+          .join("\n");
+      }
       knowledgeHits = await retrieveForAssistant({
-        assistant_id,
+        assistant_id: effectiveAssistantId,
         message,
         limit: 5,
       });
@@ -421,12 +447,15 @@ export async function POST(req: Request) {
       role: m.role as "user" | "assistant" | "system",
       content: m.content,
     }));
-  const messages = knowledgeBlock
+  const systemBlocks = [projectBlock, knowledgeBlock].filter(Boolean);
+  const messages = systemBlocks.length > 0
     ? [
         ...baseMessages,
         {
           role: "system" as const,
-          content: `(Knowledge attached by the LegendsOS retrieval layer):${knowledgeBlock}`,
+          content: `(Context attached by the LegendsOS retrieval layer):\n\n${systemBlocks.join(
+            "\n\n"
+          )}`,
         },
         // Re-inject the user's last message after the system block so the
         // provider answers the user, not the system. The user message is

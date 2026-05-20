@@ -78,6 +78,7 @@ export interface AtlasAssistant {
   visibility: AssistantVisibility;
   system_prompt: string | null;
   model: string | null;
+  metadata: Record<string, unknown>;
   is_active: boolean;
   created_at: string;
   updated_at: string;

@@ -45,6 +45,7 @@ export async function GET() {
       image_provider: env.AI_DEFAULT_IMAGE_PROVIDER,
       openrouter_default_model: env.OPENROUTER_DEFAULT_MODEL,
       deepseek_default_model: env.DEEPSEEK_DEFAULT_MODEL,
+      minimax_default_model: env.MINIMAX_DEFAULT_MODEL,
       fal_default_model: env.FAL_DEFAULT_MODEL,
     },
     models: {
@@ -54,6 +55,7 @@ export async function GET() {
         nemotron_super_120b: env.NVIDIA_MODELS.nemotron_super_120b || null,
         mistral_small_4_119b: env.NVIDIA_MODELS.mistral_small_4_119b || null,
       },
+      minimax: env.MINIMAX_MODELS.length > 0 ? env.MINIMAX_MODELS : [env.MINIMAX_DEFAULT_MODEL],
       fal: {
         fast: env.FAL_FAST_IMAGE_MODEL || null,
         premium: env.FAL_PREMIUM_IMAGE_MODEL || null,
@@ -77,6 +79,7 @@ export async function GET() {
       openrouter: maskedKeyPreview(env.OPENROUTER_API_KEY),
       deepseek: maskedKeyPreview(env.DEEPSEEK_API_KEY),
       nvidia: maskedKeyPreview(env.NVIDIA_API_KEY),
+      minimax: maskedKeyPreview(env.MINIMAX_API_KEY),
       fal: maskedKeyPreview(env.FAL_KEY),
       huggingface: maskedKeyPreview(env.HF_TOKEN),
     },

@@ -24,9 +24,9 @@ const config: Config = {
           100: "#e7eaf2",
         },
         accent: {
-          gold: "#f5b400",
-          orange: "#ff8a1f",
-          ember: "#ff5722",
+          gold: "#D8B35A",
+          orange: "#B98A2E",
+          ember: "#A66C24",
         },
         status: {
           ok: "#22c55e",
@@ -61,16 +61,16 @@ const config: Config = {
       },
       boxShadow: {
         card: "0 1px 0 0 rgba(255,255,255,0.04) inset, 0 8px 24px -12px rgba(0,0,0,0.7)",
-        glow: "0 0 0 1px rgba(245,180,0,0.35), 0 8px 32px -8px rgba(255,138,31,0.35)",
-        "glow-sm": "0 0 0 1px rgba(245,180,0,0.22), 0 4px 18px -8px rgba(255,138,31,0.28)",
+        glow: "0 0 0 1px rgba(216,179,90,0.28), 0 8px 32px -10px rgba(185,138,46,0.28)",
+        "glow-sm": "0 0 0 1px rgba(216,179,90,0.18), 0 4px 18px -10px rgba(185,138,46,0.22)",
         glass:
-          "0 1px 0 0 rgba(255,255,255,0.05) inset, 0 0 0 1px rgba(245,180,0,0.06), 0 12px 36px -18px rgba(0,0,0,0.85)",
+          "0 1px 0 0 rgba(255,255,255,0.05) inset, 0 0 0 1px rgba(216,179,90,0.06), 0 12px 36px -18px rgba(0,0,0,0.85)",
       },
       backgroundImage: {
         "grid-lines":
           "linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)",
         "ember-radial":
-          "radial-gradient(60% 60% at 30% 20%, rgba(255,138,31,0.18) 0%, rgba(255,138,31,0) 60%), radial-gradient(80% 80% at 80% 80%, rgba(245,180,0,0.08) 0%, rgba(245,180,0,0) 60%)",
+          "radial-gradient(60% 60% at 30% 20%, rgba(185,138,46,0.14) 0%, rgba(185,138,46,0) 60%), radial-gradient(80% 80% at 80% 80%, rgba(216,179,90,0.07) 0%, rgba(216,179,90,0) 60%)",
       },
     },
   },

@@ -310,7 +310,7 @@ export function CalendarMonthGrid({ month, entries, focusId }: Props) {
                           kindClasses(entry.kind),
                           isDeleting ? "opacity-50" : "",
                           isFocused && highlightActive
-                            ? "ring-2 ring-accent-gold/80 shadow-[0_0_0_3px_rgba(245,180,0,0.18)]"
+                            ? "ring-2 ring-accent-gold/80 shadow-[0_0_0_3px_rgba(216,179,90,0.18)]"
                             : "",
                         ].join(" ")}
                         data-focused={isFocused ? "true" : undefined}

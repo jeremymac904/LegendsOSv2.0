@@ -87,6 +87,7 @@ export type AIProviderId =
   | "openrouter"
   | "deepseek"
   | "nvidia"
+  | "minimax"
   | "fal"
   | "huggingface";
 
@@ -122,6 +123,7 @@ export function getAIProviderStatuses(): AIProviderStatus[] {
   const openrouter = pickFirst("OPENROUTER_API_KEY");
   const deepseek = pickFirst("DEEPSEEK_API_KEY");
   const nvidia = pickFirst("NVIDIA_API_KEY");
+  const minimax = pickFirst("MINIMAX_API_KEY", "MINIMAX_KEY");
   const fal = pickFirst("FAL_KEY", "FAL_API_KEY");
   const huggingface = pickFirst(
     "HF_TOKEN",
@@ -153,6 +155,14 @@ export function getAIProviderStatuses(): AIProviderStatus[] {
       configured: nvidia !== "",
       enabled: isEnabled("AI_ENABLE_NVIDIA"),
       source: nvidia ? "env" : "missing",
+    },
+    {
+      id: "minimax",
+      label: "MiniMax",
+      envVarNames: ["MINIMAX_API_KEY", "MINIMAX_KEY"],
+      configured: minimax !== "",
+      enabled: isEnabled("AI_ENABLE_MINIMAX"),
+      source: minimax ? "env" : "missing",
     },
     {
       id: "fal",
@@ -190,6 +200,7 @@ export function getServerEnv() {
   const falKey = pickFirst("FAL_KEY", "FAL_API_KEY");
   const hfKey = pickFirst("HF_TOKEN", "HUGGINGFACE_API_KEY", "HUGGING_FACE_API_KEY");
   const n8nBaseUrl = pickFirst("N8N_WEBHOOK_BASE_URL", "N8N_BASE_URL");
+  const minimaxKey = pickFirst("MINIMAX_API_KEY", "MINIMAX_KEY");
 
   return {
     SUPABASE_URL: PUBLIC_ENV.SUPABASE_URL,
@@ -225,6 +236,18 @@ export function getServerEnv() {
       mistral_small_4_119b:
         process.env.NVIDIA_MODEL_MISTRAL_SMALL_4_119B_2603 || "",
     },
+
+    MINIMAX_API_KEY: minimaxKey,
+    MINIMAX_KEY: minimaxKey,
+    MINIMAX_BASE_URL:
+      process.env.MINIMAX_BASE_URL || "https://api.minimax.io/v1",
+    MINIMAX_DEFAULT_MODEL:
+      process.env.MINIMAX_DEFAULT_MODEL || "MiniMax-M2.7",
+    MINIMAX_MODELS: [
+      process.env.MINIMAX_MODEL_1,
+      process.env.MINIMAX_MODEL_2,
+      process.env.MINIMAX_MODEL_3,
+    ].filter((m): m is string => Boolean(m && m.trim())),
 
     // Image provider
     FAL_KEY: falKey,
@@ -323,6 +346,7 @@ export function getAllProviderConfigStates(): Record<AIProviderId, ProviderConfi
     openrouter: getProviderConfigState("openrouter"),
     deepseek: getProviderConfigState("deepseek"),
     nvidia: getProviderConfigState("nvidia"),
+    minimax: getProviderConfigState("minimax"),
     fal: getProviderConfigState("fal"),
     huggingface: getProviderConfigState("huggingface"),
   };

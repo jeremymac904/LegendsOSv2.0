@@ -1,4 +1,5 @@
-import { PlayCircle, Share2 } from "lucide-react";
+import Link from "next/link";
+import { ExternalLink, PlayCircle, PlugZap, Share2 } from "lucide-react";
 
 import { SocialComposer } from "@/components/social/SocialComposer";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -209,6 +210,40 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
           </div>
         }
       />
+      <section className="card-padded">
+        <div className="section-title">
+          <div>
+            <h2>Posting setup path</h2>
+            <p>Drafting is live. External publishing remains disabled until owner flags and webhooks are configured.</p>
+          </div>
+          <Link href="/settings" className="btn-ghost text-xs">
+            <ExternalLink size={13} />
+            Setup
+          </Link>
+        </div>
+        <div className="mt-3 grid gap-2 md:grid-cols-3">
+          <SetupStatusCard
+            title="Owner publish flag"
+            detail="ALLOW_LIVE_SOCIAL_PUBLISH"
+            ready={env.SAFETY.allowLiveSocialPublish}
+          />
+          <SetupStatusCard
+            title="n8n publish broker"
+            detail="N8N_WEBHOOK_SOCIAL_PUBLISH"
+            ready={Boolean(env.N8N_WEBHOOKS.social_publish)}
+          />
+          <SetupStatusCard
+            title="Platform webhooks"
+            detail="FACEBOOK / INSTAGRAM / GBP / YOUTUBE"
+            ready={Boolean(
+              env.N8N_WEBHOOKS.facebook_post ||
+                env.N8N_WEBHOOKS.instagram_post ||
+                env.N8N_WEBHOOKS.gbp_post ||
+                env.N8N_WEBHOOKS.youtube_post
+            )}
+          />
+        </div>
+      </section>
       <SocialComposer
         userId={profile.id}
         mediaLibrary={mediaLibrary}
@@ -293,6 +328,29 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
           )}
         </div>
       </section>
+    </div>
+  );
+}
+
+function SetupStatusCard({
+  title,
+  detail,
+  ready,
+}: {
+  title: string;
+  detail: string;
+  ready: boolean;
+}) {
+  return (
+    <div className="rounded-xl border border-ink-800 bg-ink-900/35 p-3">
+      <div className="flex items-center justify-between gap-2">
+        <span className="grid h-8 w-8 place-items-center rounded-lg border border-accent-gold/20 bg-accent-gold/10 text-accent-gold">
+          <PlugZap size={14} />
+        </span>
+        <StatusPill status={ready ? "ok" : "warn"} label={ready ? "ready" : "setup needed"} />
+      </div>
+      <p className="mt-3 text-sm font-medium text-ink-100">{title}</p>
+      <p className="mt-1 font-mono text-[10px] text-ink-400">{detail}</p>
     </div>
   );
 }

@@ -22,8 +22,12 @@ export function QuickUploadPicker({
   organizationId,
   collections,
 }: Props) {
-  const [pickedId, setPickedId] = useState<string>(collections[0]?.id ?? "");
-  if (collections.length === 0) {
+  const uniqueCollections = collections.filter(
+    (collection, index, all) =>
+      all.findIndex((candidate) => candidate.id === collection.id) === index
+  );
+  const [pickedId, setPickedId] = useState<string>(uniqueCollections[0]?.id ?? "");
+  if (uniqueCollections.length === 0) {
     return (
       <section className="card-padded">
         <div className="section-title">
@@ -59,7 +63,7 @@ export function QuickUploadPicker({
           value={pickedId}
           onChange={(e) => setPickedId(e.target.value)}
         >
-          {collections.map((c) => (
+          {uniqueCollections.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
               {c.visibility === "team_shared" ? " (team)" : " (private)"}

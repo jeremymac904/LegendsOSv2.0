@@ -23,7 +23,13 @@ export type AtlasToolKind =
   | "create_knowledge_note";
 
 export interface AtlasCapabilityProvider {
-  id: "openrouter" | "deepseek" | "nvidia" | "fal" | "huggingface";
+  id:
+    | "openrouter"
+    | "deepseek"
+    | "nvidia"
+    | "minimax"
+    | "fal"
+    | "huggingface";
   label: string;
   status: "ready" | "configured" | "disabled" | "missing";
   env_var: string;

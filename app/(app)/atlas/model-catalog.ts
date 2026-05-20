@@ -49,5 +49,17 @@ export function buildAtlasModelCatalog(env: ServerEnv) {
             : null,
         ].filter((m): m is { id: string; label: string } => m !== null)
       : [],
+    minimax: env.MINIMAX_API_KEY
+      ? [
+          {
+            id: env.MINIMAX_DEFAULT_MODEL,
+            label: `default — ${env.MINIMAX_DEFAULT_MODEL}`,
+          },
+          ...env.MINIMAX_MODELS.map((m) => ({
+            id: m,
+            label: `model — ${m}`,
+          })),
+        ]
+      : [],
   };
 }

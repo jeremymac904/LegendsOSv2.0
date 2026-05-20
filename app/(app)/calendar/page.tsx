@@ -21,7 +21,7 @@ import type {
 export const dynamic = "force-dynamic";
 
 interface PageProps {
-  searchParams?: { month?: string; filter?: string; focus?: string };
+  searchParams?: { month?: string; filter?: string; focus?: string; view?: string };
 }
 
 function normalizeMonth(input: string | undefined): string {
@@ -39,6 +39,11 @@ function normalizeFilter(input: string | undefined): CalendarFilter {
   return "all";
 }
 
+function normalizeView(input: string | undefined): "month" | "week" | "agenda" {
+  if (input === "week" || input === "agenda") return input;
+  return "month";
+}
+
 function monthBounds(month: string): { startIso: string; endIso: string } {
   const [y, m] = month.split("-").map(Number);
   const start = new Date(y, (m || 1) - 1, 1);
@@ -53,6 +58,7 @@ export default async function CalendarPage({ searchParams }: PageProps) {
 
   const month = normalizeMonth(searchParams?.month);
   const filter = normalizeFilter(searchParams?.filter);
+  const view = normalizeView(searchParams?.view);
   // `?focus=<id>` is the deep-link target Atlas uses after creating a
   // calendar item. We only accept UUID-shaped strings so a stray param
   // can never inject anything weird into the rendered grid.
@@ -215,16 +221,37 @@ export default async function CalendarPage({ searchParams }: PageProps) {
         eyebrow="Calendar"
         title="Content & campaign planning"
         description="Plan campaigns across calendar items, scheduled social posts, and email sends."
-        action={<CalendarFilters current={filter} />}
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            <CalendarViewTabs month={month} filter={filter} current={view} />
+            <CalendarFilters current={filter} />
+          </div>
+        }
       />
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[2fr_1fr]">
+      {view === "agenda" && (
         <section className="card-padded">
-          <CalendarMonthGrid
-            month={month}
-            entries={monthEntries}
-            focusId={focusId}
-          />
+          <div className="section-title">
+            <div>
+              <h2>Agenda</h2>
+              <p>Chronological planning list across social, email, and calendar items.</p>
+            </div>
+          </div>
+          <AgendaList entries={monthEntries} />
+        </section>
+      )}
+
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[2fr_1fr]">
+        <section className={view === "week" ? "" : "card-padded"}>
+          {view === "week" ? (
+            <WeekStrip upcoming={upcoming.length > 0 ? upcoming : monthEntries} />
+          ) : (
+            <CalendarMonthGrid
+              month={month}
+              entries={monthEntries}
+              focusId={focusId}
+            />
+          )}
         </section>
 
         <aside className="space-y-4">
@@ -275,6 +302,67 @@ export default async function CalendarPage({ searchParams }: PageProps) {
           />
         </aside>
       </div>
+    </div>
+  );
+}
+
+function CalendarViewTabs({
+  month,
+  filter,
+  current,
+}: {
+  month: string;
+  filter: CalendarFilter;
+  current: "month" | "week" | "agenda";
+}) {
+  return (
+    <div className="flex rounded-xl border border-ink-800 bg-ink-900/50 p-1">
+      {(["month", "week", "agenda"] as const).map((view) => (
+        <Link
+          key={view}
+          href={`/calendar?month=${month}&filter=${filter}&view=${view}`}
+          className={[
+            "rounded-lg px-2.5 py-1 text-[11px] capitalize transition",
+            current === view
+              ? "bg-accent-gold/15 text-accent-gold"
+              : "text-ink-300 hover:bg-ink-800 hover:text-ink-100",
+          ].join(" ")}
+        >
+          {view}
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+function AgendaList({ entries }: { entries: CalendarEntry[] }) {
+  const sorted = [...entries].sort(
+    (a, b) => new Date(a.whenIso).getTime() - new Date(b.whenIso).getTime()
+  );
+  if (sorted.length === 0) {
+    return (
+      <p className="mt-3 rounded-xl border border-dashed border-ink-700 bg-ink-900/35 p-4 text-sm text-ink-300">
+        No items in this month. Create a calendar item or schedule a campaign to fill the agenda.
+      </p>
+    );
+  }
+  return (
+    <div className="mt-3 grid gap-2">
+      {sorted.map((entry) => (
+        <Link
+          key={`${entry.kind}-${entry.id}`}
+          href={entry.link}
+          className="flex items-center justify-between gap-3 rounded-xl border border-ink-800 bg-ink-900/40 p-3 hover:border-accent-gold/30"
+        >
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium text-ink-100">
+              {entry.title}
+            </p>
+            <p className="text-xs text-ink-300">{formatDate(entry.whenIso)}</p>
+          </div>
+          <span className="chip">{entry.kind}</span>
+        </Link>
+      ))}
     </div>
   );
 }

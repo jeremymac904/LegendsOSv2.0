@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ImageIcon, Sparkles } from "lucide-react";
+import { ChevronDown, ImageIcon, WandSparkles, Sparkles } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -46,6 +46,24 @@ const TONES = [
   { id: "playful", label: "Playful" },
 ] as const;
 type ToneId = (typeof TONES)[number]["id"];
+
+const STYLES = [
+  { id: "premium_photo", label: "Premium photo" },
+  { id: "editorial", label: "Editorial" },
+  { id: "cinematic", label: "Cinematic" },
+  { id: "clean_3d", label: "Clean 3D" },
+  { id: "graphic", label: "Graphic" },
+] as const;
+type StyleId = (typeof STYLES)[number]["id"];
+
+const BACKGROUNDS = [
+  { id: "luxury_home", label: "Luxury home" },
+  { id: "modern_office", label: "Modern office" },
+  { id: "charcoal_studio", label: "Charcoal studio" },
+  { id: "neighborhood", label: "Neighborhood" },
+  { id: "plain", label: "Plain" },
+] as const;
+type BackgroundId = (typeof BACKGROUNDS)[number]["id"];
 
 const COLOR_EMPHASES = [
   {
@@ -122,6 +140,8 @@ interface Choices {
   type: ImageTypeId;
   channel: ChannelId;
   tone: ToneId;
+  style: StyleId;
+  background: BackgroundId;
   colorEmphasis: ColorEmphasisId;
   subject: SubjectId;
   referenceId: string; // "" means none
@@ -151,10 +171,27 @@ function subjectClause(subject: SubjectId): string {
   }
 }
 
+function backgroundClause(background: BackgroundId): string {
+  switch (background) {
+    case "luxury_home":
+      return "set against a refined luxury-home backdrop";
+    case "modern_office":
+      return "set in a modern mortgage team office";
+    case "charcoal_studio":
+      return "on a premium charcoal studio background";
+    case "neighborhood":
+      return "with a polished neighborhood and curb-appeal setting";
+    case "plain":
+      return "with a clean uncluttered background";
+  }
+}
+
 function buildPrompt(choices: Choices, ref: ReferenceAsset | null): string {
   const type = labelOf(IMAGE_TYPES, choices.type).toLowerCase();
   const channel = labelOf(CHANNELS, choices.channel);
   const tone = labelOf(TONES, choices.tone).toLowerCase();
+  const style = labelOf(STYLES, choices.style).toLowerCase();
+  const background = backgroundClause(choices.background);
   const colorMeta = COLOR_EMPHASES.find((c) => c.id === choices.colorEmphasis);
   const subject = subjectClause(choices.subject);
 
@@ -165,10 +202,25 @@ function buildPrompt(choices: Choices, ref: ReferenceAsset | null): string {
     : "";
 
   return [
-    `A ${tone}, ${channel}-ready ${type}: ${subject}.`,
+    `A ${tone}, ${style}, ${channel}-ready ${type}: ${subject}, ${background}.`,
     `Brand: Legends Mortgage gold + charcoal.`,
     `${colorMeta?.description ?? ""}${refClause}`,
     `Premium editorial quality, no baked-in logos or NMLS branding text.`,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function improvePrompt(prompt: string, ref: ReferenceAsset | null): string {
+  return [
+    prompt,
+    "Composition: premium mortgage command-center quality, clear focal point, generous negative space for ad copy, realistic lighting, crisp details.",
+    "Avoid: distorted faces, malformed hands, unreadable text, compliance numbers, fake logos, cluttered backgrounds.",
+    ref
+      ? "Reference note: use the selected reference only for visual guidance. Current FAL text-to-image models cannot guarantee identity preservation from a headshot."
+      : "",
   ]
     .filter(Boolean)
     .join(" ")
@@ -224,6 +276,8 @@ export function ImageStudioClient({ falReadiness, referenceAssets }: Props) {
   const [type, setType] = useState<ImageTypeId>("social_post");
   const [channel, setChannel] = useState<ChannelId>("facebook");
   const [tone, setTone] = useState<ToneId>("warm");
+  const [style, setStyle] = useState<StyleId>("premium_photo");
+  const [background, setBackground] = useState<BackgroundId>("luxury_home");
   const [colorEmphasis, setColorEmphasis] = useState<ColorEmphasisId>("mixed");
   const [subject, setSubject] = useState<SubjectId>("home_exterior");
   const [outputSize, setOutputSize] = useState<OutputSizeId>("1:1");
@@ -245,10 +299,10 @@ export function ImageStudioClient({ falReadiness, referenceAssets }: Props) {
   const guidedPrompt = useMemo(
     () =>
       buildPrompt(
-        { type, channel, tone, colorEmphasis, subject, referenceId },
+        { type, channel, tone, style, background, colorEmphasis, subject, referenceId },
         selectedReference
       ),
-    [type, channel, tone, colorEmphasis, subject, referenceId, selectedReference]
+    [type, channel, tone, style, background, colorEmphasis, subject, referenceId, selectedReference]
   );
 
   const effectivePrompt = overrideOn && overridePrompt.trim().length > 2
@@ -270,6 +324,11 @@ export function ImageStudioClient({ falReadiness, referenceAssets }: Props) {
           : "FAL is not configured. Set FAL_KEY in environment."
       );
       return;
+    }
+    if (selectedReference) {
+      setInfo(
+        "Reference selected. FAL will receive reference guidance in the prompt, but this model cannot guarantee exact identity preservation from a headshot."
+      );
     }
     startTransition(async () => {
       try {
@@ -322,6 +381,18 @@ export function ImageStudioClient({ falReadiness, referenceAssets }: Props) {
         options={TONES}
         value={tone}
         onChange={(v) => setTone(v as ToneId)}
+      />
+      <ChipGroup
+        label="Style"
+        options={STYLES}
+        value={style}
+        onChange={(v) => setStyle(v as StyleId)}
+      />
+      <ChipGroup
+        label="Background"
+        options={BACKGROUNDS}
+        value={background}
+        onChange={(v) => setBackground(v as BackgroundId)}
       />
       <ChipGroup
         label="Brand color emphasis"
@@ -383,13 +454,27 @@ export function ImageStudioClient({ falReadiness, referenceAssets }: Props) {
             />
             <p className="text-[11px] text-ink-300">
               Using <span className="text-ink-100">{selectedReference.label}</span> as a style reference.
+              Exact identity preservation is not guaranteed by the current FAL text-to-image flow.
             </p>
           </div>
         )}
       </div>
 
       <div>
-        <p className="label">Composed prompt</p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="label">Composed prompt</p>
+          <button
+            type="button"
+            className="btn-ghost h-7 px-2 text-[11px]"
+            onClick={() => {
+              setOverrideOn(true);
+              setOverridePrompt(improvePrompt(guidedPrompt, selectedReference));
+            }}
+          >
+            <WandSparkles size={12} />
+            Improve Prompt
+          </button>
+        </div>
         <p className="mt-2 rounded-xl border border-ink-800 bg-ink-900/40 p-2 text-[11px] leading-snug text-ink-200">
           {effectivePrompt}
         </p>

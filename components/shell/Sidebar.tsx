@@ -114,7 +114,7 @@ export function Sidebar({ profile }: { profile: Profile }) {
           <p className="mt-2 inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.18em] text-accent-gold">
             <span
               aria-hidden
-              className="inline-block h-1 w-1 rounded-full bg-accent-gold shadow-[0_0_6px_rgba(245,180,0,0.7)]"
+              className="inline-block h-1 w-1 rounded-full bg-accent-gold shadow-[0_0_6px_rgba(216,179,90,0.52)]"
             />
             {profile.role}
           </p>

@@ -38,7 +38,7 @@ export function TopBar({ profile }: { profile: Profile }) {
         <div className="flex items-center gap-2">
           <span
             aria-hidden
-            className="inline-block h-1.5 w-1.5 rounded-full bg-accent-gold shadow-[0_0_8px_rgba(245,180,0,0.7)]"
+            className="inline-block h-1.5 w-1.5 rounded-full bg-accent-gold shadow-[0_0_8px_rgba(216,179,90,0.52)]"
           />
           <div>
             <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-ink-400">
@@ -72,7 +72,7 @@ export function TopBar({ profile }: { profile: Profile }) {
             <span className="flex items-center justify-end gap-1.5 text-[10px] font-medium uppercase tracking-[0.18em] text-accent-gold">
               <span
                 aria-hidden
-                className="inline-block h-1 w-1 rounded-full bg-accent-gold shadow-[0_0_6px_rgba(245,180,0,0.7)]"
+                className="inline-block h-1 w-1 rounded-full bg-accent-gold shadow-[0_0_6px_rgba(216,179,90,0.52)]"
               />
               {profile.role}
             </span>

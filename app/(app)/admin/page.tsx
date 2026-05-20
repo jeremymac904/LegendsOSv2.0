@@ -143,6 +143,7 @@ export default async function AdminCenterPage() {
     openrouter: env.OPENROUTER_API_KEY,
     deepseek: env.DEEPSEEK_API_KEY,
     nvidia: env.NVIDIA_API_KEY,
+    minimax: env.MINIMAX_API_KEY,
     fal: env.FAL_KEY,
     huggingface: env.HF_TOKEN,
   };
