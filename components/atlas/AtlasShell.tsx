@@ -795,7 +795,16 @@ function MessageRow({ message }: { message: ChatMessage }) {
   const isSystem = message.role === "system";
   const meta = (message.metadata ?? {}) as {
     knowledge_hits?: number;
-    knowledge_sources?: { title: string; source_path: string | null }[];
+    knowledge_sources?: {
+      title: string;
+      source_path: string | null;
+      // collection_id + item_id were added so each citation chip can deep-link
+      // into /knowledge/{collection_id}. Older messages persisted before the
+      // T6a knowledge sprint won't carry these — the chip falls back to a
+      // non-clickable span when the collection_id is missing.
+      collection_id?: string | null;
+      item_id?: string | null;
+    }[];
     tool_result?: AtlasToolResultMeta;
   };
   const khits = meta.knowledge_hits ?? 0;
@@ -829,12 +838,27 @@ function MessageRow({ message }: { message: ChatMessage }) {
             const tip = s.source_path
               ? `${s.title} — ${s.source_path}`
               : s.title;
+            const chipClass =
+              "inline-flex max-w-[18rem] items-center gap-1 truncate rounded-full border border-ink-700/70 bg-ink-900/70 px-2 py-0.5 text-[10px] text-ink-200 transition hover:border-accent-gold/40 hover:text-ink-100";
+            // When we have a collection_id (new messages persisted on/after the
+            // T6a sprint), render the chip as a deep-link into the source
+            // collection. Older messages without collection_id fall back to a
+            // hover-only span so the chip never breaks layout.
+            if (s.collection_id) {
+              return (
+                <a
+                  key={`${idx}-${s.title}`}
+                  href={`/knowledge/${s.collection_id}`}
+                  title={tip}
+                  className={chipClass}
+                >
+                  <span aria-hidden className="text-accent-gold/70">·</span>
+                  <span className="truncate">{label}</span>
+                </a>
+              );
+            }
             return (
-              <span
-                key={`${idx}-${s.title}`}
-                title={tip}
-                className="inline-flex max-w-[18rem] items-center gap-1 truncate rounded-full border border-ink-700/70 bg-ink-900/70 px-2 py-0.5 text-[10px] text-ink-200"
-              >
+              <span key={`${idx}-${s.title}`} title={tip} className={chipClass}>
                 <span aria-hidden className="text-accent-gold/70">·</span>
                 <span className="truncate">{label}</span>
               </span>

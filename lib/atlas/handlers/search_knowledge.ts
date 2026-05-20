@@ -106,6 +106,13 @@ export async function searchKnowledge(
     .sort((a, b) => b.score - a.score)
     .slice(0, limit);
 
+  // Link the card's "Open" button to the top-match's collection so clicking
+  // the chip drops the user straight onto the source document's page. When
+  // there are no hits we fall back to the knowledge index.
+  const topHit = scored[0];
+  const cardLink = topHit
+    ? `/knowledge/${topHit.collection_id}`
+    : "/knowledge";
   const card: KnowledgeResultsCard = {
     kind: "knowledge_results",
     tool_id: TOOL_ID,
@@ -117,7 +124,7 @@ export async function searchKnowledge(
       scored.length > 0
         ? `Top match: "${scored[0]?.title ?? ""}".`
         : "Nothing matched. Try a more specific query.",
-    link: "/knowledge",
+    link: cardLink,
     hits: scored,
   };
   const message =

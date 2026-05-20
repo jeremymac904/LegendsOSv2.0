@@ -447,7 +447,17 @@ export async function POST(req: Request) {
     return NextResponse.json(result, { status: 200 });
   }
 
-  // Persist assistant response.
+  // Persist assistant response. We persist BOTH the count and the source
+  // list (title + source_path + collection_id) into metadata so the AtlasShell
+  // citation chips survive a page refresh. Without persisting the source list,
+  // a reload would restore the count but lose the per-source titles, leaving
+  // a generic "N sources" pill with no clickable chips.
+  const knowledgeSources = knowledgeHits.map((h) => ({
+    title: h.title,
+    source_path: h.source_path,
+    collection_id: h.collection_id,
+    item_id: h.item_id,
+  }));
   const { data: assistantMsg } = await supabase
     .from("chat_messages")
     .insert({
@@ -460,6 +470,7 @@ export async function POST(req: Request) {
         provider: result.provider,
         model: result.model,
         knowledge_hits: knowledgeHits.length,
+        knowledge_sources: knowledgeSources,
       },
     })
     .select("id")
@@ -499,10 +510,9 @@ export async function POST(req: Request) {
     usage: { daily_count: cap.used + 1, daily_limit: cap.cap },
     knowledge: {
       count: knowledgeHits.length,
-      sources: knowledgeHits.map((h) => ({
-        title: h.title,
-        source_path: h.source_path,
-      })),
+      // Mirror the persisted shape so client and server stay in sync — chips
+      // get the collection_id they need to render a clickable deep-link.
+      sources: knowledgeSources,
     },
   });
 }
