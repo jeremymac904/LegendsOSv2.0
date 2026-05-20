@@ -23,7 +23,11 @@ export function AtlasBadge({
     <span
       title={title}
       className={cn(
-        "inline-flex h-5 items-center gap-1 rounded-full border border-accent-gold/35 bg-gradient-to-b from-accent-gold/15 to-accent-orange/10 px-2 text-[9px] font-medium uppercase tracking-[0.14em] text-accent-gold backdrop-blur-sm",
+        // `shrink-0` keeps the badge visible when it sits next to a long,
+        // `truncate`d title — without it the flex container would crush the
+        // pill into a 0-width slice on narrow viewports (Email drafts list,
+        // Social Studio post cards at <420px).
+        "inline-flex h-5 shrink-0 items-center gap-1 rounded-full border border-accent-gold/35 bg-gradient-to-b from-accent-gold/15 to-accent-orange/10 px-2 text-[9px] font-medium uppercase tracking-[0.14em] text-accent-gold backdrop-blur-sm",
         className
       )}
     >

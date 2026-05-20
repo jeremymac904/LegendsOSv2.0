@@ -420,8 +420,28 @@ export function AtlasShell({
             <MessageRow key={m.id} message={m} />
           ))}
           {isPending && (
-            <div className="flex items-center gap-2 text-xs text-ink-300">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent-gold" />
+            // Three-dot wave loader (staggered animation-delays) reads more
+            // premium than a single pulse — matches the typing affordance
+            // Jeremy expects from a ChatGPT-style surface. Each dot is the
+            // gold accent so the loader stays on-brand.
+            <div
+              className="flex items-center gap-2 text-xs text-ink-300"
+              aria-live="polite"
+            >
+              <span className="inline-flex items-center gap-1" aria-hidden>
+                <span
+                  className="h-1.5 w-1.5 rounded-full bg-accent-gold animate-bounce"
+                  style={{ animationDelay: "0ms" }}
+                />
+                <span
+                  className="h-1.5 w-1.5 rounded-full bg-accent-gold animate-bounce"
+                  style={{ animationDelay: "140ms" }}
+                />
+                <span
+                  className="h-1.5 w-1.5 rounded-full bg-accent-gold animate-bounce"
+                  style={{ animationDelay: "280ms" }}
+                />
+              </span>
               Atlas is thinking…
             </div>
           )}

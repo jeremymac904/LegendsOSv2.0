@@ -81,7 +81,10 @@ export default async function CollectionPage({
         <div className="section-title">
           <div>
             <h2>Files in this collection</h2>
-            <p>{fileItems.length} file(s) uploaded.</p>
+            <p>
+              {fileItems.length} {fileItems.length === 1 ? "file" : "files"}{" "}
+              uploaded.
+            </p>
           </div>
         </div>
         <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -117,7 +120,10 @@ export default async function CollectionPage({
         <div className="section-title">
           <div>
             <h2>Notes & references</h2>
-            <p>{noteItems.length} pasted text reference(s).</p>
+            <p>
+              {noteItems.length} pasted text{" "}
+              {noteItems.length === 1 ? "reference" : "references"}.
+            </p>
           </div>
         </div>
         <div className="mt-4 grid gap-2">
