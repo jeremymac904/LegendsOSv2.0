@@ -55,6 +55,9 @@ export async function checkProviderStatus(
         `• ${p.label} — ${p.status}${p.next_action ? ` (${p.next_action})` : ""}`
     )
     .join("\n");
-  const message = `AI provider status:\n${lines}`;
+  // Warm headline first so the chat bubble leads with the at-a-glance count
+  // before the per-provider breakdown.
+  const headline = `${ready} of ${providers.length} AI provider${providers.length === 1 ? "" : "s"} configured and enabled.`;
+  const message = [headline, "", "Provider breakdown:", lines].join("\n");
   return { ok: true, card, message };
 }

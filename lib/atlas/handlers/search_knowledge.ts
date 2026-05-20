@@ -127,9 +127,11 @@ export async function searchKnowledge(
     link: cardLink,
     hits: scored,
   };
+  // Warm + specific. We surface the top hit's title so the user can decide
+  // whether to deep-link from chat without expanding the structured card.
   const message =
     scored.length > 0
-      ? `I found ${scored.length} match${scored.length === 1 ? "" : "es"} in your knowledge — top result: "${scored[0]?.title ?? ""}".`
+      ? `I found ${scored.length} matching knowledge source${scored.length === 1 ? "" : "s"}. Top match: "${scored[0]?.title ?? ""}".`
       : "I didn't find anything in your knowledge for that query. Try more specific words, or open Knowledge to browse.";
   return { ok: true, card, message };
 }

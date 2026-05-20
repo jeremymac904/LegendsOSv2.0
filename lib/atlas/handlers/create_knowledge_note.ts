@@ -103,6 +103,22 @@ export async function createKnowledgeNote(
   }
 
   const link = `/knowledge/${data.collection_id}`;
+  // Look up the destination collection name so the chat bubble can name it.
+  // Best-effort — we already wrote the note. If the lookup fails the message
+  // still reads cleanly with a generic "knowledge collection" phrase.
+  let collectionName = "your knowledge collection";
+  try {
+    const { data: coll } = await supabase
+      .from("knowledge_collections")
+      .select("name")
+      .eq("id", data.collection_id)
+      .maybeSingle();
+    if (coll?.name && typeof coll.name === "string") {
+      collectionName = `your "${coll.name}" collection`;
+    }
+  } catch {
+    // ignore — keep the generic fallback
+  }
   const card: KnowledgeNoteCard = {
     kind: "knowledge_note",
     tool_id: TOOL_ID,
@@ -112,6 +128,9 @@ export async function createKnowledgeNote(
     item_id: data.id,
     collection_id: data.collection_id,
   };
-  const message = `Saved as a knowledge note. Open the collection: ${link}`;
+  const message = [
+    `I added the note "${data.title}" to ${collectionName}.`,
+    `Open it: ${link}`,
+  ].join(" ");
   return { ok: true, card, message };
 }

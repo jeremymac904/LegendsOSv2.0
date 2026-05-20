@@ -76,6 +76,12 @@ export async function createCalendarItem(
     item_id: data.id,
     starts_at: data.starts_at,
   };
-  const message = `Saved your calendar item "${data.title}" for ${when}. Open it: ${link}`;
+  // Warm + specific. Note that this is a LegendsOS-only planning row, not a
+  // Google Calendar event — that gate keeps surfacing in chat so the user
+  // can't be surprised later when nothing shows up on their phone.
+  const message = [
+    `I added the calendar item — "${data.title}" on ${when}.`,
+    `It's a planning row in LegendsOS only; it's not synced to Google Calendar. Open it: ${link}`,
+  ].join(" ");
   return { ok: true, card, message };
 }

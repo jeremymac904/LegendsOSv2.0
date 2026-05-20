@@ -74,9 +74,16 @@ export async function retrieveAsset(
     link: "/admin/assets",
     hits,
   };
+  // Warm + specific. We surface the top hit's title (or its prompt slice
+  // when there's no title) so the user can confirm Atlas found the asset
+  // they expected before opening the library.
+  const topTitle =
+    hits.length > 0
+      ? hits[0].title ?? (hits[0].prompt ?? "(no prompt)").slice(0, 60)
+      : null;
   const message =
     hits.length > 0
-      ? `I found ${hits.length} asset${hits.length === 1 ? "" : "s"} matching "${term}". Open Assets to view them.`
-      : `I didn't find any assets for "${term}". Try a broader query or generate a new one.`;
+      ? `I found ${hits.length} matching asset${hits.length === 1 ? "" : "s"}. Top match: "${topTitle}".`
+      : `I didn't find any assets matching "${term}". Try a broader query or generate a new one in Marketing Image Studio.`;
   return { ok: true, card, message };
 }

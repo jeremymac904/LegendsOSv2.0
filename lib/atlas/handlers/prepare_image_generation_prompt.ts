@@ -45,12 +45,13 @@ export async function prepareImageGenerationPrompt(
     notes,
     live_image_gen_available,
   };
+  // Warm intro so the chat bubble explains what just happened before
+  // dumping the prompt text. Live image gen stays off in chat regardless
+  // of ALLOW_LIVE_IMAGE_GEN — that's a UI-side action only.
   const message = [
-    `Image prompt drafted (${aspect}):`,
+    `Here's the structured image prompt (${aspect}). Live image generation stays off unless you flip ALLOW_LIVE_IMAGE_GEN, and I never dispatch Fal.ai from chat — so copy this into Marketing Image Studio when you're ready.`,
     "",
     promptBody,
-    "",
-    "Copy this into Marketing Image Studio when you're ready — I don't call Fal.ai from chat.",
   ].join("\n");
   return { ok: true, card, message };
 }

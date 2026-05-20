@@ -96,7 +96,9 @@ export async function attachAssetToSocialDraft(
     return {
       ok: true,
       card,
-      message: `That asset is already attached to the draft. Open it: /social/${post.id}`,
+      // Idempotent path — already attached. State that plainly so the user
+      // can move on instead of wondering whether the action succeeded.
+      message: `That asset is already on this draft, so I didn't change anything. Open Social Studio if you want to verify: /social/${post.id}`,
     };
   }
 
@@ -149,6 +151,8 @@ export async function attachAssetToSocialDraft(
   return {
     ok: true,
     card,
-    message: `Attached the asset to your social draft (still a draft — not posted). Open it: /social/${post.id}`,
+    // Warm + specific. We restate the draft-only gate so the chat bubble
+    // matches the card's honest-action wording on attach.
+    message: `I attached the asset to your draft — it stays a draft, nothing was posted. Open Social Studio to review: /social/${post.id}`,
   };
 }

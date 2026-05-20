@@ -58,6 +58,12 @@ export async function createEmailDraft(
     item_id: data.id,
     subject: data.subject ?? subject,
   };
-  const message = `Saved your newsletter draft (not sent — I won't dispatch unless ALLOW_LIVE_EMAIL_SEND is on). Open it: ${card.link}`;
+  // Warm + specific. We name the subject so the user can confirm Atlas
+  // captured the right campaign, and we restate the live-send gate so the
+  // chat bubble carries the same honest-action note as the card.
+  const message = [
+    `I created the email draft "${data.subject ?? subject}" and kept external sending disabled.`,
+    `Review it in Email Studio before sending — I won't dispatch unless ALLOW_LIVE_EMAIL_SEND is on: ${card.link}`,
+  ].join(" ");
   return { ok: true, card, message };
 }

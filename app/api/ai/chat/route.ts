@@ -10,6 +10,7 @@ import {
   type AtlasIntent,
 } from "@/lib/atlas/intentDetection";
 import { planAtlasTool } from "@/lib/atlas/planner";
+import { synthesizeAssistantMessage } from "@/lib/atlas/summarize";
 import {
   buildCapabilitySnapshot,
   canRunAtlasTools,
@@ -336,12 +337,16 @@ export async function POST(req: Request) {
     if (execResult.ok) {
       const card = execResult.result.card;
       // For the capability snapshot we still render the legacy rich text
-      // body — that's the canonical UX. Everything else uses the handler's
-      // returned `message` (which is the plain-English honest-action line).
+      // body — that's the canonical UX. Everything else routes through the
+      // synthesizer, which prefers the handler's own `message` (closer to the
+      // data, can include ids) but falls back to a kind-aware template if the
+      // handler ever ships with a blank string. This is the safety net that
+      // guarantees `chat_messages.content` is never empty when a tool runs —
+      // so the chat bubble always renders prose alongside the structured chip.
       const content =
         card.kind === "capability_snapshot"
           ? renderCapabilityMessage(buildCapabilitySnapshot())
-          : execResult.result.message;
+          : synthesizeAssistantMessage(card, execResult.result.message);
       return persistAssistantMessageAndRespond({
         supabase,
         thread_id: threadId,

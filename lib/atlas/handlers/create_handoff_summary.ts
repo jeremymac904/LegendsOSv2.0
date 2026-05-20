@@ -25,8 +25,11 @@ export async function createHandoffSummary(
     bullets: input.bullets,
     next_step: input.next_step,
   };
+  // Warm intro so the chat bubble explains what just happened before
+  // restating the structured handoff card as paste-friendly text. Pasting
+  // chat into Slack / docs keeps the same bullets + next step.
   const message = [
-    `Handoff summary — ${input.topic}`,
+    `Here's the handoff summary you asked for on "${input.topic}".`,
     "",
     ...input.bullets.map((b) => `• ${b}`),
     "",

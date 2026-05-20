@@ -61,6 +61,13 @@ export async function createSocialDraft(
     item_id: data.id,
     channels,
   };
-  const message = `Saved your social draft (not posted, not sent — review it first). Open it: ${card.link}`;
+  // Warm + specific so the chat bubble reads like an action recap, not a
+  // robotic confirmation. The channels are echoed back so the user can
+  // verify Atlas picked the right surfaces before they go review.
+  const channelList = channels.join(", ");
+  const message = [
+    `I created the social draft for ${channelList} and kept it in draft mode.`,
+    `Review it in Social Studio before anything publishes: ${card.link}`,
+  ].join(" ");
   return { ok: true, card, message };
 }

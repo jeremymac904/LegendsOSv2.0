@@ -67,8 +67,17 @@ export async function checkMcpConnectors(
     },
   };
 
+  // Warm headline first so the chat bubble reads as an action recap before
+  // the per-connector breakdown. The `reserved` count names how many slots
+  // are scaffolded for future scopes so the user understands what's coming.
+  const reserved = snapshot.filter((c) => c.scope === "future").length;
+  const headline = total === 0
+    ? "No MCP connectors are registered yet."
+    : `${connected} of ${total} MCP connectors live${reserved > 0 ? `, ${reserved} reserved for future` : ""}.`;
   const message = [
-    `MCP connector status (${connected}/${total} ready):`,
+    headline,
+    "",
+    "Connector breakdown:",
     ...lines,
     "",
     "Live-action flags:",

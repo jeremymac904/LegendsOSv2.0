@@ -60,8 +60,22 @@ export async function checkN8nWorkflowReadiness(
     `• Live social publish — ${liveSocial ? "ON" : "OFF"} (ALLOW_LIVE_SOCIAL_PUBLISH)`,
     `• Live email send — ${liveEmail ? "ON" : "OFF"} (ALLOW_LIVE_EMAIL_SEND)`,
   ].join("\n");
-  const message = state.configured
-    ? `n8n readiness:\n${lines}\n\nLive-action flags:\n${liveLines}`
-    : `n8n is not configured (set N8N_BASE_URL).\n${lines}\n\nLive-action flags:\n${liveLines}`;
+  // Warm + specific headline so the chat bubble reads as an action recap
+  // first. The full breakdown still follows underneath for owners who want
+  // to scan the whole webhook list and the live-action gate flags.
+  const liveSocialLabel = liveSocial ? "ON" : "OFF";
+  const liveEmailLabel = liveEmail ? "ON" : "OFF";
+  const headline = state.configured
+    ? `n8n hub status: connected (${ready} of ${webhooks.length} webhook env vars set). Live send / publish stay gated by owner flags (email ${liveEmailLabel} · social ${liveSocialLabel}).`
+    : `n8n hub status: not configured. Set N8N_BASE_URL to enable outbound dispatch. Live send / publish stay gated by owner flags (email ${liveEmailLabel} · social ${liveSocialLabel}).`;
+  const message = [
+    headline,
+    "",
+    "Webhook readiness:",
+    lines,
+    "",
+    "Live-action flags:",
+    liveLines,
+  ].join("\n");
   return { ok: true, card, message };
 }
