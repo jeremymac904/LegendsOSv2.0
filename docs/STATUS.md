@@ -155,6 +155,28 @@ live HTML; build id `bgSwkiYKKXnUYLkAT81dN`).
 - **Atlas tool router** uses keyword/regex heuristics for intent detection — high-precision on the patterns it knows, but unusual phrasings fall through to normal chat. Acceptable for the demo path; revisit with a small LLM classifier when traffic grows.
 - **Authenticated visual verification not yet performed** for protected routes — code, types, and HTTP behavior are verified, but the new glass treatment on `/dashboard`, `/atlas`, etc. has not been visually confirmed yet (Jeremy will exercise this manually).
 
+## Desktop apps sprint — 2026-05-20
+
+Native LegendsOS desktop shell shipped. Electron wrapper around the hosted
+Next.js app (`https://legndsosv20.netlify.app`). Same login, same data —
+just a native window + dock icon + Cmd-Q. Source under `electron/`,
+build config in `package.json` `"build"`. See `docs/DESKTOP_APPS.md`.
+
+- **Framework chosen:** Electron (Tauri requires Rust toolchain, not
+  installed on Jeremy's machine; Electron lets us ship a working Mac DMG
+  this sprint).
+- **Scripts:** `desktop:dev`, `desktop:dev:local`, `desktop:build:mac`,
+  `desktop:build:windows`, `desktop:rebuild-icon`.
+- **Mac build:** unsigned `.dmg` produced locally for Apple Silicon + Intel.
+  First-launch needs right-click → Open to clear Gatekeeper. Signing is a
+  flip-the-env-vars exercise when an Apple Developer ID is provisioned.
+- **Windows build:** config is platform-complete; binary requires a
+  Windows host (or GitHub Actions `windows-latest`) — cross-build from Mac
+  is intentionally not done.
+- **Login page download UI:** three-state buttons (env URL → local
+  `/downloads/*` fallback → "test build pending"). Version chip + "Web app
+  also available" copy. Replaces the previous "Coming soon" placeholders.
+
 ## Last updated
 
-2026-05-14
+2026-05-20

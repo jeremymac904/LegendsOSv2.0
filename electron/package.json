@@ -1,0 +1,9 @@
+{
+  "name": "legendsos-desktop",
+  "version": "2.0.0",
+  "description": "LegendsOS desktop shell (Electron). Wraps the hosted Next.js app in a native window.",
+  "private": true,
+  "main": "main.cjs",
+  "author": "The Legends Mortgage Team",
+  "license": "UNLICENSED"
+}

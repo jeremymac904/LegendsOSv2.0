@@ -1,3 +1,6 @@
+import { existsSync } from "node:fs";
+import path from "node:path";
+
 import Link from "next/link";
 import { Apple, Download, MonitorDown, PlayCircle } from "lucide-react";
 
@@ -5,6 +8,38 @@ import { LoginForm } from "@/components/auth/LoginForm";
 import { PUBLIC_ENV, isSupabaseConfigured } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
+
+// Conventional names for the downloaded installer artifacts. If env URLs
+// are not set, the login page falls back to /downloads/<name> when the
+// file actually exists in public/downloads/. Both layers are optional —
+// if neither is configured for a platform, the matching button shows
+// "Test build pending" and is disabled.
+const MAC_LOCAL_FILE = "LegendsOS.dmg";
+const WIN_LOCAL_FILE = "LegendsOS-Setup.exe";
+
+function resolveDownloadHref(args: {
+  envUrl: string;
+  localFile: string;
+}): string {
+  const { envUrl, localFile } = args;
+  if (envUrl) return envUrl;
+  // Server-side check for a locally-hosted artifact under public/downloads/.
+  // If the file isn't present, return empty so the UI renders the disabled
+  // "pending" state cleanly.
+  try {
+    const localPath = path.join(process.cwd(), "public", "downloads", localFile);
+    if (existsSync(localPath)) {
+      return `/downloads/${localFile}`;
+    }
+  } catch {
+    // fs not available (edge runtime) — fall through
+  }
+  return "";
+}
+
+// Shell version is informational only. Bump alongside electron/main.cjs
+// when the desktop wrapper itself ships a meaningful change.
+const DESKTOP_SHELL_VERSION = "1.0.0";
 
 export default function LoginPage({
   searchParams,
@@ -16,10 +51,14 @@ export default function LoginPage({
   // "feature bullets" — Jeremy explicitly removed those from the sign-in
   // page in the walkthrough.
   const welcomeVideoUrl = process.env.NEXT_PUBLIC_WELCOME_VIDEO_URL || "";
-  const macDownloadUrl =
-    process.env.NEXT_PUBLIC_DESKTOP_MAC_DOWNLOAD_URL || "";
-  const winDownloadUrl =
-    process.env.NEXT_PUBLIC_DESKTOP_WINDOWS_DOWNLOAD_URL || "";
+  const macDownloadUrl = resolveDownloadHref({
+    envUrl: process.env.NEXT_PUBLIC_DESKTOP_MAC_DOWNLOAD_URL || "",
+    localFile: MAC_LOCAL_FILE,
+  });
+  const winDownloadUrl = resolveDownloadHref({
+    envUrl: process.env.NEXT_PUBLIC_DESKTOP_WINDOWS_DOWNLOAD_URL || "",
+    localFile: WIN_LOCAL_FILE,
+  });
 
   return (
     <main className="relative grid min-h-screen bg-ember-radial lg:grid-cols-[1.05fr_1fr]">
@@ -77,6 +116,7 @@ export default function LoginPage({
           <DesktopDownloadCard
             macUrl={macDownloadUrl}
             winUrl={winDownloadUrl}
+            shellVersion={DESKTOP_SHELL_VERSION}
           />
         </div>
       </section>
@@ -153,38 +193,53 @@ function Logo() {
 function DesktopDownloadCard({
   macUrl,
   winUrl,
+  shellVersion,
 }: {
   macUrl: string;
   winUrl: string;
+  shellVersion: string;
 }) {
   return (
     <div className="card w-full max-w-md p-5">
-      <div className="flex items-start gap-3">
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-accent-gold/30 bg-accent-gold/10 text-accent-gold">
-          <Download size={16} />
-        </span>
-        <div className="min-w-0">
-          <p className="text-sm font-semibold tracking-tight text-ink-100">
-            Download LegendsOS Desktop
-          </p>
-          <p className="mt-0.5 text-xs text-ink-400">
-            Use LegendsOS from your Mac or Windows desktop.
-          </p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-accent-gold/30 bg-accent-gold/10 text-accent-gold">
+            <Download size={16} />
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold tracking-tight text-ink-100">
+              Download LegendsOS Desktop
+            </p>
+            <p className="mt-0.5 text-xs text-ink-400">
+              Native window on Mac or Windows. Same login, same data.
+            </p>
+          </div>
         </div>
+        <span className="rounded-full border border-ink-800 bg-ink-900/60 px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-ink-300">
+          v{shellVersion}
+        </span>
       </div>
       <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
         <DesktopButton
           href={macUrl}
           label="Download for Mac"
+          pendingLabel="Mac test build pending"
           icon={<Apple size={14} />}
         />
         <DesktopButton
           href={winUrl}
           label="Download for Windows"
+          pendingLabel="Windows test build pending"
           icon={<MonitorDown size={14} />}
           variant="ghost"
         />
       </div>
+      <p className="mt-3 text-[11px] text-ink-400">
+        Web app also available —{" "}
+        <span className="font-medium text-ink-200">sign in on the right</span>{" "}
+        from any browser. Unsigned test builds may show a Gatekeeper /
+        SmartScreen warning the first time you launch.
+      </p>
     </div>
   );
 }
@@ -192,11 +247,13 @@ function DesktopDownloadCard({
 function DesktopButton({
   href,
   label,
+  pendingLabel,
   icon,
   variant = "primary",
 }: {
   href: string;
   label: string;
+  pendingLabel: string;
   icon: React.ReactNode;
   variant?: "primary" | "ghost";
 }) {
@@ -210,10 +267,10 @@ function DesktopButton({
         type="button"
         disabled
         className={`${baseClasses} cursor-not-allowed opacity-50`}
-        title="Set the matching NEXT_PUBLIC_DESKTOP_*_DOWNLOAD_URL env var to enable."
+        title="No artifact yet. Set NEXT_PUBLIC_DESKTOP_*_DOWNLOAD_URL or drop the installer in public/downloads/ to enable."
       >
         {icon}
-        <span>Coming soon</span>
+        <span>{pendingLabel}</span>
       </button>
     );
   }

@@ -3,6 +3,7 @@
   "version": "2.0.0",
   "private": true,
   "description": "LegendsOS 2.0 — internal AI operating system for The Legends Mortgage Team powered by Loan Factory.",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -13,7 +14,13 @@
     "test:e2e:install": "playwright install --with-deps chromium",
     "index-assets": "tsx scripts/index-local-assets.ts",
     "seed-assistants": "tsx scripts/seed-atlas-assistants-from-local.ts",
-    "import-local-knowledge": "tsx scripts/import-local-knowledge.ts"
+    "import-local-knowledge": "tsx scripts/import-local-knowledge.ts",
+    "desktop:dev": "electron .",
+    "desktop:dev:local": "LEGENDSOS_DESKTOP_URL=http://localhost:3000 electron .",
+    "desktop:build": "electron-builder",
+    "desktop:build:mac": "electron-builder --mac dmg --publish never",
+    "desktop:build:windows": "electron-builder --win nsis --publish never",
+    "desktop:rebuild-icon": "sips -z 384 768 public/assets/logos/legends-os-logo.png --out /tmp/legendsos-icon-sized.png > /dev/null && sips --padToHeightWidth 1024 1024 --padColor 0a0a0d /tmp/legendsos-icon-sized.png --out electron/icon.png > /dev/null && echo 'electron/icon.png regenerated'"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
@@ -33,6 +40,8 @@
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.0",
     "autoprefixer": "^10.4.20",
+    "electron": "^32.2.0",
+    "electron-builder": "^25.1.8",
     "eslint": "^8.57.1",
     "eslint-config-next": "14.2.15",
     "postcss": "^8.4.47",
@@ -43,5 +52,67 @@
   },
   "engines": {
     "node": ">=18.18.0"
+  },
+  "build": {
+    "appId": "com.legendsmortgage.legendsos",
+    "productName": "LegendsOS",
+    "copyright": "Copyright © 2026 The Legends Mortgage Team powered by Loan Factory",
+    "asar": true,
+    "files": [
+      "**/*",
+      "!node_modules/**/*",
+      "!.next/**/*"
+    ],
+    "directories": {
+      "app": "electron",
+      "buildResources": "electron",
+      "output": "dist-desktop"
+    },
+    "mac": {
+      "category": "public.app-category.business",
+      "icon": "electron/icon.png",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["arm64", "x64"]
+        }
+      ],
+      "identity": null,
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "extendInfo": {
+        "LSMinimumSystemVersion": "11.0.0"
+      }
+    },
+    "dmg": {
+      "title": "LegendsOS ${version}",
+      "icon": "electron/icon.png",
+      "background": null,
+      "contents": [
+        { "x": 130, "y": 220, "type": "file" },
+        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+      ]
+    },
+    "win": {
+      "icon": "electron/icon.png",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "publisherName": "The Legends Mortgage Team"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "LegendsOS"
+    },
+    "linux": {
+      "icon": "electron/icon.png",
+      "target": ["AppImage"]
+    }
   }
 }

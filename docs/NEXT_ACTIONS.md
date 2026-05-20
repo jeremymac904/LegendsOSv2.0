@@ -1,5 +1,35 @@
 # NEXT ACTIONS — LegendsOS 2.0
 
+## Desktop apps — what to do now
+
+1. **Test the Mac build locally.** Open `dist-desktop/LegendsOS-2.0.0-arm64.dmg`
+   (Apple Silicon) or `LegendsOS-2.0.0.dmg` (Intel), drag the `.app` into
+   `/Applications`, then **right-click → Open** the first time to clear
+   Gatekeeper. The window should load `legndsosv20.netlify.app` with native
+   chrome (Cmd-Q quits, Cmd-R reloads).
+2. **Decide hosting for the artifact.** Two clean paths:
+   - **Local-only:** `cp dist-desktop/LegendsOS-*-arm64.dmg public/downloads/LegendsOS.dmg`
+     and the login page picks it up automatically (the file is gitignored,
+     so it stays on Jeremy's laptop). Good for "just for me right now".
+   - **Hosted:** push the DMG to a CDN, Netlify Large Media, or a GitHub
+     Release, then set `NEXT_PUBLIC_DESKTOP_MAC_DOWNLOAD_URL` on Netlify
+     and redeploy. Login button auto-flips to the live URL.
+3. **Windows build.** Run `npm run desktop:build:windows` on a Windows
+   host (VM, Parallels, or `windows-latest` in GitHub Actions). Config is
+   already cross-platform; only the runner OS differs. Drop the resulting
+   `LegendsOS-Setup-2.0.0.exe` into `public/downloads/LegendsOS-Setup.exe`
+   or behind `NEXT_PUBLIC_DESKTOP_WINDOWS_DOWNLOAD_URL`.
+4. **Sign when ready.** Set Apple Developer ID env vars (`CSC_LINK`,
+   `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`) and
+   re-build — electron-builder auto-signs + notarizes. Same shape on
+   Windows via a `.pfx` cert. See `docs/DESKTOP_APPS.md` for the
+   walkthrough. No code change required.
+
+Everything else below is the older NEXT_ACTIONS backlog; the desktop app
+work above is priority 1 right now.
+
+---
+
 ## Do now
 
 1. **Initialize git and push.** Run from repo root:

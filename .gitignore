@@ -78,3 +78,13 @@ Thumbs.db
 
 # Source pack lives extracted; ignore the redundant zip
 /LegendsOS_v2_Execution_Command_Pack.zip
+
+# Electron desktop build outputs — built artifacts can be 100MB+, so we
+# never commit them. Distribute via NEXT_PUBLIC_DESKTOP_*_DOWNLOAD_URL or
+# a GitHub Release. The Electron *source* under electron/ is committed.
+/dist-desktop/
+/public/downloads/*.dmg
+/public/downloads/*.zip
+/public/downloads/*.exe
+/public/downloads/*.msi
+/public/downloads/*.AppImage
