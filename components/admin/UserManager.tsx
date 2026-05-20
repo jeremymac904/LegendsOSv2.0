@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 
 import { StatusPill } from "@/components/ui/StatusPill";
-import { cn, formatDate } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import type { Profile, UserRole } from "@/types/database";
 
 // Assignable roles in the UI. `owner` is intentionally excluded — there's
@@ -49,6 +49,13 @@ const ROLES: { value: UserRole; label: string; description: string }[] = [
     description: "Read-only — sees dashboards, no posting.",
   },
 ];
+
+function formatStableDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const [date, time = ""] = iso.split("T");
+  if (!date) return "—";
+  return time ? `${date} ${time.slice(0, 5)}` : date;
+}
 
 interface Props {
   ownerProfileId: string;
@@ -329,10 +336,10 @@ export function UserManager({ ownerProfileId, users }: Props) {
                       />
                     </td>
                     <td className="px-3 py-2 text-ink-300">
-                      {formatDate(u.last_seen_at)}
+                      {formatStableDate(u.last_seen_at)}
                     </td>
                     <td className="px-3 py-2 text-ink-300">
-                      {formatDate(u.created_at)}
+                      {formatStableDate(u.created_at)}
                     </td>
                     <td className="px-3 py-2">
                       <div className="flex flex-wrap items-center justify-end gap-1">
