@@ -25,7 +25,7 @@ export async function attachAssetToSocialDraft(
   // Confirm the draft exists, belongs to the caller, and is still a draft.
   const { data: post, error: postErr } = await supabase
     .from("social_posts")
-    .select("id,user_id,status,metadata,title,channels")
+    .select("id,user_id,status,media_id,metadata,title,channels")
     .eq("id", social_post_id)
     .maybeSingle();
   if (postErr || !post) {
@@ -76,9 +76,14 @@ export async function attachAssetToSocialDraft(
     };
   }
 
-  const meta = (post.metadata ?? {}) as { assets?: string[]; [k: string]: unknown };
+  const meta = (post.metadata ?? {}) as {
+    assets?: string[];
+    media_ids?: string[];
+    [k: string]: unknown;
+  };
   const existing = Array.isArray(meta.assets) ? meta.assets : [];
-  if (existing.includes(asset.id)) {
+  const existingMediaIds = Array.isArray(meta.media_ids) ? meta.media_ids : [];
+  if (existing.includes(asset.id) || existingMediaIds.includes(asset.id)) {
     const card: AssetAttachedCard = {
       kind: "asset_attached",
       tool_id: TOOL_ID,
@@ -96,11 +101,31 @@ export async function attachAssetToSocialDraft(
   }
 
   const nextAssets = [...existing, asset.id];
+  // Also mirror into metadata.media_ids — that's the contract the Social
+  // composer reads when hydrating attached assets on draft reopen. Without
+  // this, Atlas-attached images vanished from the composer (the asset row
+  // stayed in metadata.assets[] but the composer only looked at media_ids).
+  const nextMediaIds = existingMediaIds.includes(asset.id)
+    ? existingMediaIds
+    : [...existingMediaIds, asset.id];
+  const updatePatch: Record<string, unknown> = {
+    metadata: {
+      ...meta,
+      assets: nextAssets,
+      media_ids: nextMediaIds,
+      last_attached_by: "atlas_tool",
+    },
+  };
+  // Mirror the primary media_id column when it's still null so the saved-list
+  // thumbnail also shows up. This matches the contract /api/social uses.
+  const UUID_RE =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (UUID_RE.test(asset.id)) {
+    updatePatch.media_id = (post as { media_id?: string | null }).media_id ?? asset.id;
+  }
   const { error: updErr } = await supabase
     .from("social_posts")
-    .update({
-      metadata: { ...meta, assets: nextAssets, last_attached_by: "atlas_tool" },
-    })
+    .update(updatePatch)
     .eq("id", post.id);
   if (updErr) {
     return {

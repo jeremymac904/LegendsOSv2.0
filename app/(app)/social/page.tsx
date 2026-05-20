@@ -1,6 +1,7 @@
-import { Share2 } from "lucide-react";
+import { CalendarClock, Share2 } from "lucide-react";
 
 import { SocialComposer } from "@/components/social/SocialComposer";
+import { AtlasBadge, isAtlasCreated } from "@/components/ui/AtlasBadge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatusPill } from "@/components/ui/StatusPill";
@@ -14,7 +15,7 @@ import {
   getCurrentProfile,
   getSupabaseServerClient,
 } from "@/lib/supabase/server";
-import { formatRelative } from "@/lib/utils";
+import { formatDate, formatRelative } from "@/lib/utils";
 import type { GeneratedMedia, SocialPost, SocialChannel } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -196,12 +197,29 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
           ) : (
             posts.map((p) => {
               const primary = p.media_id ? mediaById.get(p.media_id) : null;
-              const extras = (
-                (p.metadata as { media_ids?: string[] })?.media_ids ?? []
-              ).filter((id) => id !== p.media_id);
+              // Read both media_ids (composer write path) AND assets
+              // (Atlas attach handler legacy write path) so the card shows
+              // every attached thumbnail.
+              const meta = (p.metadata ?? {}) as {
+                media_ids?: string[];
+                assets?: string[];
+              };
+              const combinedIds = new Set<string>();
+              for (const id of meta.media_ids ?? []) combinedIds.add(id);
+              for (const id of meta.assets ?? []) combinedIds.add(id);
+              const extras = [...combinedIds].filter((id) => id !== p.media_id);
               const extraMedia = extras
                 .map((id) => mediaById.get(id))
                 .filter((m): m is NonNullable<typeof m> => Boolean(m));
+              const atlasCreated = isAtlasCreated(p.metadata);
+              // Status chip copy.
+              //   draft + no schedule  → "Draft"
+              //   draft + schedule set → "Scheduled for <date>" (sandbox queued)
+              //   scheduled            → "Scheduled for <date>"
+              //   publishing/published → fall back to the StatusPill default
+              const scheduledLabel = p.scheduled_at
+                ? `Scheduled for ${formatDate(p.scheduled_at)}`
+                : null;
               return (
                 <article
                   key={p.id}
@@ -209,14 +227,33 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
                 >
                   <header className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-ink-100">
-                        {p.title ?? "Untitled draft"}
-                      </p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-medium text-ink-100">
+                          {p.title ?? "Untitled draft"}
+                        </p>
+                        {atlasCreated && <AtlasBadge />}
+                      </div>
                       <p className="mt-0.5 line-clamp-2 text-xs text-ink-300">
                         {p.body}
                       </p>
                     </div>
-                    <StatusPill status={p.status as never} />
+                    <div className="flex flex-col items-end gap-1">
+                      <StatusPill status={p.status as never} />
+                      {scheduledLabel &&
+                        (p.status === "draft" || p.status === "scheduled") && (
+                          <span
+                            className="inline-flex h-5 items-center gap-1 rounded-full border border-accent-gold/30 bg-accent-gold/5 px-2 text-[10px] font-medium text-accent-gold"
+                            title={
+                              p.status === "scheduled"
+                                ? "Sandbox queued — live publish stays off until the owner enables it."
+                                : "Schedule set on this draft. Will be queued when you re-save with Schedule."
+                            }
+                          >
+                            <CalendarClock size={10} aria-hidden />
+                            {scheduledLabel}
+                          </span>
+                        )}
+                    </div>
                   </header>
                   {(primary || extraMedia.length > 0) && (
                     <div className="mt-2 flex flex-wrap gap-2">

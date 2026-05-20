@@ -80,13 +80,25 @@ function initialMediaIds(args: {
     // Saved drafts persist EVERY id in metadata.media_ids; media_id is the
     // first UUID-shaped one. Prefer metadata.media_ids when present so the
     // full attachment list (including non-UUID asset tokens) survives reload.
-    const meta = (initialDraft.metadata ?? {}) as { media_ids?: unknown };
+    const meta = (initialDraft.metadata ?? {}) as {
+      media_ids?: unknown;
+      assets?: unknown;
+    };
+    const ids = new Set<string>();
     if (Array.isArray(meta.media_ids)) {
-      const arr = meta.media_ids.filter(
-        (v): v is string => typeof v === "string" && v.length > 0
-      );
-      if (arr.length > 0) return arr;
+      for (const v of meta.media_ids) {
+        if (typeof v === "string" && v.length > 0) ids.add(v);
+      }
     }
+    // Backward compat: Atlas's earlier attach_asset_to_social_draft wrote to
+    // metadata.assets[] instead of metadata.media_ids[]. Read both so old
+    // drafts (attached before the harmonised write) still hydrate cleanly.
+    if (Array.isArray(meta.assets)) {
+      for (const v of meta.assets) {
+        if (typeof v === "string" && v.length > 0) ids.add(v);
+      }
+    }
+    if (ids.size > 0) return [...ids];
     if (initialDraft.media_id) return [initialDraft.media_id];
     return [];
   }

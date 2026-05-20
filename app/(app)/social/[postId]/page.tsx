@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
 import { SocialComposer } from "@/components/social/SocialComposer";
+import { AtlasBadge, isAtlasCreated } from "@/components/ui/AtlasBadge";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatusPill } from "@/components/ui/StatusPill";
 import {
@@ -110,7 +111,8 @@ export default async function SocialPostPage({
         title={post.title ?? "Edit draft"}
         description="Saved attachments and channels are preselected — tweak and re-save."
         action={
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {isAtlasCreated(post.metadata) && <AtlasBadge />}
             <StatusPill status={post.status as never} />
             <StatusPill
               status={env.SAFETY.allowLiveSocialPublish ? "ok" : "warn"}

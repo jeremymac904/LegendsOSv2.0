@@ -27,7 +27,14 @@ export async function createEmailDraft(
       body_text: body,
       body_html: null,
       status: "draft",
-      metadata: { source: "atlas_tool", tool_id: TOOL_ID },
+      metadata: {
+        source: "atlas_tool",
+        tool_id: TOOL_ID,
+        // Explicit flag picked up by Email Studio drafts list to render
+        // the small "Atlas" badge. Atlas always sets this when it creates
+        // a draft on the owner's behalf.
+        created_by_atlas: true,
+      },
     })
     .select("id,subject")
     .single();
