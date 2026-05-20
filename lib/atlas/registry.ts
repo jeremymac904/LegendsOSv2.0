@@ -21,6 +21,7 @@ import { z } from "zod";
 
 import type { AtlasCard } from "@/lib/atlas/cards";
 import { attachAssetToSocialDraft } from "@/lib/atlas/handlers/attach_asset_to_social_draft";
+import { checkMcpConnectors } from "@/lib/atlas/handlers/check_mcp_connectors";
 import { checkN8nWorkflowReadiness } from "@/lib/atlas/handlers/check_n8n_workflow_readiness";
 import { checkProviderStatus } from "@/lib/atlas/handlers/check_provider_status";
 import { createCalendarItem } from "@/lib/atlas/handlers/create_calendar_item";
@@ -180,6 +181,9 @@ export type CreateHandoffSummaryInput = z.infer<typeof createHandoffSummarySchem
 
 export const explainCapabilitiesSchema = z.object({});
 export type ExplainCapabilitiesInput = z.infer<typeof explainCapabilitiesSchema>;
+
+export const checkMcpConnectorsSchema = z.object({});
+export type CheckMcpConnectorsInput = z.infer<typeof checkMcpConnectorsSchema>;
 
 // ---------------------------------------------------------------------------
 // Registry
@@ -350,6 +354,18 @@ export const TOOLS: ToolEntry[] = [
     audit: false,
     readinessCheck: alwaysReady,
     handler: explainCapabilities as ToolEntry["handler"],
+  },
+  {
+    id: "check_mcp_connectors",
+    name: "Check MCP connectors",
+    description:
+      "Snapshot of MCP connectors (owner-global L1 + per-user L2) plus live-action gating flags. NAMES only, never values.",
+    inputSchema: checkMcpConnectorsSchema,
+    resultCardKind: "connector_status",
+    rolesAllowed: ALL_ROLES,
+    audit: false,
+    readinessCheck: alwaysReady,
+    handler: checkMcpConnectors as ToolEntry["handler"],
   },
 ];
 

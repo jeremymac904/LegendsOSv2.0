@@ -24,6 +24,7 @@ import {
   X,
 } from "lucide-react";
 
+import { ConnectorStatusStrip } from "@/components/atlas/ConnectorStatusStrip";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn, formatRelative, truncate } from "@/lib/utils";
 import type { AtlasAssistant, ChatMessage, ChatThread } from "@/types/database";
@@ -393,6 +394,10 @@ export function AtlasShell({
         </div>
       </div>
 
+      {/* MCP connector status strip — live snapshot of every owner-global +
+          personal connector, with env var NAMES only (never values). */}
+      <ConnectorStatusStrip />
+
       {/* Scrollable conversation */}
       <div
         ref={scrollerRef}
@@ -580,6 +585,7 @@ interface AtlasToolResultMeta {
     | "asset_attached"
     | "provider_status"
     | "n8n_status"
+    | "connector_status"
     | "image_prompt"
     | "handoff_summary"
     | "chat";
@@ -675,6 +681,7 @@ const TOOL_CARD_CONFIG: Record<
   capability_snapshot: { icon: Info, label: "Atlas capabilities", openLabel: "Settings" },
   provider_status: { icon: SettingsIcon, label: "Provider status", openLabel: "Settings" },
   n8n_status: { icon: SettingsIcon, label: "n8n readiness", openLabel: "Settings" },
+  connector_status: { icon: SettingsIcon, label: "MCP connectors", openLabel: "Settings" },
   image_prompt: { icon: Sparkles, label: "Image prompt", openLabel: "Studio" },
   handoff_summary: { icon: Info, label: "Handoff summary", openLabel: "Open" },
 };

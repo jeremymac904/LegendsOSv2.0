@@ -1,5 +1,6 @@
 import { ProviderToggle } from "@/components/settings/ProviderToggle";
 import { MCPConnections } from "@/components/settings/MCPConnections";
+import { IntegrationsTable } from "@/components/settings/IntegrationsTable";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatusPill } from "@/components/ui/StatusPill";
 import {
@@ -8,6 +9,7 @@ import {
   maskedKeyPreview,
   PUBLIC_ENV,
 } from "@/lib/env";
+import { getConnectorSnapshot } from "@/lib/mcp/status";
 import { isOwner } from "@/lib/permissions";
 import {
   getCurrentProfile,
@@ -30,6 +32,7 @@ export default async function SettingsPage() {
     .order("provider");
 
   const owner = isOwner(profile);
+  const connectorSnapshot = await getConnectorSnapshot(profile.id);
   const storedProviders = (providerRows ?? []) as ProviderCredentialPublic[];
   const liveStatuses = getAIProviderStatuses();
   const storedByProvider = new Map(storedProviders.map((r) => [r.provider, r]));
@@ -239,6 +242,8 @@ export default async function SettingsPage() {
           platform and redeploy — keys never travel through the browser.
         </p>
       </section>
+
+      <IntegrationsTable connectors={connectorSnapshot} isOwner={owner} />
 
       <MCPConnections />
 

@@ -13,6 +13,7 @@
 // only writes drafts.
 
 import type { AtlasCapabilitySnapshot } from "@/lib/atlas/toolRouter";
+import type { McpConnectorSnapshot } from "@/lib/mcp/types";
 
 export type AtlasCardKind =
   | "social_draft"
@@ -27,6 +28,7 @@ export type AtlasCardKind =
   | "image_prompt"
   | "handoff_summary"
   | "capability_snapshot"
+  | "connector_status"
   | "chat";
 
 export interface AtlasCardBase {
@@ -141,6 +143,24 @@ export interface CapabilitySnapshotCard extends AtlasCardBase {
   snapshot: AtlasCapabilitySnapshot;
 }
 
+// MCP connector status card. Returned by the `check_mcp_connectors` tool so
+// the chat UI can render an at-a-glance connector readiness summary. Each
+// connector entry carries env var NAMES only — never values — and a
+// `hasToken: boolean` for any L2 rows (never the token text).
+export interface ConnectorStatusCard extends AtlasCardBase {
+  kind: "connector_status";
+  connectors: McpConnectorSnapshot;
+  // Mirrors the manifest safety block so a single chat card can also
+  // report "I cannot publish live because ALLOW_LIVE_SOCIAL_PUBLISH is
+  // false" without forcing a second tool call.
+  safety: {
+    allow_live_social_publish: boolean;
+    allow_live_email_send: boolean;
+    allow_paid_image_generation: boolean;
+    allow_paid_text_generation: boolean;
+  };
+}
+
 // Chat fallthrough — no tool ran, the planner asked for normal AI chat.
 export interface ChatCard extends AtlasCardBase {
   kind: "chat";
@@ -159,4 +179,5 @@ export type AtlasCard =
   | ImagePromptCard
   | HandoffSummaryCard
   | CapabilitySnapshotCard
+  | ConnectorStatusCard
   | ChatCard;
