@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Users2 } from "lucide-react";
 
+import { AtlasBadge, isAtlasCreated } from "@/components/ui/AtlasBadge";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { getCurrentProfile, getSupabaseServerClient } from "@/lib/supabase/server";
@@ -61,6 +62,7 @@ export default async function EmailCampaignPage({
         description={campaign.preview_text ?? ""}
         action={
           <div className="flex flex-wrap items-center gap-2">
+            {isAtlasCreated(campaign.metadata) && <AtlasBadge />}
             <Link
               href={`/email?id=${campaign.id}`}
               className="btn-primary text-xs"

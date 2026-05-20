@@ -329,6 +329,16 @@ export async function POST(req: Request) {
         { status: 500 }
       );
     }
+    // Audit the rename so the owner can see "who renamed whom + when". We
+    // log only the new name, not any other PII — actor / target_id / action
+    // are already enough to reconstruct the change.
+    await recordAudit({
+      actor: profile,
+      action: "user_profile_updated",
+      target_type: "profiles",
+      target_id: data.user_id,
+      metadata: { full_name: data.full_name ?? null },
+    });
     return NextResponse.json({ ok: true });
   }
 

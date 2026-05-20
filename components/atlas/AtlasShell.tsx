@@ -24,6 +24,7 @@ import {
   X,
 } from "lucide-react";
 
+import { ConnectorStatusStrip } from "@/components/atlas/ConnectorStatusStrip";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn, formatRelative, truncate } from "@/lib/utils";
 import type { AtlasAssistant, ChatMessage, ChatThread } from "@/types/database";
@@ -393,6 +394,10 @@ export function AtlasShell({
         </div>
       </div>
 
+      {/* MCP connector status strip — live snapshot of every owner-global +
+          personal connector, with env var NAMES only (never values). */}
+      <ConnectorStatusStrip />
+
       {/* Scrollable conversation */}
       <div
         ref={scrollerRef}
@@ -415,8 +420,28 @@ export function AtlasShell({
             <MessageRow key={m.id} message={m} />
           ))}
           {isPending && (
-            <div className="flex items-center gap-2 text-xs text-ink-300">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent-gold" />
+            // Three-dot wave loader (staggered animation-delays) reads more
+            // premium than a single pulse — matches the typing affordance
+            // Jeremy expects from a ChatGPT-style surface. Each dot is the
+            // gold accent so the loader stays on-brand.
+            <div
+              className="flex items-center gap-2 text-xs text-ink-300"
+              aria-live="polite"
+            >
+              <span className="inline-flex items-center gap-1" aria-hidden>
+                <span
+                  className="h-1.5 w-1.5 rounded-full bg-accent-gold animate-bounce"
+                  style={{ animationDelay: "0ms" }}
+                />
+                <span
+                  className="h-1.5 w-1.5 rounded-full bg-accent-gold animate-bounce"
+                  style={{ animationDelay: "140ms" }}
+                />
+                <span
+                  className="h-1.5 w-1.5 rounded-full bg-accent-gold animate-bounce"
+                  style={{ animationDelay: "280ms" }}
+                />
+              </span>
               Atlas is thinking…
             </div>
           )}
@@ -558,20 +583,51 @@ function EmptyChat({
   );
 }
 
+// Legacy meta shape kept verbatim — older messages stored these fields and
+// the chat route's compatibility envelope keeps writing them. New cards add
+// a `card` payload with the typed Atlas runtime shape on top.
 interface AtlasToolResultMeta {
   kind:
     | "create_social"
     | "create_email"
     | "create_calendar"
     | "explain_capabilities"
-    | "create_knowledge_note";
-  itemId: string;
-  link: string;
-  summary: string;
+    | "create_knowledge_note"
+    // New runtime kinds — the new chip renderer falls back to a generic
+    // gold-glass tile when one of these arrives without a dedicated icon.
+    | "social_draft"
+    | "email_draft"
+    | "calendar_item"
+    | "knowledge_note"
+    | "capability_snapshot"
+    | "knowledge_results"
+    | "asset_result"
+    | "asset_attached"
+    | "provider_status"
+    | "n8n_status"
+    | "connector_status"
+    | "image_prompt"
+    | "handoff_summary"
+    | "chat";
+  itemId?: string;
+  link?: string | null;
+  summary?: string;
+  // The tool id (e.g. "create_social_draft"). Surfaces as a small chip above
+  // the card so users can see exactly which runtime tool ran.
+  tool_id?: string;
   // Optional structured title surfaced separately from the long summary so
   // the chip can show "Drafted: <title>" without truncating mid-word.
   title?: string | null;
-  // Structured capability snapshot — only set when kind === explain_capabilities.
+  // Backwards-compat: the new runtime emits `legacy_kind` so the existing
+  // renderer keeps working for migrated kinds.
+  legacy_kind?:
+    | "create_social"
+    | "create_email"
+    | "create_calendar"
+    | "explain_capabilities"
+    | "create_knowledge_note";
+  // Structured capability snapshot — only set when kind === explain_capabilities
+  // or capability_snapshot.
   capabilities?: {
     providers: {
       id: string;
@@ -580,6 +636,14 @@ interface AtlasToolResultMeta {
       env_var: string;
       next_action: string | null;
     }[];
+  };
+  // The typed Atlas runtime card payload (when produced by the new executor).
+  card?: Record<string, unknown> & {
+    kind?: string;
+    title?: string;
+    summary?: string;
+    link?: string | null;
+    tool_id?: string;
   };
 }
 
@@ -591,15 +655,56 @@ function deriveToolTitle(result: AtlasToolResultMeta): string {
   if (result.title && result.title.trim().length > 0) {
     return result.title.trim();
   }
+  if (result.card?.title && typeof result.card.title === "string") {
+    return result.card.title.trim();
+  }
   // The router's summary looks like:
   //   `Social draft "Buying a home" on facebook, instagram`
   //   `Newsletter draft "Refi options"`
   //   `Calendar item "Coffee with Ana" on May 14, 9:00 AM`
   // Pull the quoted segment if present; otherwise return the first 60 chars.
-  const quoted = result.summary.match(/"([^"]+)"/);
+  const summary = result.summary ?? "";
+  const quoted = summary.match(/"([^"]+)"/);
   if (quoted && quoted[1]) return quoted[1];
-  return truncate(result.summary, 60);
+  return truncate(summary || (result.card?.summary as string | undefined) || "", 60);
 }
+
+// Resolve the effective render kind. Legacy messages carry `kind: "create_social"`
+// directly; new messages set `legacy_kind` and the runtime `kind` (e.g.
+// `social_draft`). We honor `legacy_kind` when present so the existing icon
+// + open-button mapping keeps working without changes.
+function effectiveRenderKind(result: AtlasToolResultMeta): string {
+  if (result.legacy_kind) return result.legacy_kind;
+  return result.kind;
+}
+
+// Render config per render-kind. Legacy kinds keep their original icon +
+// "open" labels. New runtime kinds (knowledge_results, asset_result, etc.)
+// land in this same map so adding a tool only takes a new entry, not a new
+// component.
+const TOOL_CARD_CONFIG: Record<
+  string,
+  { icon: typeof Share2; label: string; openLabel: string }
+> = {
+  create_social: { icon: Share2, label: "Social draft", openLabel: "Open" },
+  social_draft: { icon: Share2, label: "Social draft", openLabel: "Open" },
+  create_email: { icon: Mail, label: "Newsletter draft", openLabel: "Open" },
+  email_draft: { icon: Mail, label: "Newsletter draft", openLabel: "Open" },
+  create_calendar: { icon: CalendarIcon, label: "Calendar item", openLabel: "Open" },
+  calendar_item: { icon: CalendarIcon, label: "Calendar item", openLabel: "Open" },
+  create_knowledge_note: { icon: BookOpen, label: "Knowledge note", openLabel: "Open" },
+  knowledge_note: { icon: BookOpen, label: "Knowledge note", openLabel: "Open" },
+  knowledge_results: { icon: BookOpen, label: "Knowledge search", openLabel: "Open" },
+  asset_result: { icon: Sparkles, label: "Assets", openLabel: "Open" },
+  asset_attached: { icon: Paperclip, label: "Asset attached", openLabel: "Open" },
+  explain_capabilities: { icon: Info, label: "Atlas capabilities", openLabel: "Settings" },
+  capability_snapshot: { icon: Info, label: "Atlas capabilities", openLabel: "Settings" },
+  provider_status: { icon: SettingsIcon, label: "Provider status", openLabel: "Settings" },
+  n8n_status: { icon: SettingsIcon, label: "n8n readiness", openLabel: "Settings" },
+  connector_status: { icon: SettingsIcon, label: "MCP connectors", openLabel: "Settings" },
+  image_prompt: { icon: Sparkles, label: "Image prompt", openLabel: "Studio" },
+  handoff_summary: { icon: Info, label: "Handoff summary", openLabel: "Open" },
+};
 
 function ToolResultCard({
   result,
@@ -608,40 +713,18 @@ function ToolResultCard({
   result: AtlasToolResultMeta;
   createdAt: string;
 }) {
-  const config = {
-    create_social: {
-      icon: Share2,
-      label: "Social draft",
-      openLabel: "Open" as const,
-    },
-    create_email: {
-      icon: Mail,
-      label: "Newsletter draft",
-      openLabel: "Open" as const,
-    },
-    create_calendar: {
-      icon: CalendarIcon,
-      label: "Calendar item",
-      openLabel: "Open" as const,
-    },
-    explain_capabilities: {
-      icon: Info,
-      label: "Atlas capabilities",
-      openLabel: "Settings" as const,
-    },
-    create_knowledge_note: {
-      icon: BookOpen,
-      label: "Knowledge note",
-      openLabel: "Open" as const,
-    },
-  }[result.kind];
-  if (!config) return null;
+  const renderKind = effectiveRenderKind(result);
+  const config = TOOL_CARD_CONFIG[renderKind] ?? {
+    icon: Info,
+    label: "Atlas action",
+    openLabel: "Open",
+  };
   const Icon = config.icon;
   const title = deriveToolTitle(result);
   // Capability chip shows tiny status dots for each provider so Jeremy
   // can read provider readiness at a glance without expanding the body.
   const providerDots =
-    result.kind === "explain_capabilities"
+    renderKind === "explain_capabilities" || renderKind === "capability_snapshot"
       ? result.capabilities?.providers?.slice(0, 5) ?? []
       : [];
   // HH:MM in the viewer's locale. Falls back gracefully when the timestamp
@@ -658,57 +741,71 @@ function ToolResultCard({
   } catch {
     timeLabel = "";
   }
+  const link =
+    result.link ??
+    (typeof result.card?.link === "string" ? result.card.link : null) ??
+    "#";
+  const toolId =
+    result.tool_id ??
+    (typeof result.card?.tool_id === "string" ? result.card.tool_id : null);
+  const isSnapshot =
+    renderKind === "explain_capabilities" || renderKind === "capability_snapshot";
   return (
-    <div className="mt-2.5 flex items-center gap-3 rounded-xl border border-accent-gold/30 bg-accent-gold/5 px-3 py-2.5 backdrop-blur-sm">
-      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-accent-gold/30 bg-accent-gold/15 text-accent-gold">
-        <Icon size={14} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent-gold">
-          {config.label}
-          {timeLabel ? (
-            <span className="ml-1.5 font-normal text-ink-300">
-              · {result.kind === "explain_capabilities" ? "Snapshot" : "Created"}{" "}
-              {timeLabel}
-            </span>
-          ) : null}
-        </p>
-        <p className="truncate text-[12px] font-medium text-ink-100">
-          {title}
-        </p>
-        {providerDots.length > 0 && (
-          <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            {providerDots.map((p) => (
-              <span
-                key={p.id}
-                title={
-                  p.next_action ?? `${p.label} is ${p.status}`
-                }
-                className="inline-flex items-center gap-1 rounded-full border border-ink-700/80 bg-ink-900/60 px-1.5 py-[1px] text-[9.5px] uppercase tracking-[0.14em] text-ink-300"
-              >
-                <span
-                  className={[
-                    "h-1.5 w-1.5 rounded-full",
-                    p.status === "ready"
-                      ? "bg-status-ok"
-                      : p.status === "disabled"
-                      ? "bg-status-off"
-                      : "bg-status-warn",
-                  ].join(" ")}
-                />
-                {p.label}
+    <div className="mt-2.5 flex flex-col gap-1.5">
+      {toolId ? (
+        // Tool-call chip — small pill above the card showing the runtime
+        // tool id that produced the result. Helps owners audit at a glance.
+        <span className="inline-flex w-fit items-center gap-1 rounded-full border border-accent-gold/30 bg-accent-gold/10 px-2 py-[2px] text-[9.5px] font-medium uppercase tracking-[0.16em] text-accent-gold">
+          <Sparkles size={9} />
+          {toolId}
+        </span>
+      ) : null}
+      <div className="flex items-center gap-3 rounded-xl border border-accent-gold/30 bg-accent-gold/5 px-3 py-2.5 backdrop-blur-sm">
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-accent-gold/30 bg-accent-gold/15 text-accent-gold">
+          <Icon size={14} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent-gold">
+            {config.label}
+            {timeLabel ? (
+              <span className="ml-1.5 font-normal text-ink-300">
+                · {isSnapshot ? "Snapshot" : "Created"} {timeLabel}
               </span>
-            ))}
-          </div>
-        )}
+            ) : null}
+          </p>
+          <p className="truncate text-[12px] font-medium text-ink-100">{title}</p>
+          {providerDots.length > 0 && (
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              {providerDots.map((p) => (
+                <span
+                  key={p.id}
+                  title={p.next_action ?? `${p.label} is ${p.status}`}
+                  className="inline-flex items-center gap-1 rounded-full border border-ink-700/80 bg-ink-900/60 px-1.5 py-[1px] text-[9.5px] uppercase tracking-[0.14em] text-ink-300"
+                >
+                  <span
+                    className={[
+                      "h-1.5 w-1.5 rounded-full",
+                      p.status === "ready"
+                        ? "bg-status-ok"
+                        : p.status === "disabled"
+                        ? "bg-status-off"
+                        : "bg-status-warn",
+                    ].join(" ")}
+                  />
+                  {p.label}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+        <a
+          href={link}
+          className="btn-secondary h-8 shrink-0 px-2.5 text-[11px]"
+          aria-label={`Open ${config.label.toLowerCase()}`}
+        >
+          {config.openLabel} →
+        </a>
       </div>
-      <a
-        href={result.link}
-        className="btn-secondary h-8 shrink-0 px-2.5 text-[11px]"
-        aria-label={`Open ${config.label.toLowerCase()}`}
-      >
-        {config.openLabel} →
-      </a>
     </div>
   );
 }
@@ -718,7 +815,16 @@ function MessageRow({ message }: { message: ChatMessage }) {
   const isSystem = message.role === "system";
   const meta = (message.metadata ?? {}) as {
     knowledge_hits?: number;
-    knowledge_sources?: { title: string; source_path: string | null }[];
+    knowledge_sources?: {
+      title: string;
+      source_path: string | null;
+      // collection_id + item_id were added so each citation chip can deep-link
+      // into /knowledge/{collection_id}. Older messages persisted before the
+      // T6a knowledge sprint won't carry these — the chip falls back to a
+      // non-clickable span when the collection_id is missing.
+      collection_id?: string | null;
+      item_id?: string | null;
+    }[];
     tool_result?: AtlasToolResultMeta;
   };
   const khits = meta.knowledge_hits ?? 0;
@@ -752,12 +858,27 @@ function MessageRow({ message }: { message: ChatMessage }) {
             const tip = s.source_path
               ? `${s.title} — ${s.source_path}`
               : s.title;
+            const chipClass =
+              "inline-flex max-w-[18rem] items-center gap-1 truncate rounded-full border border-ink-700/70 bg-ink-900/70 px-2 py-0.5 text-[10px] text-ink-200 transition hover:border-accent-gold/40 hover:text-ink-100";
+            // When we have a collection_id (new messages persisted on/after the
+            // T6a sprint), render the chip as a deep-link into the source
+            // collection. Older messages without collection_id fall back to a
+            // hover-only span so the chip never breaks layout.
+            if (s.collection_id) {
+              return (
+                <a
+                  key={`${idx}-${s.title}`}
+                  href={`/knowledge/${s.collection_id}`}
+                  title={tip}
+                  className={chipClass}
+                >
+                  <span aria-hidden className="text-accent-gold/70">·</span>
+                  <span className="truncate">{label}</span>
+                </a>
+              );
+            }
             return (
-              <span
-                key={`${idx}-${s.title}`}
-                title={tip}
-                className="inline-flex max-w-[18rem] items-center gap-1 truncate rounded-full border border-ink-700/70 bg-ink-900/70 px-2 py-0.5 text-[10px] text-ink-200"
-              >
+              <span key={`${idx}-${s.title}`} title={tip} className={chipClass}>
                 <span aria-hidden className="text-accent-gold/70">·</span>
                 <span className="truncate">{label}</span>
               </span>

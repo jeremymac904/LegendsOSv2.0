@@ -5,6 +5,7 @@ import {
   EmailComposer,
   StarterTemplatesPanel,
 } from "@/components/email/EmailComposer";
+import { AtlasBadge, isAtlasCreated } from "@/components/ui/AtlasBadge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatusPill } from "@/components/ui/StatusPill";
@@ -147,6 +148,7 @@ export default async function EmailStudioPage({
             ) : (
               campaigns.map((c) => {
                 const isActive = c.id === initial?.id;
+                const atlasCreated = isAtlasCreated(c.metadata);
                 return (
                   <Link
                     key={c.id}
@@ -159,13 +161,16 @@ export default async function EmailStudioPage({
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <p
-                        className={`truncate font-medium ${
-                          isActive ? "text-accent-gold" : "text-ink-100"
-                        }`}
-                      >
-                        {truncate(c.subject, 50)}
-                      </p>
+                      <div className="flex min-w-0 items-center gap-2">
+                        <p
+                          className={`truncate font-medium ${
+                            isActive ? "text-accent-gold" : "text-ink-100"
+                          }`}
+                        >
+                          {truncate(c.subject, 50)}
+                        </p>
+                        {atlasCreated && <AtlasBadge />}
+                      </div>
                       <StatusPill status={c.status as never} />
                     </div>
                     {c.preview_text && (

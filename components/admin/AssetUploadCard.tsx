@@ -87,8 +87,15 @@ export function AssetUploadCard() {
     setInfo(null);
   }
 
-  async function uploadOne(item: PendingUpload, idx: number): Promise<void> {
-    if (item.status !== "queued") return;
+  // Uploads one queued item and returns its final status so the caller can
+  // tally exact ok/fail counts. Returning the result directly avoids the
+  // stale-closure trap where reading `pending` after Promise.all gives the
+  // pre-upload snapshot rather than the freshly-updated one.
+  async function uploadOne(
+    item: PendingUpload,
+    idx: number
+  ): Promise<"ok" | "error" | "skipped"> {
+    if (item.status !== "queued") return "skipped";
     setPending((prev) =>
       prev.map((p, i) => (i === idx ? { ...p, status: "uploading" } : p))
     );
@@ -119,7 +126,7 @@ export function AssetUploadCard() {
               : p
           )
         );
-        return;
+        return "error";
       }
       const data = await res.json();
       if (!data.ok) {
@@ -130,11 +137,12 @@ export function AssetUploadCard() {
               : p
           )
         );
-        return;
+        return "error";
       }
       setPending((prev) =>
         prev.map((p, i) => (i === idx ? { ...p, status: "ok" } : p))
       );
+      return "ok";
     } catch (e) {
       setPending((prev) =>
         prev.map((p, i) =>
@@ -147,6 +155,7 @@ export function AssetUploadCard() {
             : p
         )
       );
+      return "error";
     }
   }
 
@@ -158,10 +167,25 @@ export function AssetUploadCard() {
       return;
     }
     startTransition(async () => {
-      const tasks = pending.map((p, i) => uploadOne(p, i));
-      await Promise.all(tasks);
-      const okCount = pending.filter((p) => p.status !== "error").length;
-      setInfo(`Uploaded ${okCount} file${okCount === 1 ? "" : "s"}.`);
+      // Tally ok/fail from each upload's return value rather than re-reading
+      // the `pending` state — that snapshot is stale (closes over the
+      // pre-upload array) and would always report the queued count.
+      const results = await Promise.all(
+        pending.map((p, i) => uploadOne(p, i))
+      );
+      const okCount = results.filter((r) => r === "ok").length;
+      const failCount = results.filter((r) => r === "error").length;
+      if (okCount > 0 && failCount === 0) {
+        setInfo(`Uploaded ${okCount} file${okCount === 1 ? "" : "s"}.`);
+      } else if (okCount > 0 && failCount > 0) {
+        setInfo(
+          `Uploaded ${okCount} of ${okCount + failCount}. ${failCount} failed — check the rows above.`
+        );
+      } else if (failCount > 0) {
+        setError(
+          `All ${failCount} upload${failCount === 1 ? "" : "s"} failed. See per-file errors above.`
+        );
+      }
       // Refresh so the server-rendered listing picks up the new rows.
       router.refresh();
     });

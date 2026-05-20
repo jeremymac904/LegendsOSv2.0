@@ -84,9 +84,24 @@ export async function POST(req: Request) {
   return res;
 }
 
-// Clearing impersonation is a convenience GET so the banner's "Stop"
-// button can navigate to it without needing JS.
+// Clearing impersonation is a convenience DELETE so the banner's "Stop"
+// button can hit it without needing JSON body. Owner-only — same gate as
+// POST. We also write an audit row so the impersonation_started → ended
+// pair stays balanced.
 export async function DELETE() {
+  const profile = await getCurrentProfile();
+  if (!profile) {
+    return NextResponse.json(
+      { ok: false, error: "unauthenticated", message: "Sign in first." },
+      { status: 401 }
+    );
+  }
+  if (!isOwner(profile)) {
+    return NextResponse.json(
+      { ok: false, error: "forbidden", message: "Owner only." },
+      { status: 403 }
+    );
+  }
   const res = NextResponse.json({ ok: true });
   res.cookies.set({
     name: IMPERSONATION_COOKIE,
@@ -95,6 +110,10 @@ export async function DELETE() {
     maxAge: 0,
     httpOnly: true,
     sameSite: "lax",
+  });
+  await recordAudit({
+    actor: profile,
+    action: "impersonation_ended",
   });
   return res;
 }

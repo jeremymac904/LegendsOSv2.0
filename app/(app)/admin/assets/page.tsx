@@ -8,12 +8,12 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { loadAssetManifest, type AssetCategory } from "@/lib/assets";
-import { loadOrgUploadedAssets } from "@/lib/admin/orgAssets";
-import { isOwner } from "@/lib/permissions";
 import {
-  getCurrentProfile,
-  getSupabaseServerClient,
-} from "@/lib/supabase/server";
+  loadOrgUploadedAssets,
+  loadSocialAssetUsageCounts,
+} from "@/lib/admin/orgAssets";
+import { isOwner } from "@/lib/permissions";
+import { getCurrentProfile } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -69,31 +69,18 @@ export default async function AssetLibraryPage({ searchParams }: PageProps) {
   const profile = await getCurrentProfile();
   if (!profile || !isOwner(profile)) redirect("/dashboard");
 
-  const sb = getSupabaseServerClient();
-  const [manifest, uploaded, { data: socialRefs }] = await Promise.all([
+  // `usageCount` mirrors the chip on every AssetCard ("Used in N posts") AND
+  // the delete guard in /api/admin/assets. The helper aggregates across
+  // social_posts.media_id, metadata.media_ids[], AND metadata.assets[] so
+  // legacy Atlas-attached drafts (which only wrote metadata.assets[]) still
+  // count. Keeping these in lockstep is critical — otherwise an asset shows
+  // "0 posts" and the delete guard would let the owner drop a still-attached
+  // asset.
+  const [manifest, uploaded, usageCount] = await Promise.all([
     Promise.resolve(loadAssetManifest()),
     loadOrgUploadedAssets(),
-    sb.from("social_posts").select("id,media_id,metadata"),
+    loadSocialAssetUsageCounts(),
   ]);
-
-  const usageCount = new Map<string, number>();
-  for (const row of (socialRefs ?? []) as {
-    id: string;
-    media_id: string | null;
-    metadata: { media_ids?: unknown } | null;
-  }[]) {
-    const seen = new Set<string>();
-    if (row.media_id) seen.add(row.media_id);
-    const ids = row.metadata?.media_ids;
-    if (Array.isArray(ids)) {
-      for (const v of ids) {
-        if (typeof v === "string" && v) seen.add(v);
-      }
-    }
-    for (const id of seen) {
-      usageCount.set(id, (usageCount.get(id) ?? 0) + 1);
-    }
-  }
 
   const q = (searchParams.q ?? "").trim().toLowerCase();
   const activeCat = (searchParams.cat ?? "").trim() as AssetCategory | "";

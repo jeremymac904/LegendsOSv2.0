@@ -501,21 +501,38 @@ export function EmailComposer({
           />
           <div className="space-y-2">
             {audiences.length > 0 ? (
-              <select
-                className="input"
-                value={
-                  recipients.startsWith("audience:") ? recipients : ""
-                }
-                onChange={(e) => setRecipients(e.target.value)}
-                aria-label="Recipient audience"
-              >
-                <option value="">— Select an audience —</option>
-                {audiences.map((a) => (
-                  <option key={a.id} value={`audience:${a.id}`}>
-                    {a.name} · {a.active.toLocaleString()} active
-                  </option>
-                ))}
-              </select>
+              <>
+                <select
+                  className="input"
+                  value={
+                    recipients.startsWith("audience:") ? recipients : ""
+                  }
+                  onChange={(e) => setRecipients(e.target.value)}
+                  aria-label="Recipient audience"
+                >
+                  <option value="">— Select an audience (or type a free-text list below) —</option>
+                  {audiences.map((a) => (
+                    <option key={a.id} value={`audience:${a.id}`}>
+                      {a.name} · {a.active.toLocaleString()} active
+                    </option>
+                  ))}
+                </select>
+                {/* Free-text fallback. Shown only when the saved recipient
+                    list ISN'T an audience:<uuid> token (e.g. legacy drafts
+                    that stored "all-leads" or a comma-separated address
+                    list). Lets that value round-trip without forcing the
+                    owner to re-type it. */}
+                {!recipients.startsWith("audience:") && recipients && (
+                  <input
+                    className="input"
+                    placeholder="Free-text recipient list (saved on this draft)"
+                    value={recipients}
+                    onChange={(e) => setRecipients(e.target.value)}
+                    maxLength={120}
+                    aria-label="Free-text recipient list"
+                  />
+                )}
+              </>
             ) : (
               <input
                 className="input"
