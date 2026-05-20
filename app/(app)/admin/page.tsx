@@ -21,6 +21,7 @@ import {
   getServerEnv,
   maskedKeyPreview,
 } from "@/lib/env";
+import { getConnectorSnapshot } from "@/lib/mcp/status";
 import { isOwner } from "@/lib/permissions";
 import {
   getCurrentProfile,
@@ -58,6 +59,7 @@ export default async function AdminCenterPage() {
     { data: socials },
     { data: emails },
     { data: media },
+    connectorSnapshot,
   ] = await Promise.all([
     supabase
       .from("profiles")
@@ -102,6 +104,9 @@ export default async function AdminCenterPage() {
       .select("id,user_id,prompt,preview_url,status,created_at")
       .order("created_at", { ascending: false })
       .limit(6),
+    // Combined L1 (owner-global env) + L2 (LO-personal mcp_connections)
+    // snapshot. Status is computed without ever reading env VALUES.
+    getConnectorSnapshot(profile.id),
   ]);
 
   const membersList = (members ?? []) as Profile[];
@@ -183,6 +188,25 @@ export default async function AdminCenterPage() {
           icon={ShieldCheck}
         />
       </section>
+
+      <OperationalHealthStrip
+        providerOk={liveStatuses.filter((p) => p.configured && p.enabled).length}
+        providerTotal={liveStatuses.length}
+        n8nConfigured={Boolean(env.N8N_BASE_URL)}
+        n8nWebhookCount={
+          Object.values(env.N8N_WEBHOOKS).filter((v) => Boolean(v)).length
+        }
+        mcpConnected={
+          connectorSnapshot.filter((c) => c.status === "connected").length
+        }
+        mcpDisabled={
+          connectorSnapshot.filter((c) => c.status === "disabled").length
+        }
+        mcpMissing={
+          connectorSnapshot.filter((c) => c.status === "not_configured").length
+        }
+        mcpTotal={connectorSnapshot.length}
+      />
 
       <LiveUsageCard
         usageList={usageList}
@@ -614,6 +638,136 @@ function LiveUsageCard({
             <p className="mt-0.5 text-[10px] text-ink-300">{t.hint}</p>
           </div>
         ))}
+      </div>
+    </section>
+  );
+}
+
+// ----------------------------------------------------------------------
+// OperationalHealthStrip — single at-a-glance row for the owner showing
+// provider gateway health, n8n env presence, and MCP connector counts.
+// Mirrors the at-a-glance row from AtlasShell (ConnectorStatusStrip) and
+// Settings → IntegrationsTable, but compacted for the admin dashboard.
+//
+// HARD RULE: this surface NEVER shows env VALUES — only presence booleans
+// + counts. The provider preview rendering already lives in the providers
+// list below; we don't duplicate masked previews here.
+function OperationalHealthStrip({
+  providerOk,
+  providerTotal,
+  n8nConfigured,
+  n8nWebhookCount,
+  mcpConnected,
+  mcpDisabled,
+  mcpMissing,
+  mcpTotal,
+}: {
+  providerOk: number;
+  providerTotal: number;
+  n8nConfigured: boolean;
+  n8nWebhookCount: number;
+  mcpConnected: number;
+  mcpDisabled: number;
+  mcpMissing: number;
+  mcpTotal: number;
+}) {
+  const providerStatus: "ok" | "warn" | "missing" =
+    providerOk === 0
+      ? "missing"
+      : providerOk < providerTotal
+        ? "warn"
+        : "ok";
+  const n8nStatus: "ok" | "missing" = n8nConfigured ? "ok" : "missing";
+  const mcpStatus: "ok" | "warn" | "missing" =
+    mcpConnected === 0 && mcpTotal > 0
+      ? "missing"
+      : mcpDisabled > 0 || mcpMissing > 0
+        ? "warn"
+        : "ok";
+
+  return (
+    <section className="card-padded">
+      <div className="section-title">
+        <div>
+          <h2>Operational health</h2>
+          <p>
+            Provider gateway, n8n webhook hub, and MCP connectors. Status
+            reads env var NAMES only — no values, no tokens.
+          </p>
+        </div>
+        <Link href="/settings#integrations" className="btn-ghost text-xs">
+          Connector details
+        </Link>
+      </div>
+      <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+        <div className="rounded-xl border border-ink-800 bg-ink-900/40 p-3">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-ink-400">
+              AI providers
+            </p>
+            <StatusPill
+              status={providerStatus}
+              label={
+                providerStatus === "missing"
+                  ? "none configured"
+                  : providerStatus === "warn"
+                    ? "partial"
+                    : "all configured"
+              }
+            />
+          </div>
+          <p className="mt-1 text-2xl font-semibold tabular-nums text-ink-100">
+            {providerOk}/{providerTotal}
+          </p>
+          <p className="mt-0.5 text-[10px] text-ink-300">
+            connected + enabled providers
+          </p>
+        </div>
+        <div className="rounded-xl border border-ink-800 bg-ink-900/40 p-3">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-ink-400">
+              n8n hub
+            </p>
+            <StatusPill
+              status={n8nStatus}
+              label={n8nStatus === "ok" ? "configured" : "missing"}
+            />
+          </div>
+          <p className="mt-1 text-2xl font-semibold tabular-nums text-ink-100">
+            {n8nWebhookCount}
+          </p>
+          <p className="mt-0.5 text-[10px] text-ink-300">
+            active webhook envs (NAMES only)
+          </p>
+        </div>
+        <div className="rounded-xl border border-ink-800 bg-ink-900/40 p-3">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-ink-400">
+              MCP connectors
+            </p>
+            <StatusPill
+              status={mcpStatus}
+              label={
+                mcpStatus === "missing"
+                  ? "none ready"
+                  : mcpStatus === "warn"
+                    ? "partial"
+                    : "all ready"
+              }
+            />
+          </div>
+          <p className="mt-1 text-2xl font-semibold tabular-nums text-ink-100">
+            {mcpConnected}
+            <span className="ml-1 text-sm font-normal text-ink-300">
+              / {mcpTotal}
+            </span>
+          </p>
+          <p className="mt-0.5 text-[10px] text-ink-300">
+            {mcpDisabled > 0 && `${mcpDisabled} disabled · `}
+            {mcpMissing > 0 && `${mcpMissing} not configured · `}
+            owner-global + personal
+          </p>
+        </div>
       </div>
     </section>
   );
