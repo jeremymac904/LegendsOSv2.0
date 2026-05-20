@@ -2,64 +2,25 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { runChat } from "@/lib/ai/providers";
-import { detectAtlasIntent } from "@/lib/atlas/intentDetection";
+import type { AtlasCard } from "@/lib/atlas/cards";
+import { buildKnowledgeContext } from "@/lib/atlas/context";
+import { executeTool, type ExecResult } from "@/lib/atlas/executor";
 import {
-  retrieveForAssistant,
-  renderKnowledgeBlock,
-} from "@/lib/atlas/retrieval";
+  detectAtlasIntent,
+  type AtlasIntent,
+} from "@/lib/atlas/intentDetection";
+import { planAtlasTool } from "@/lib/atlas/planner";
 import {
+  buildCapabilitySnapshot,
   canRunAtlasTools,
   renderCapabilityMessage,
-  runAtlasTool,
 } from "@/lib/atlas/toolRouter";
-import { getN8nConfigState } from "@/lib/automation/n8n";
-import { getAIProviderStatuses } from "@/lib/env";
 import {
   getCurrentProfile,
   getSupabaseServerClient,
   getSupabaseServiceClient,
 } from "@/lib/supabase/server";
 import { checkDailyCap, logUsage } from "@/lib/usage";
-
-// Human-readable label per tool — used in both the assistant text response
-// for capability queries and in the friendly error text when a tool insert
-// fails. Keep this list in sync with `AtlasToolKind` in lib/atlas/toolRouter.ts.
-const TOOL_LABELS: Record<string, string> = {
-  create_social: "Draft a social post (Facebook, Instagram, YouTube, Google Business)",
-  create_email: "Draft a newsletter / email campaign",
-  create_calendar: "Schedule a calendar item (team event, reminder)",
-  create_knowledge_note: "Save a knowledge note to your collections",
-};
-
-// Plain-English re-mapping for the most common Atlas tool failure modes.
-// We deliberately avoid leaking raw DB error text to the chat surface.
-function friendlyToolFailure(kind: string, raw: string): string {
-  const lower = (raw ?? "").toLowerCase();
-  const subject =
-    kind === "create_social"
-      ? "social draft"
-      : kind === "create_email"
-      ? "newsletter draft"
-      : kind === "create_calendar"
-      ? "calendar item"
-      : kind === "create_knowledge_note"
-      ? "knowledge note"
-      : "draft";
-  if (lower.includes("row-level security") || lower.includes("policy")) {
-    return `I tried to save your ${subject} but Supabase blocked it (row-level security). That usually means your account doesn't have write access — ask the owner to check your role.`;
-  }
-  if (lower.includes("violates foreign key") || lower.includes("foreign key")) {
-    return `I tried to save your ${subject} but a required reference is missing. Try opening the matching studio (e.g. /knowledge, /social) and saving from there once.`;
-  }
-  if (lower.includes("duplicate key") || lower.includes("unique constraint")) {
-    return `I tried to save your ${subject} but a duplicate already exists. Edit the existing one instead of creating a new draft.`;
-  }
-  if (lower.includes("null value") || lower.includes("not-null")) {
-    return `I tried to save your ${subject} but a required field was empty. Give me a topic or title and try again.`;
-  }
-  // Fallback — keep it concise, do not leak the raw message.
-  return `I tried to save your ${subject} but the database rejected it. Try rephrasing or open the studio directly to create it manually.`;
-}
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -73,6 +34,140 @@ const schema = z.object({
   provider: z.enum(["openrouter", "deepseek", "nvidia"]).nullish(),
   model: z.string().nullish(),
 });
+
+// Map the regex fast-path intent to a registry tool id + input. Keeps the
+// fast path alive for the highest-traffic verbs ("draft a post about X")
+// while routing every actual tool execution through the unified executor.
+function intentToToolInvocation(
+  intent: AtlasIntent
+): { tool_id: string; input: Record<string, unknown> } | null {
+  switch (intent.kind) {
+    case "create_social":
+      return {
+        tool_id: "create_social_draft",
+        input: {
+          title: intent.extracted.title,
+          body: intent.extracted.body,
+          channels: intent.extracted.channels,
+        },
+      };
+    case "create_email":
+      return {
+        tool_id: "create_email_draft",
+        input: {
+          subject: intent.extracted.subject,
+          body: intent.extracted.body,
+        },
+      };
+    case "create_calendar":
+      return {
+        tool_id: "create_calendar_item",
+        input: {
+          title: intent.extracted.title,
+          starts_at: intent.extracted.starts_at,
+          date_phrase: intent.extracted.date_phrase,
+        },
+      };
+    case "create_knowledge_note":
+      return {
+        tool_id: "create_knowledge_note",
+        input: {
+          title: intent.extracted.title,
+          body: intent.extracted.body,
+          collection_hint: intent.extracted.collection_hint,
+        },
+      };
+    case "explain_capabilities":
+    case "capability_query":
+      return {
+        tool_id: "explain_capabilities",
+        input: {},
+      };
+    default:
+      return null;
+  }
+}
+
+// Build the structured `tool_result` envelope persisted with every assistant
+// message that ran a tool. AtlasShell switches on `kind` to pick a renderer.
+function buildToolResultMeta(card: AtlasCard) {
+  // Keep an `itemId` field on draft-creating cards so the existing
+  // AtlasShell renderer (which reads `meta.tool_result.itemId`) keeps
+  // working without a UI rebuild.
+  const base: Record<string, unknown> = {
+    kind: card.kind,
+    tool_id: card.tool_id,
+    title: card.title,
+    summary: card.summary,
+    link: card.link ?? null,
+  };
+  // Map new card kinds to the legacy `kind` strings AtlasShell already knows
+  // how to render. New kinds (knowledge_results, asset_result, etc.) land as
+  // a generic chip until the UI gets per-kind renderers.
+  if (card.kind === "social_draft") {
+    base.legacy_kind = "create_social";
+    base.itemId = card.item_id;
+  } else if (card.kind === "email_draft") {
+    base.legacy_kind = "create_email";
+    base.itemId = card.item_id;
+  } else if (card.kind === "calendar_item") {
+    base.legacy_kind = "create_calendar";
+    base.itemId = card.item_id;
+  } else if (card.kind === "knowledge_note") {
+    base.legacy_kind = "create_knowledge_note";
+    base.itemId = card.item_id;
+  } else if (card.kind === "capability_snapshot") {
+    base.legacy_kind = "explain_capabilities";
+    base.itemId = "capabilities";
+    base.capabilities = card.snapshot;
+  }
+  base.card = card;
+  return base;
+}
+
+async function persistAssistantMessageAndRespond(args: {
+  supabase: ReturnType<typeof getSupabaseServerClient>;
+  thread_id: string;
+  user_id: string;
+  content: string;
+  cap_used: number;
+  cap_total: number;
+  tool_result_meta?: Record<string, unknown> | null;
+  kind?: string;
+  source?: string;
+}) {
+  const metadata: Record<string, unknown> = {};
+  if (args.tool_result_meta) metadata.tool_result = args.tool_result_meta;
+  if (args.source) metadata.source = args.source;
+  const { data: msg } = await args.supabase
+    .from("chat_messages")
+    .insert({
+      thread_id: args.thread_id,
+      user_id: args.user_id,
+      role: "assistant",
+      content: args.content,
+      metadata,
+    })
+    .select("id")
+    .single();
+  await args.supabase
+    .from("chat_threads")
+    .update({ last_message_at: new Date().toISOString() })
+    .eq("id", args.thread_id);
+  return NextResponse.json({
+    ok: true,
+    thread_id: args.thread_id,
+    message_id: msg?.id ?? null,
+    kind: args.kind ?? "tool_call",
+    content: args.content,
+    assistant_message: args.content,
+    tool_result: args.tool_result_meta ?? null,
+    provider: "atlas_tool",
+    model: null,
+    usage: { daily_count: args.cap_used + 1, daily_limit: args.cap_total },
+    knowledge: { count: 0, sources: [] },
+  });
+}
 
 export async function POST(req: Request) {
   const profile = await getCurrentProfile();
@@ -136,7 +231,7 @@ export async function POST(req: Request) {
   const supabase = getSupabaseServerClient();
 
   // Create or reuse the thread.
-  let threadId = thread_id ?? null;
+  let threadId: string = thread_id ?? "";
   if (!threadId) {
     const { data: thread, error: tErr } = await supabase
       .from("chat_threads")
@@ -172,218 +267,118 @@ export async function POST(req: Request) {
     );
   }
 
-  // ---- Atlas tool router --------------------------------------------------
-  // Before paying the provider, check whether the message is a deterministic
-  // "do a thing" command (draft a post, write a newsletter, schedule an
-  // event, save a knowledge note) OR a capability query. Side-effects are
-  // DRAFT-ONLY — Atlas never posts, sends, or publishes externally. Tool
-  // failures fall through to normal chat with a friendly message so the user
-  // never sees a dead end.
+  // ---- Atlas runtime layer ------------------------------------------------
+  // Step 1: regex fast path. The detector catches verbatim "draft a post
+  // about X" / "schedule X on tomorrow" / "what can you do?" intents and
+  // short-circuits straight to a registered tool id. The actual handler runs
+  // through `executeTool` so audit + role gating + readiness + Zod
+  // validation are uniform regardless of how the tool was selected.
+  // Step 2 (if no match): hand the message to the LLM planner with the tool
+  // manifest. Planner returns a tool id + input or null. We never block on
+  // planner failure — it falls through to normal chat.
+  // Step 3 (if planner returns null): assemble history + knowledge block and
+  // call the chat provider directly (normal chat fall-through).
   const intent = detectAtlasIntent(message);
-
-  // Capability query handler — pure read, no DB write, returns the live
-  // tool inventory + connector status (so Atlas never lies about what's
-  // wired up).
-  if (intent.kind === "capability_query") {
-    const providers = getAIProviderStatuses();
-    const n8n = getN8nConfigState();
-    const toolLines = Object.values(TOOL_LABELS)
-      .map((label) => `• ${label}`)
-      .join("\n");
-    const providerLines = providers
-      .map((p) => {
-        const status = !p.configured
-          ? "missing key"
-          : !p.enabled
-          ? "disabled by owner"
-          : "ready";
-        return `• ${p.label} — ${status}`;
-      })
-      .join("\n");
-    const n8nLine = n8n.configured
-      ? "• n8n automation — configured"
-      : "• n8n automation — not configured (drafts stay local)";
-    const safetyLine =
-      "Safety: live social publishing and live email sending are OFF by default. Everything I create lands as a draft for you to review.";
-    const assistantText = `Here's what I can do right now:\n\n${toolLines}\n\nAI providers:\n${providerLines}\n${n8nLine}\n\n${safetyLine}`;
-    const { data: capMsg } = await supabase
-      .from("chat_messages")
-      .insert({
-        thread_id: threadId,
-        user_id: profile.id,
-        role: "assistant",
-        content: assistantText,
-        metadata: {
-          source: "atlas_capability_query",
-          providers: providers.map((p) => ({
-            id: p.id,
-            configured: p.configured,
-            enabled: p.enabled,
-          })),
-          n8n_configured: n8n.configured,
-        },
-      })
-      .select("id")
-      .single();
-    await supabase
-      .from("chat_threads")
-      .update({ last_message_at: new Date().toISOString() })
-      .eq("id", threadId);
-    await logUsage(profile, {
-      module: "atlas",
-      event_type: "capability_query",
-      metadata: { thread_id: threadId },
-    });
-    return NextResponse.json({
-      ok: true,
-      thread_id: threadId,
-      message_id: capMsg?.id ?? null,
-      kind: "capability_query",
-      content: assistantText,
-      assistant_message: assistantText,
-      provider: "atlas_tool",
-      model: null,
-      usage: { daily_count: cap.used + 1, daily_limit: cap.cap },
-      knowledge: { count: 0, sources: [] },
-    });
+  let invocation = canRunAtlasTools(profile)
+    ? intentToToolInvocation(intent)
+    : null;
+  // Viewer falls through to chat. Capability query is read-only, so even
+  // viewers should be able to ask it.
+  if (!invocation && intent.kind === "capability_query") {
+    invocation = intentToToolInvocation(intent);
   }
 
-  if (intent.kind !== "none" && canRunAtlasTools(profile)) {
-    const toolResult = await runAtlasTool(intent, profile);
-    if (toolResult.ok) {
-      // Build the assistant message body. For draft-creation tools this is
-      // the short "Created your X. Open it: <link>" confirmation. For the
-      // explain_capabilities tool it's the rendered plain-English snapshot
-      // of what Atlas can do, which providers are configured, and what the
-      // owner needs to flip to unlock more.
-      let assistantText: string;
-      if (toolResult.kind === "explain_capabilities" && toolResult.capabilities) {
-        assistantText = renderCapabilityMessage(toolResult.capabilities);
-      } else {
-        // Honest wording — always "Saved as draft" / "Saved to your
-        // knowledge", never "Posted" or "Sent". Atlas does not perform live
-        // external actions.
-        const subjectByKind: Record<string, string> = {
-          create_social: "social draft",
-          create_email: "newsletter draft",
-          create_calendar: "calendar item",
-          create_knowledge_note: "knowledge note",
-        };
-        const subject = subjectByKind[toolResult.kind] ?? "draft";
-        assistantText =
-          toolResult.kind === "create_knowledge_note"
-            ? `Saved as a ${subject}. Open the collection: ${toolResult.link}`
-            : `Saved your ${subject} (not posted, not sent — review it first). Open it: ${toolResult.link}`;
-      }
-      const { data: toolMsg } = await supabase
-        .from("chat_messages")
-        .insert({
-          thread_id: threadId,
-          user_id: profile.id,
-          role: "assistant",
-          content: assistantText,
-          metadata: {
-            tool_result: {
-              kind: toolResult.kind,
-              itemId: toolResult.itemId,
-              link: toolResult.link,
-              summary: toolResult.summary,
-              // Title surfaces in MessageRow's ToolResultCard. Keep it so
-              // the chip can show "Atlas capabilities" / "Refi options" etc.
-              title: toolResult.title,
-              // Structured capability data for the capability tool only.
-              // Plain-text in `content` is the canonical render — this
-              // payload lets the chip optionally show a richer card later.
-              ...(toolResult.capabilities
-                ? { capabilities: toolResult.capabilities }
-                : {}),
-            },
-          },
-        })
-        .select("id")
-        .single();
-      await supabase
-        .from("chat_threads")
-        .update({ last_message_at: new Date().toISOString() })
-        .eq("id", threadId);
-      await logUsage(profile, {
-        module: "atlas",
-        event_type: "tool_call",
-        metadata: {
-          thread_id: threadId,
-          kind: toolResult.kind,
-          item_id: toolResult.itemId,
-        },
-      });
-      return NextResponse.json({
-        ok: true,
+  // Planner fallback — only consult the LLM planner when the regex didn't
+  // match AND the user can run write tools (or asked a read-only question
+  // worth routing — we let the planner decide).
+  if (!invocation && intent.kind === "none") {
+    const { data: priorHistory } = await supabase
+      .from("chat_messages")
+      .select("role,content")
+      .eq("thread_id", threadId)
+      .order("created_at", { ascending: true })
+      .limit(12);
+    const trimmedHistory = (priorHistory ?? [])
+      .filter((m) => m.role === "user" || m.role === "assistant" || m.role === "system")
+      .map((m) => ({
+        role: m.role as "user" | "assistant" | "system",
+        content: m.content,
+      }));
+    const knowledgeCtx = await buildKnowledgeContext({
+      assistant_id: assistant_id ?? null,
+      message,
+      limit: 4,
+    });
+    const planned = await planAtlasTool({
+      profile,
+      message,
+      history: trimmedHistory,
+      knowledge_block: knowledgeCtx.block,
+      provider: provider ?? undefined,
+      model: model ?? undefined,
+    });
+    if (planned.tool_id && !planned.needs_chat_fallback) {
+      invocation = {
+        tool_id: planned.tool_id,
+        input: planned.input ?? {},
+      };
+    }
+  }
+
+  if (invocation) {
+    const execResult: ExecResult = await executeTool({
+      tool_id: invocation.tool_id,
+      input: invocation.input,
+      profile,
+      thread_id: threadId,
+      assistant_id: assistant_id ?? null,
+    });
+    if (execResult.ok) {
+      const card = execResult.result.card;
+      // For the capability snapshot we still render the legacy rich text
+      // body — that's the canonical UX. Everything else uses the handler's
+      // returned `message` (which is the plain-English honest-action line).
+      const content =
+        card.kind === "capability_snapshot"
+          ? renderCapabilityMessage(buildCapabilitySnapshot())
+          : execResult.result.message;
+      return persistAssistantMessageAndRespond({
+        supabase,
         thread_id: threadId,
-        message_id: toolMsg?.id ?? null,
-        kind: "tool_call",
-        tool_result: {
-          kind: toolResult.kind,
-          itemId: toolResult.itemId,
-          link: toolResult.link,
-          summary: toolResult.summary,
-          title: toolResult.title,
-          ...(toolResult.capabilities
-            ? { capabilities: toolResult.capabilities }
-            : {}),
-        },
-        content: assistantText,
-        assistant_message: assistantText,
-        provider: "atlas_tool",
-        model: null,
-        usage: { daily_count: cap.used + 1, daily_limit: cap.cap },
-        knowledge: { count: 0, sources: [] },
+        user_id: profile.id,
+        content,
+        cap_used: cap.used,
+        cap_total: cap.cap,
+        tool_result_meta: buildToolResultMeta(card),
+        kind: card.kind === "capability_snapshot" ? "capability_query" : "tool_call",
+        source: card.kind === "capability_snapshot" ? "atlas_capability_query" : undefined,
       });
     }
-    // Friendly failure — log internally with the raw error for debugging,
-    // surface a plain-English message to the chat so the user can recover.
-    console.error("atlas_tool_failed", toolResult);
-    const friendly = friendlyToolFailure(toolResult.kind, toolResult.message);
-    const { data: errMsg } = await supabase
-      .from("chat_messages")
-      .insert({
-        thread_id: threadId,
-        user_id: profile.id,
-        role: "assistant",
-        content: friendly,
-        metadata: {
-          source: "atlas_tool_failure",
-          kind: toolResult.kind,
-          error: toolResult.error,
-        },
-      })
-      .select("id")
-      .single();
-    await supabase
-      .from("chat_threads")
-      .update({ last_message_at: new Date().toISOString() })
-      .eq("id", threadId);
+    // Failure path — log the raw error, surface a plain-English message.
+    console.error("atlas_tool_failed", execResult);
     await logUsage(profile, {
       module: "atlas",
-      event_type: "tool_call_failed",
+      event_type: "atlas_tool_call_failed",
       metadata: {
         thread_id: threadId,
-        kind: toolResult.kind,
-        error: toolResult.error,
+        tool_id: execResult.tool_id,
+        error: execResult.error,
       },
     });
-    return NextResponse.json({
-      ok: true,
+    return persistAssistantMessageAndRespond({
+      supabase,
       thread_id: threadId,
-      message_id: errMsg?.id ?? null,
+      user_id: profile.id,
+      content: execResult.message,
+      cap_used: cap.used,
+      cap_total: cap.cap,
+      tool_result_meta: null,
       kind: "tool_call_failed",
-      content: friendly,
-      assistant_message: friendly,
-      provider: "atlas_tool",
-      model: null,
-      usage: { daily_count: cap.used + 1, daily_limit: cap.cap },
-      knowledge: { count: 0, sources: [] },
+      source: "atlas_tool_failure",
     });
   }
 
+  // ---- Chat fall-through --------------------------------------------------
   // Fetch prior turns for context.
   const { data: history } = await supabase
     .from("chat_messages")
@@ -395,22 +390,13 @@ export async function POST(req: Request) {
   // Knowledge retrieval — pull up to 5 relevant items from the collections
   // wired to this assistant. Falls back to no-op when no assistant_id or no
   // mappings; never fatal.
-  let knowledgeHits: Awaited<
-    ReturnType<typeof retrieveForAssistant>
-  > = [];
-  let knowledgeBlock = "";
-  try {
-    if (assistant_id) {
-      knowledgeHits = await retrieveForAssistant({
-        assistant_id,
-        message,
-        limit: 5,
-      });
-      knowledgeBlock = renderKnowledgeBlock(knowledgeHits);
-    }
-  } catch (e) {
-    console.error("knowledge retrieval failed", e);
-  }
+  const knowledgeCtx = await buildKnowledgeContext({
+    assistant_id: assistant_id ?? null,
+    message,
+    limit: 5,
+  });
+  const knowledgeHits = knowledgeCtx.hits;
+  const knowledgeBlock = knowledgeCtx.block;
 
   // Assemble the message list. If we have a knowledge block, append it as a
   // trailing system message so the provider's `messages` array includes it
@@ -428,9 +414,6 @@ export async function POST(req: Request) {
           role: "system" as const,
           content: `(Knowledge attached by the LegendsOS retrieval layer):${knowledgeBlock}`,
         },
-        // Re-inject the user's last message after the system block so the
-        // provider answers the user, not the system. The user message is
-        // already in baseMessages, but re-stating keeps it adjacent.
       ]
     : baseMessages;
 
