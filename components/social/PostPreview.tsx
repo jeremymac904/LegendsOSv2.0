@@ -50,6 +50,44 @@ const CHANNEL_LABELS: Record<ChannelId, string> = {
   youtube: "YouTube",
 };
 
+function mediaLooksLikeVideo(media: MediaPreview | null): boolean {
+  if (!media) return false;
+  const value = `${media.prompt ?? ""} ${media.preview_url ?? ""}`.toLowerCase();
+  return (
+    value.includes("video/") ||
+    /\.(mp4|mov|m4v|webm)(?:$|[?#])/i.test(value)
+  );
+}
+
+function MediaVisual({
+  media,
+  className,
+}: {
+  media: MediaPreview;
+  className: string;
+}) {
+  if (mediaLooksLikeVideo(media)) {
+    return (
+      <video
+        src={media.preview_url ?? undefined}
+        className={cn("bg-ink-950", className)}
+        controls
+        muted
+        playsInline
+        preload="metadata"
+        title={media.prompt ?? "Attached video"}
+      />
+    );
+  }
+  return (
+    <img
+      src={media.preview_url ?? ""}
+      alt={media.prompt ?? ""}
+      className={className}
+    />
+  );
+}
+
 export function PostPreview({
   body,
   channels,
@@ -215,9 +253,8 @@ function FacebookPreview({
         )}
       </p>
       {primary?.preview_url ? (
-        <img
-          src={primary.preview_url}
-          alt={primary.prompt ?? ""}
+        <MediaVisual
+          media={primary}
           className="w-full max-h-72 object-cover"
         />
       ) : (
@@ -257,9 +294,8 @@ function InstagramPreview({
       </div>
       <div className="aspect-square w-full bg-ink-950">
         {primary?.preview_url ? (
-          <img
-            src={primary.preview_url}
-            alt={primary.prompt ?? ""}
+          <MediaVisual
+            media={primary}
             className="h-full w-full object-cover"
           />
         ) : (
@@ -308,9 +344,8 @@ function GBPPreview({
         </div>
       </div>
       {primary?.preview_url ? (
-        <img
-          src={primary.preview_url}
-          alt={primary.prompt ?? ""}
+        <MediaVisual
+          media={primary}
           className="w-full max-h-56 object-cover"
         />
       ) : (
@@ -338,6 +373,8 @@ function YouTubePreview({
   title: string;
   brandName: string;
 }) {
+  const isVideo = mediaLooksLikeVideo(primary);
+
   return (
     <PreviewFrame
       icon={<Youtube size={12} />}
@@ -346,17 +383,18 @@ function YouTubePreview({
     >
       <div className="relative aspect-video w-full bg-ink-950">
         {primary?.preview_url ? (
-          <img
-            src={primary.preview_url}
-            alt={primary.prompt ?? ""}
+          <MediaVisual
+            media={primary}
             className="h-full w-full object-cover"
           />
         ) : (
           <PlaceholderImage video />
         )}
-        <div className="absolute inset-0 grid place-items-center bg-black/20">
-          <PlayCircle size={36} className="text-white/90 drop-shadow" />
-        </div>
+        {!isVideo && (
+          <div className="absolute inset-0 grid place-items-center bg-black/20">
+            <PlayCircle size={36} className="text-white/90 drop-shadow" />
+          </div>
+        )}
       </div>
       <div className="px-3 pb-3 pt-2">
         <p className="text-[12px] font-semibold text-ink-100 line-clamp-2">

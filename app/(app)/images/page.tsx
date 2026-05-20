@@ -11,7 +11,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { imageLibrary } from "@/lib/assets";
 import { loadOrgUploadedImageAssets } from "@/lib/admin/orgAssets";
-import { getServerEnv } from "@/lib/env";
+import { getAIProviderStatuses, getServerEnv } from "@/lib/env";
 import { isOwner } from "@/lib/permissions";
 import {
   getCurrentProfile,
@@ -21,42 +21,40 @@ import type { GeneratedMedia } from "@/types/database";
 
 export const dynamic = "force-dynamic";
 
-// ALLOW_PAID_IMAGE_GENERATION is read directly here (not via lib/env helpers)
-// to keep this change scoped to the Image Studio page. Default is false, which
-// matches the project-wide expectation that paid generation is opt-in only.
-function readAllowPaidImageGeneration(): boolean {
-  const raw = process.env.ALLOW_PAID_IMAGE_GENERATION;
-  if (!raw) return false;
-  return ["1", "true", "yes", "on"].includes(raw.toLowerCase());
-}
-
 export default async function ImageStudioPage() {
   const profile = await getCurrentProfile();
   if (!profile) return null;
   const supabase = getSupabaseServerClient();
   const env = getServerEnv();
 
-  const [{ data }, uploadedImages] = await Promise.all([
+  const [{ data }, uploadedImages, { data: falProviderRow }] = await Promise.all([
     supabase
       .from("generated_media")
       .select("*")
       .order("created_at", { ascending: false })
       .limit(40),
     loadOrgUploadedImageAssets(),
+    supabase
+      .from("provider_credentials_public")
+      .select("provider,is_enabled")
+      .eq("provider", "fal")
+      .maybeSingle(),
   ]);
   const media = (data ?? []) as GeneratedMedia[];
 
+  const falStatus = getAIProviderStatuses().find((p) => p.id === "fal");
   const falConfigured = Boolean(env.FAL_KEY);
-  const paidAllowed = readAllowPaidImageGeneration();
+  const falOwnerEnabled = falProviderRow?.is_enabled !== false;
+  const falEnabled = Boolean(falStatus?.enabled && falOwnerEnabled);
 
-  // Three-state readiness for the FAL chip + the guided composer's
-  // "Generate image" button gate. Wording mirrors what we surface in the
-  // component itself.
+  // Readiness for the FAL chip + guided composer button. The API route already
+  // enforces configured/enabled provider state; keep the UI aligned with that
+  // so configured Fal.ai does not look blocked by the old paid-generation flag.
   const falReadiness: FalReadiness = !falConfigured
     ? "not_configured"
-    : paidAllowed
+    : falEnabled
     ? "ready"
-    : "configured_but_paid_off";
+    : "provider_disabled";
 
   // Asset library entries (logos, team photos, social refs) curated by the
   // local indexer. Owner-only items are filtered out for non-owners. Owner-
@@ -110,13 +108,13 @@ export default async function ImageStudioPage() {
         />
         FAL · Ready
       </span>
-    ) : falReadiness === "configured_but_paid_off" ? (
+    ) : falReadiness === "provider_disabled" ? (
       <span className="chip-warn">
         <span
           aria-hidden
           className="inline-block h-1.5 w-1.5 rounded-full bg-accent-gold"
         />
-        FAL · Configured but paid generation disabled
+        FAL · Disabled in Settings
       </span>
     ) : (
       <span className="chip-off">

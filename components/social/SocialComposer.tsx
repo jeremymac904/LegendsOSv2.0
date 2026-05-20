@@ -7,6 +7,7 @@ import {
   CloudUpload,
   ImageIcon,
   ImagePlus,
+  PlayCircle,
   Save,
   Send,
   Sparkles,
@@ -91,6 +92,50 @@ function initialMediaIds(args: {
     return [];
   }
   return initialSelectedMediaId ? [initialSelectedMediaId] : [];
+}
+
+function mediaLooksLikeVideo(
+  media: Pick<MediaSummary, "prompt" | "preview_url">
+): boolean {
+  const value = `${media.prompt ?? ""} ${media.preview_url ?? ""}`.toLowerCase();
+  return (
+    value.includes("video/") ||
+    /\.(mp4|mov|m4v|webm)(?:$|[?#])/i.test(value)
+  );
+}
+
+function MediaThumb({
+  media,
+  className,
+}: {
+  media: MediaSummary;
+  className: string;
+}) {
+  if (!media.preview_url) return null;
+  if (mediaLooksLikeVideo(media)) {
+    return (
+      <span className={cn("relative block overflow-hidden", className)}>
+        <video
+          src={media.preview_url}
+          className="h-full w-full bg-ink-950 object-cover"
+          muted
+          playsInline
+          preload="metadata"
+          title={media.prompt ?? "Attached video"}
+        />
+        <span className="absolute inset-0 grid place-items-center bg-black/15 text-white/90">
+          <PlayCircle size={16} />
+        </span>
+      </span>
+    );
+  }
+  return (
+    <img
+      src={media.preview_url}
+      alt={media.prompt ?? ""}
+      className={className}
+    />
+  );
 }
 
 export function SocialComposer({
@@ -555,9 +600,8 @@ export function SocialComposer({
                   title={m.prompt ?? ""}
                 >
                   {m.preview_url ? (
-                    <img
-                      src={m.preview_url}
-                      alt={m.prompt ?? ""}
+                    <MediaThumb
+                      media={m}
                       className="h-full w-full object-cover"
                     />
                   ) : (
@@ -613,9 +657,8 @@ export function SocialComposer({
                       }
                     >
                       {m.preview_url ? (
-                        <img
-                          src={m.preview_url}
-                          alt={m.prompt ?? ""}
+                        <MediaThumb
+                          media={m}
                           className="aspect-square w-full object-cover"
                         />
                       ) : (

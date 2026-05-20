@@ -1,3 +1,13 @@
+import Link from "next/link";
+import {
+  Bot,
+  CalendarDays,
+  KeyRound,
+  Mail,
+  PlugZap,
+  Video,
+} from "lucide-react";
+
 import { ProviderToggle } from "@/components/settings/ProviderToggle";
 import { MCPConnections } from "@/components/settings/MCPConnections";
 import { SectionHeader } from "@/components/ui/SectionHeader";
@@ -71,6 +81,67 @@ export default async function SettingsPage() {
       env_var: "ALLOW_LIVE_EMAIL_SEND",
     },
   ];
+  const n8nWebhookCount = Object.values(env.N8N_WEBHOOKS).filter(Boolean).length;
+  const connectionGuides = [
+    {
+      title: "n8n workflow broker",
+      detail: `${n8nWebhookCount} webhook${n8nWebhookCount === 1 ? "" : "s"} configured`,
+      envNames: "N8N_BASE_URL / N8N_WEBHOOK_*",
+      configured: Boolean(env.N8N_BASE_URL || n8nWebhookCount > 0),
+      icon: PlugZap,
+      href: "/admin",
+    },
+    {
+      title: "HeyGen welcome video",
+      detail: process.env.NEXT_PUBLIC_WELCOME_VIDEO_URL
+        ? "Login welcome video URL present"
+        : "Embed URL missing",
+      envNames: "NEXT_PUBLIC_WELCOME_VIDEO_URL",
+      configured: Boolean(process.env.NEXT_PUBLIC_WELCOME_VIDEO_URL),
+      icon: Video,
+      href: "/login",
+    },
+    {
+      title: "Google, Gmail, Calendar",
+      detail:
+        process.env.GOOGLE_OAUTH_CLIENT_ID && process.env.GOOGLE_OAUTH_CLIENT_SECRET
+          ? "OAuth client present"
+          : "OAuth client missing",
+      envNames: "GOOGLE_OAUTH_CLIENT_ID / GOOGLE_OAUTH_CLIENT_SECRET",
+      configured: Boolean(
+        process.env.GOOGLE_OAUTH_CLIENT_ID &&
+          process.env.GOOGLE_OAUTH_CLIENT_SECRET
+      ),
+      icon: CalendarDays,
+      href: "/calendar",
+    },
+    {
+      title: "Telegram bot actions",
+      detail: process.env.TELEGRAM_BOT_TOKEN
+        ? "Bot token present"
+        : "Bot token missing",
+      envNames: "TELEGRAM_BOT_TOKEN",
+      configured: Boolean(process.env.TELEGRAM_BOT_TOKEN),
+      icon: Bot,
+      href: "/atlas",
+    },
+    {
+      title: "MCP app connections",
+      detail: "User-managed endpoints live below this panel",
+      envNames: "Zapier / Composio / custom MCP URL",
+      configured: true,
+      icon: Mail,
+      href: "#mcp-connections",
+    },
+    {
+      title: "AI subscriptions",
+      detail: `${merged.filter((p) => p.configured).length} provider${merged.filter((p) => p.configured).length === 1 ? "" : "s"} configured`,
+      envNames: "OPENROUTER / FAL / HF / DeepSeek / NVIDIA",
+      configured: merged.some((p) => p.configured),
+      icon: KeyRound,
+      href: "#ai-provider-gateway",
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -139,6 +210,47 @@ export default async function SettingsPage() {
       </div>
 
       <section className="card-padded">
+        <div className="section-title">
+          <div>
+            <h2>Connection setup</h2>
+            <p>
+              Per-user and owner-level integration paths Jeremy called out:
+              n8n, HeyGen, Google, Gmail, Telegram, MCPs, and AI subscriptions.
+            </p>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {connectionGuides.map((guide) => {
+            const Icon = guide.icon;
+            return (
+              <Link
+                key={guide.title}
+                href={guide.href}
+                className="rounded-xl border border-ink-800 bg-ink-900/40 p-3 transition hover:border-accent-gold/30"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="grid h-9 w-9 place-items-center rounded-lg border border-accent-gold/20 bg-accent-gold/10 text-accent-gold">
+                    <Icon size={16} />
+                  </div>
+                  <StatusPill
+                    status={guide.configured ? "ok" : "warn"}
+                    label={guide.configured ? "ready" : "setup needed"}
+                  />
+                </div>
+                <p className="mt-3 text-sm font-medium text-ink-100">
+                  {guide.title}
+                </p>
+                <p className="mt-1 text-xs text-ink-300">{guide.detail}</p>
+                <p className="mt-2 font-mono text-[10px] text-ink-400">
+                  {guide.envNames}
+                </p>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
+
+      <section id="ai-provider-gateway" className="card-padded">
         <div className="section-title">
           <div>
             <h2>AI Provider Gateway</h2>
@@ -240,7 +352,9 @@ export default async function SettingsPage() {
         </p>
       </section>
 
-      <MCPConnections />
+      <div id="mcp-connections">
+        <MCPConnections />
+      </div>
 
       <section className="card-padded">
         <div className="section-title">

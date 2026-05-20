@@ -29,25 +29,16 @@ export function Sidebar({ profile }: { profile: Profile }) {
 
       <div className="px-2">
         <Link href="/dashboard" className="group flex items-center gap-3">
-          <div className="relative grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-accent-orange to-accent-gold text-sm font-black text-ink-950 shadow-glow">
-            L
-            <span
-              aria-hidden
-              className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-accent-gold shadow-[0_0_8px_rgba(245,180,0,0.85)]"
+          <div className="flex h-11 w-36 shrink-0 items-center rounded-xl border border-accent-gold/20 bg-ink-950/40 px-2 shadow-glass">
+            <img
+              src="/assets/logos/legends-os-logo.png"
+              alt="LegendsOS"
+              className="h-9 w-full object-contain"
             />
           </div>
-          <div className="min-w-0">
+          <div className="sr-only">
             <p className="text-sm font-semibold tracking-tight text-ink-100">
-              <span className="bg-gradient-to-r from-ink-100 via-ink-100 to-accent-gold/80 bg-clip-text text-transparent">
-                LegendsOS
-              </span>
-            </p>
-            <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.22em] text-ink-400">
-              <span
-                aria-hidden
-                className="inline-block h-1 w-1 rounded-full bg-accent-gold/70"
-              />
-              v2.0 · internal
+              LegendsOS
             </p>
           </div>
         </Link>

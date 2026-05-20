@@ -96,7 +96,7 @@ function mapSizeForApi(id: OutputSizeId): "1:1" | "16:9" | "9:16" | "4:3" | "3:4
 // FAL readiness chip — three states
 // ---------------------------------------------------------------------------
 
-export type FalReadiness = "ready" | "configured_but_paid_off" | "not_configured";
+export type FalReadiness = "ready" | "provider_disabled" | "not_configured";
 
 export interface ReferenceAsset {
   id: string;
@@ -192,14 +192,14 @@ function ReadinessChip({ state }: { state: FalReadiness }) {
       </span>
     );
   }
-  if (state === "configured_but_paid_off") {
+  if (state === "provider_disabled") {
     return (
       <span className="chip-warn">
         <span
           aria-hidden
           className="inline-block h-1.5 w-1.5 rounded-full bg-accent-gold"
         />
-        FAL · Configured but paid generation disabled
+        FAL · Disabled in Settings
       </span>
     );
   }
@@ -265,8 +265,8 @@ export function ImageStudioClient({ falReadiness, referenceAssets }: Props) {
     }
     if (falReadiness !== "ready") {
       setError(
-        falReadiness === "configured_but_paid_off"
-          ? "FAL is configured but paid generation is disabled (ALLOW_PAID_IMAGE_GENERATION=false)."
+        falReadiness === "provider_disabled"
+          ? "Fal.ai is configured but disabled in Settings. Re-enable Fal.ai in the AI Provider Gateway."
           : "FAL is not configured. Set FAL_KEY in environment."
       );
       return;

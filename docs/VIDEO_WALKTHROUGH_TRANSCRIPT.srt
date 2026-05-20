@@ -1,0 +1,400 @@
+1
+00:00:00,000 --> 00:00:08,000
+All right, so this is the legends OS 2.0 walkthrough
+
+2
+00:00:08,000 --> 00:00:10,500
+so here on
+
+3
+00:00:10,500 --> 00:00:19,440
+the home page again like we still have the incorrect logos and branding because this should be a
+
+4
+00:00:19,440 --> 00:00:29,980
+like a like a pewter goldish black gray like that's that's the kind of the dark
+
+5
+00:00:29,980 --> 00:00:42,880
+mode so we need to make sure that the download Mac is functional the windows test build needs
+
+6
+00:00:42,880 --> 00:00:47,220
+to be functional as well so and and we need a better background here and like this needs
+
+7
+00:00:47,220 --> 00:00:51,080
+to be more centered it's so spread out it just doesn't look very professional
+
+8
+00:00:59,980 --> 00:01:12,880
+so again you know the the branding is just off with the color and the incorrect logo
+
+9
+00:01:12,880 --> 00:01:30,780
+so we also need to have like under the knowledge sources here we need to have like a tutorial
+
+10
+00:01:30,780 --> 00:01:37,220
+right here that can have the tutorial videos that show everybody how to set things up so
+
+11
+00:01:37,220 --> 00:01:43,580
+let's let's try atlas chat and see if this is working all right so let's take a look at this
+
+12
+00:01:43,580 --> 00:01:49,020
+this is very difficult to read we have a bunch of open space on both sides which doesn't really
+
+13
+00:01:49,020 --> 00:02:00,160
+make any sense um so but let me just ask it what to do what it can do and see what it says
+
+14
+00:02:00,160 --> 00:02:07,500
+okay so now it expands so this is kind of how it should always be
+
+15
+00:02:07,500 --> 00:02:26,600
+and then you know the live social publishing and emailing each user needs to be able to toggle that
+
+16
+00:02:26,600 --> 00:02:31,000
+to be active because this is kind of crazy
+
+17
+00:02:45,000 --> 00:02:48,940
+all right so quick action summarize today's written fireman
+
+18
+00:02:48,940 --> 00:02:49,840
+that's kind of cool
+
+19
+00:02:49,840 --> 00:03:02,560
+and like you know since this is going to be done in codex you've got the best image generation model
+
+20
+00:03:02,560 --> 00:03:09,380
+there is so i mean let's really create some dynamic backgrounds that are super futuristic and and really
+
+21
+00:03:09,380 --> 00:03:17,140
+exciting and also when we're creating this content like this we don't need all these brackets and all
+
+22
+00:03:17,140 --> 00:03:29,220
+this other stuff because that doesn't really make it helpful for my users all right so let's try to trigger an automation
+
+23
+00:03:33,620 --> 00:03:37,780
+what what automations do i have available in in 8n list them so i can choose
+
+24
+00:03:37,780 --> 00:03:42,900
+new lead sms alert
+
+25
+00:03:42,900 --> 00:03:46,980
+cool
+
+26
+00:03:49,460 --> 00:03:52,420
+we need to make sure of course that all of this actually works
+
+27
+00:03:54,180 --> 00:04:00,500
+okay so let's go back to the command center let's go to generate an image
+
+28
+00:04:00,500 --> 00:04:11,380
+so it's saying that the paid generation is disabled so i mean we need to be having something
+
+29
+00:04:12,260 --> 00:04:17,460
+oh and here are the backgrounds that i want to actually be the background for the platform
+
+30
+00:04:18,020 --> 00:04:22,420
+and so we've already got some images in here different headshots for people on the team
+
+31
+00:04:22,420 --> 00:04:28,500
+but so let's do social posts facebook warm
+
+32
+00:04:31,780 --> 00:04:32,180
+mixed
+
+33
+00:04:37,140 --> 00:04:39,620
+family borrower portrait square is good
+
+34
+00:04:39,620 --> 00:04:49,220
+let's see how this let's look at the advanced details all right let's generate it
+
+35
+00:04:54,340 --> 00:04:58,180
+all right so when i go to click generate as you can see right there there's the
+
+36
+00:04:59,220 --> 00:05:03,220
+you know little icon that shows that i can't actually do it so that's a problem
+
+37
+00:05:03,220 --> 00:05:08,020
+okay let's take a look at the email studio
+
+38
+00:05:12,660 --> 00:05:18,100
+the external sending needs to be enabled okay this is not for shits and giggles
+
+39
+00:05:21,940 --> 00:05:29,540
+and the draft over here needs to be much much smaller this needs to be the focus okay and in addition to that
+
+40
+00:05:29,540 --> 00:05:34,580
+the draft over here is that you know we need to have some different like
+
+41
+00:05:41,140 --> 00:05:49,300
+you know um prompts we also need to allow atlas to be like hey can you while we're in atlas like
+
+42
+00:05:49,300 --> 00:05:57,380
+hey can you draft up an email newsletter for me and template etc whatever and then just be able to be
+
+43
+00:05:57,380 --> 00:06:03,220
+saved and right then have it automatically be over here in the email studio that makes the most sense
+
+44
+00:06:03,780 --> 00:06:13,780
+and we need like you know a an ai assistant so like you know instead of like right here markdown
+
+45
+00:06:13,780 --> 00:06:20,020
+supported no so what we need here is like a little ai button that you can click and expand and be like hey
+
+46
+00:06:20,900 --> 00:06:26,500
+what topics do you want the email newsletter to be about and you can choose different topics and then it's
+
+47
+00:06:26,500 --> 00:06:34,900
+going to generate the email with that user's profile information all right let's take a look at the
+
+48
+00:06:34,900 --> 00:06:35,780
+social studio
+
+49
+00:06:38,180 --> 00:06:43,300
+again so n8n is connected but we've got the external publishing disabled so that needs to be corrected
+
+50
+00:06:46,420 --> 00:06:51,620
+and we also need that you know generate with ai and again atlas needs to be able to generate this
+
+51
+00:06:51,620 --> 00:06:59,380
+content for us as well and having the side a side pop out or like the little icon down here where it just
+
+52
+00:06:59,380 --> 00:07:08,180
+pops up and then can actually create the content and then insert it like let's do that so pick from
+
+53
+00:07:08,180 --> 00:07:22,180
+library let's go with this one
+
+54
+00:07:22,180 --> 00:07:30,340
+all right let's see if we can schedule
+
+55
+00:07:37,780 --> 00:07:46,820
+all right when i hit schedule it just kind of oh okay so so it does okay cool so i mean we just need it to
+
+56
+00:07:46,820 --> 00:07:55,940
+to be fully functional and to be able to upload you know both images and videos i just want to make sure
+
+57
+00:07:58,900 --> 00:08:04,260
+see videos are fine oh yeah so it does allow mp4s so that's good
+
+58
+00:08:04,260 --> 00:08:24,340
+so i'm uploading that all right so that worked but it'd be better if we have just uh you know a preview of it
+
+59
+00:08:24,340 --> 00:08:34,420
+so
+
+60
+00:08:34,980 --> 00:08:38,660
+all right so the calendar view for the most part looks pretty good i do want to just with all
+
+61
+00:08:38,660 --> 00:08:42,340
+these like fill in the space it needs to be dynamic and it needs to fill in the space
+
+62
+00:08:42,340 --> 00:08:50,580
+you know with with this i need to be able to
+
+63
+00:08:53,540 --> 00:08:54,740
+you know add
+
+64
+00:08:56,820 --> 00:09:01,780
+markdown files pdfs all of that stuff so for the shared resources
+
+65
+00:09:03,860 --> 00:09:10,340
+all right so for the settings yeah right here it needs to be able to be toggled on anything that's
+
+66
+00:09:10,340 --> 00:09:16,580
+disabled needs to be able to be toggled on just like how we got the toggle over here
+
+67
+00:09:25,540 --> 00:09:29,940
+and i mean this is where we should be able to connect our
+
+68
+00:09:29,940 --> 00:09:40,500
+we need to add in a n we need to add you know hey gen
+
+69
+00:09:44,020 --> 00:09:51,380
+you know and give people the ability to add in additional ai providers like their gemini key or
+
+70
+00:09:51,380 --> 00:09:58,980
+open ai or anthropic and i want them to be able to use their subscription so we need to give them the
+
+71
+00:09:58,980 --> 00:10:12,180
+ability to sign in with their subscription for those accounts
+
+72
+00:10:12,180 --> 00:10:24,820
+so i mean the admin center looks pretty good um you know i would just say
+
+73
+00:10:24,820 --> 00:10:34,580
+in the admin center i need to be able to like connect telegram bots or
+
+74
+00:10:36,980 --> 00:10:47,700
+connect you know gmail google etc like admin should have all of all of that as as well um i guess this
+
+75
+00:10:47,700 --> 00:10:48,740
+is the owner center but yeah
+
+76
+00:10:52,740 --> 00:10:54,420
+so on the add users
+
+77
+00:10:57,860 --> 00:10:59,060
+all right cool that works
+
+78
+00:11:02,020 --> 00:11:15,700
+so let me let me see if this actually does work
+
+79
+00:11:17,700 --> 00:11:19,860
+the admin center is going to be able to connect to the admin center
+
+80
+00:11:19,860 --> 00:11:28,180
+so we need that to be fixed so that was when i used this invite league share with the new user
+
+81
+00:11:28,180 --> 00:11:34,340
+that's what happened um i also realistically should have the ability to come in here and set you know
+
+82
+00:11:36,180 --> 00:11:37,300
+the password
+
+83
+00:11:37,300 --> 00:11:39,460
+the password
+
+84
+00:11:39,460 --> 00:11:47,300
+you know um their default or i guess this should just default to like open router for the free models
+
+85
+00:11:50,900 --> 00:11:53,300
+the asset library good with that
+
+86
+00:11:53,300 --> 00:11:55,700
+so
+
+87
+00:11:58,420 --> 00:11:59,540
+yeah i mean
+
+88
+00:12:02,260 --> 00:12:05,940
+there's definitely some things that need to be fixed and we definitely need to
+
+89
+00:12:07,300 --> 00:12:10,420
+you know have the correct logos which like this right here
+
+90
+00:12:11,380 --> 00:12:15,860
+this is the legends os logo this is the correct logo that should be over here
+
+91
+00:12:15,860 --> 00:12:23,540
+here and everywhere that we have the legends os logo this is it and that's the branding right there okay
+
+92
+00:12:29,940 --> 00:12:33,620
+so i mean each user needs to be able to connect all of their
+
+93
+00:12:34,980 --> 00:12:35,540
+connections
+
+94
+00:12:36,420 --> 00:12:41,940
+so i mean i understand like owner only but we also need the users so that they can go in and connect
+
+95
+00:12:41,940 --> 00:12:46,740
+everything and you know having a link for them to go to
+
+96
+00:12:47,860 --> 00:12:53,460
+set up their n8n because i'm going to create everybody in in a in as a user
+
+97
+00:12:54,260 --> 00:12:59,540
+so we need to have a little guide on hey go connect your n8n connect all these credentials
+
+98
+00:13:00,020 --> 00:13:06,820
+because that's going to be used from you know the the social studio email etc
+
+99
+00:13:06,820 --> 00:13:22,740
+their calendar connections like all of that so we need to make sure that we have that stuff all in here
+
+100
+00:13:22,740 --> 00:13:22,740
+
+

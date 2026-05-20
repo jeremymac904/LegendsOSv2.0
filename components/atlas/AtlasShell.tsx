@@ -303,7 +303,7 @@ export function AtlasShell({
               ...tempUserMsg,
               id: `local-system-${Date.now()}`,
               role: "system",
-              content: `[${data.error}] ${data.message}`,
+              content: data.message ?? "Atlas could not complete that request.",
             },
           ]);
           return;
@@ -359,10 +359,14 @@ export function AtlasShell({
         <div className="flex min-w-0 items-center gap-2.5">
           <span
             aria-hidden
-            className="grid h-6 w-6 shrink-0 place-items-center rounded-md border border-accent-gold/40 bg-gradient-to-br from-accent-gold/25 via-accent-gold/10 to-accent-orange/10 text-[10px] font-bold tracking-tight text-accent-gold shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15)]"
+            className="flex h-7 w-20 shrink-0 items-center rounded-md border border-accent-gold/25 bg-ink-950/50 px-1.5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15)]"
             title="LegendsOS · Atlas"
           >
-            L
+            <img
+              src="/assets/logos/legends-os-logo.png"
+              alt=""
+              className="h-5 w-full object-contain"
+            />
           </span>
           <div className="flex min-w-0 items-baseline gap-1.5">
             <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-gold-gradient">
@@ -398,7 +402,7 @@ export function AtlasShell({
         ref={scrollerRef}
         className="flex-1 overflow-y-auto px-4 py-6 scrollbar-thin"
       >
-        <div className="mx-auto flex max-w-3xl flex-col gap-5">
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
           {messages.length === 0 && (
             <EmptyChat
               provider={provider}
@@ -425,7 +429,7 @@ export function AtlasShell({
 
       {/* Pinned composer */}
       <div className="border-t border-ink-800 bg-ink-950/80 px-3 pb-4 pt-3 backdrop-blur sm:px-6">
-        <div className="mx-auto w-full max-w-3xl">
+        <div className="mx-auto w-full max-w-5xl">
           {error && (
             <p className="mb-2 rounded-lg border border-status-err/30 bg-status-err/10 px-3 py-2 text-xs text-status-err">
               {error}

@@ -1,4 +1,4 @@
-import { Share2 } from "lucide-react";
+import { PlayCircle, Share2 } from "lucide-react";
 
 import { SocialComposer } from "@/components/social/SocialComposer";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -62,6 +62,44 @@ function decodePrefill(raw: string | undefined): {
   } catch {
     return null;
   }
+}
+
+type SocialMediaPreview = Pick<GeneratedMedia, "prompt" | "preview_url">;
+
+function mediaLooksLikeVideo(media: SocialMediaPreview): boolean {
+  const value = `${media.prompt ?? ""} ${media.preview_url ?? ""}`.toLowerCase();
+  return (
+    value.includes("video/") ||
+    /\.(mp4|mov|m4v|webm)(?:$|[?#])/i.test(value)
+  );
+}
+
+function SavedPostMediaThumb({ media }: { media: SocialMediaPreview }) {
+  if (!media.preview_url) return null;
+  if (mediaLooksLikeVideo(media)) {
+    return (
+      <span className="relative block h-14 w-14 overflow-hidden rounded-lg border border-ink-800 bg-ink-950">
+        <video
+          src={media.preview_url}
+          className="h-full w-full object-cover"
+          muted
+          playsInline
+          preload="metadata"
+          title={media.prompt ?? "Attached video"}
+        />
+        <span className="absolute inset-0 grid place-items-center bg-black/15 text-white/90">
+          <PlayCircle size={16} />
+        </span>
+      </span>
+    );
+  }
+  return (
+    <img
+      src={media.preview_url}
+      alt={media.prompt ?? ""}
+      className="h-14 w-14 rounded-lg border border-ink-800 object-cover"
+    />
+  );
 }
 
 export default async function SocialStudioPage({ searchParams }: PageProps) {
@@ -221,20 +259,14 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
                   {(primary || extraMedia.length > 0) && (
                     <div className="mt-2 flex flex-wrap gap-2">
                       {primary?.preview_url && (
-                        <img
-                          src={primary.preview_url}
-                          alt={primary.prompt ?? ""}
-                          className="h-14 w-14 rounded-lg border border-ink-800 object-cover"
-                        />
+                        <SavedPostMediaThumb media={primary} />
                       )}
                       {extraMedia.map(
                         (m) =>
                           m.preview_url && (
-                            <img
+                            <SavedPostMediaThumb
                               key={m.id}
-                              src={m.preview_url}
-                              alt={m.prompt ?? ""}
-                              className="h-14 w-14 rounded-lg border border-ink-800 object-cover"
+                              media={m}
                             />
                           )
                       )}

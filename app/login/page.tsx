@@ -61,14 +61,20 @@ export default function LoginPage({
   });
 
   return (
-    <main className="relative grid min-h-screen bg-ember-radial lg:grid-cols-[1.05fr_1fr]">
-      {/* Page-wide ambient gold wash. Stays restrained. */}
+    <main className="relative min-h-screen overflow-hidden bg-ink-950">
+      <img
+        src="/assets/backgrounds/command-center-futuristic.jpg"
+        alt=""
+        aria-hidden
+        className="absolute inset-0 h-full w-full object-cover opacity-45"
+      />
       <span
         aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(80%_60%_at_50%_-10%,rgba(245,180,0,0.10),transparent_60%)]"
+        className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(5,6,10,0.84),rgba(5,6,10,0.58)_48%,rgba(5,6,10,0.86)),radial-gradient(65%_55%_at_30%_12%,rgba(245,180,0,0.20),transparent_62%)]"
       />
-      <section className="hidden lg:flex flex-col border-r border-ink-800/70 px-12 py-10">
-        <div className="flex items-center gap-3">
+      <div className="relative grid min-h-screen items-center gap-10 px-6 py-10 lg:grid-cols-[minmax(0,0.95fr)_420px] lg:px-14 xl:px-20">
+      <section className="hidden min-h-[720px] max-w-[560px] flex-col justify-center lg:flex">
+        <div className="mb-10 flex items-center gap-4">
           <Logo />
           <div>
             <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-ink-400">
@@ -77,18 +83,17 @@ export default function LoginPage({
             <p className="text-sm text-ink-200">v2.0 · internal</p>
           </div>
         </div>
-        {/* Centered content block: headline → video → desktop downloads. */}
-        <div className="flex flex-1 flex-col justify-center gap-8 pb-4">
-          <h1 className="max-w-md text-3xl font-semibold leading-tight tracking-tight text-ink-100">
+        <div className="flex flex-col gap-7">
+          <h1 className="max-w-xl text-4xl font-semibold leading-tight tracking-tight text-ink-100">
             One command center for{" "}
             <span className="bg-gradient-to-r from-accent-gold to-accent-orange bg-clip-text text-transparent">
               The Legends Mortgage Team
             </span>
             .
           </h1>
-          <div className="w-full max-w-md">
+          <div className="w-full max-w-[520px]">
             {welcomeVideoUrl ? (
-              <div className="aspect-video overflow-hidden rounded-2xl border border-ink-800/80 bg-ink-950 shadow-card">
+              <div className="aspect-video overflow-hidden rounded-2xl border border-accent-gold/20 bg-ink-950/80 shadow-card">
                 <iframe
                   src={welcomeVideoUrl}
                   title="LegendsOS welcome"
@@ -121,7 +126,7 @@ export default function LoginPage({
         </div>
       </section>
 
-      <section className="relative flex items-center justify-center px-6 py-12">
+      <section className="relative flex items-center justify-center lg:justify-end">
         <div className="w-full max-w-sm">
           {/* Centered wordmark above the form — small but present. */}
           <div className="mb-7 flex flex-col items-center gap-3 lg:hidden">
@@ -174,17 +179,18 @@ export default function LoginPage({
           </p>
         </div>
       </section>
+      </div>
     </main>
   );
 }
 
 function Logo() {
   return (
-    <div className="relative grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-accent-gold via-accent-gold to-accent-orange text-base font-black text-ink-950 shadow-glow">
-      L
-      <span
-        aria-hidden
-        className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-accent-gold shadow-[0_0_8px_rgba(245,180,0,0.85)]"
+    <div className="flex h-12 w-40 items-center justify-center rounded-xl border border-accent-gold/20 bg-ink-950/55 px-3 shadow-glass backdrop-blur">
+      <img
+        src="/assets/logos/legends-os-logo.png"
+        alt="LegendsOS"
+        className="h-10 w-full object-contain"
       />
     </div>
   );

@@ -458,7 +458,7 @@ export async function POST(req: Request) {
       thread_id: threadId,
       user_id: profile.id,
       role: "system",
-      content: `[${result.error}] ${result.message}`,
+      content: result.message,
       metadata: { source: "gateway", error: result.error },
     });
     return NextResponse.json(result, { status: 200 });

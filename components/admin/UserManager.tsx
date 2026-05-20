@@ -100,6 +100,9 @@ export function UserManager({ ownerProfileId, users }: Props) {
     const email = String(form.get("email") ?? "").trim();
     const full_name = String(form.get("full_name") ?? "").trim();
     const role = (String(form.get("role") ?? "loan_officer") as UserRole);
+    const temporary_password = String(
+      form.get("temporary_password") ?? ""
+    ).trim();
     if (!email) {
       setError("Email is required.");
       return;
@@ -111,6 +114,7 @@ export function UserManager({ ownerProfileId, users }: Props) {
         full_name: full_name || null,
         role,
         send_invite_email: true,
+        ...(temporary_password ? { temporary_password } : {}),
       });
       if (!data) return;
       if (data.invite_link) {
@@ -185,7 +189,7 @@ export function UserManager({ ownerProfileId, users }: Props) {
             addUser(new FormData(e.currentTarget));
           }}
         >
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <label>
               <span className="label">Email</span>
               <input
@@ -210,10 +214,23 @@ export function UserManager({ ownerProfileId, users }: Props) {
                 ))}
               </select>
             </label>
+            <label>
+              <span className="label">Starter password (optional)</span>
+              <input
+                name="temporary_password"
+                type="password"
+                minLength={8}
+                maxLength={128}
+                autoComplete="new-password"
+                className="input mt-1"
+                placeholder="Leave blank for setup link"
+              />
+            </label>
           </div>
           <p className="text-[11px] text-ink-300">
-            Supabase will email a magic-link invite. If email isn&apos;t set up
-            yet, copy the link that appears below after creation.
+            Copy the setup link that appears after creation. If you set a
+            starter password, share it outside LegendsOS and ask the user to
+            change it after first sign-in.
           </p>
           <button
             className="btn-primary"
@@ -396,8 +413,8 @@ function LinkBanner({
       <div className="flex items-start justify-between gap-2">
         <p className="font-medium text-accent-gold">
           {info.kind === "invite"
-            ? "Invite link — share with the new user"
-            : "Password reset link — share with the user"}
+            ? "Setup link - share with the new user"
+            : "Password reset link - share with the user"}
         </p>
         <button
           type="button"
@@ -409,8 +426,8 @@ function LinkBanner({
         </button>
       </div>
       <p className="mt-1 text-ink-200">
-        Magic link delivery happens automatically via Supabase. If the email
-        doesn&apos;t arrive within a minute, copy this link manually:
+        Copy this link into your invite message. It keeps onboarding usable even
+        before transactional email is fully configured.
       </p>
       <div className="mt-2 flex items-center gap-2">
         <code className="flex-1 truncate rounded bg-ink-950/60 px-2 py-1 text-[10px] text-ink-100">

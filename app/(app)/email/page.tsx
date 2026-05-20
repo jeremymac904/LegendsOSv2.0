@@ -110,7 +110,7 @@ export default async function EmailStudioPage({
         <StarterTemplatesPanel templates={STARTER_TEMPLATES} />
       )}
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[2fr_1fr]">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_18rem] xl:grid-cols-[minmax(0,1fr)_20rem]">
         <EmailComposer
           initialDraft={initial}
           initialAudienceId={initialAudienceId}
@@ -130,7 +130,7 @@ export default async function EmailStudioPage({
             active: audienceCounts.get(a.id)?.active ?? 0,
           }))}
         />
-        <aside className="card-padded">
+        <aside className="card-padded lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto scrollbar-thin">
           <div className="section-title">
             <div>
               <h2>Drafts</h2>

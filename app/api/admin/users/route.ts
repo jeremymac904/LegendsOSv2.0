@@ -49,6 +49,8 @@ const addUserSchema = z.object({
   // If set, the user gets a magic-link email immediately. Otherwise the
   // owner can deliver the invite link manually (copy from response).
   send_invite_email: z.boolean().default(true),
+  // Optional owner-set starter password. Never returned to the client.
+  temporary_password: z.string().min(8).max(128).optional(),
 });
 
 const updateRoleSchema = z.object({
@@ -136,17 +138,26 @@ export async function POST(req: Request) {
       );
     }
 
-    // Create the auth user via Auth Admin API. We don't pre-set a password —
-    // Supabase will send a magic link if `send_invite_email` is true, or we
-    // return the link in the response for manual delivery.
+    // Create the auth user via Auth Admin API. Owners can optionally set a
+    // starter password for a controlled rollout; the password is never logged
+    // or returned, and the setup link is still generated for manual delivery.
+    const createPayload: {
+      email: string;
+      email_confirm: boolean;
+      user_metadata: { full_name: string | null };
+      password?: string;
+    } = {
+      email: data.email,
+      email_confirm: true,
+      user_metadata: {
+        full_name: data.full_name ?? null,
+      },
+    };
+    if (data.temporary_password) {
+      createPayload.password = data.temporary_password;
+    }
     const { data: created, error: createErr } =
-      await service.auth.admin.createUser({
-        email: data.email,
-        email_confirm: true,
-        user_metadata: {
-          full_name: data.full_name ?? null,
-        },
-      });
+      await service.auth.admin.createUser(createPayload);
     if (createErr || !created.user) {
       return NextResponse.json(
         {
@@ -189,7 +200,11 @@ export async function POST(req: Request) {
       action: "user_added",
       target_type: "profiles",
       target_id: created.user.id,
-      metadata: { email: data.email, role: data.role },
+      metadata: {
+        email: data.email,
+        role: data.role,
+        temporary_password_set: Boolean(data.temporary_password),
+      },
     });
 
     return NextResponse.json({

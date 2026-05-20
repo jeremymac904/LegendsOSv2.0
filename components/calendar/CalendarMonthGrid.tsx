@@ -259,7 +259,7 @@ export function CalendarMonthGrid({ month, entries, focusId }: Props) {
             <div
               key={key}
               className={[
-                "relative flex min-h-[96px] flex-col gap-1 p-1.5 transition-colors",
+                "relative flex min-h-[104px] flex-col gap-1 p-1.5 transition-colors lg:min-h-[118px] xl:min-h-[132px]",
                 inMonth ? "bg-ink-900/60" : "bg-ink-900/20",
                 isToday
                   ? "ring-1 ring-inset ring-accent-gold/50 bg-accent-gold/[0.06]"

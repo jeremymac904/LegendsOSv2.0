@@ -19,12 +19,14 @@ body {
 }
 
 body {
-  /* Gold-forward ambient glow per the walkthrough. Orange is retained as a
-     secondary highlight; both decay quickly so the page reads as dark. */
+  /* Pewter / gold command-center background from the walkthrough. */
   background-image:
-    radial-gradient(60% 50% at 30% 10%, rgba(245, 180, 0, 0.12) 0%, rgba(245, 180, 0, 0) 60%),
-    radial-gradient(50% 50% at 90% 30%, rgba(255, 138, 31, 0.06) 0%, rgba(255, 138, 31, 0) 60%),
-    radial-gradient(60% 60% at 50% 100%, rgba(56, 189, 248, 0.05) 0%, rgba(56, 189, 248, 0) 60%);
+    linear-gradient(180deg, rgba(5, 6, 10, 0.72), rgba(5, 6, 10, 0.9)),
+    radial-gradient(70% 55% at 30% 8%, rgba(245, 180, 0, 0.18) 0%, rgba(245, 180, 0, 0) 62%),
+    radial-gradient(45% 50% at 88% 20%, rgba(198, 166, 93, 0.12) 0%, rgba(198, 166, 93, 0) 64%),
+    url("/assets/backgrounds/command-center-futuristic.jpg");
+  background-size: cover;
+  background-position: center top;
   background-attachment: fixed;
 }
 

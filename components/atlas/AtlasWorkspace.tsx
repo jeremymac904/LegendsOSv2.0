@@ -384,7 +384,7 @@ export function AtlasWorkspace({
           if (data.error === "unauthenticated") msg = "Your session expired. Refresh and sign in again.";
           else if (data.error === "cap_exceeded" || data.error === "provider_disabled") msg = data.message;
           setError(msg);
-          setMessages((m) => [...m, { ...tempMsg, id: `local-sys-${Date.now()}`, role: "system", content: `[${data.error}] ${data.message}` }]);
+          setMessages((m) => [...m, { ...tempMsg, id: `local-sys-${Date.now()}`, role: "system", content: data.message ?? "Atlas could not complete that request." }]);
           return;
         }
         const newTid = data.thread_id as string;
@@ -400,7 +400,7 @@ export function AtlasWorkspace({
   return (
     <div className="flex h-[calc(100vh-3.25rem)] w-full overflow-hidden">
       {/* Left: Connector Panel */}
-      <div className={cn("flex flex-col border-r border-ink-800 bg-ink-950/60 backdrop-blur transition-all duration-200", leftOpen ? "w-52 shrink-0" : "w-0 overflow-hidden")}>
+      <div className={cn("flex flex-col border-r border-ink-800 bg-ink-950/60 backdrop-blur transition-all duration-200", leftOpen ? "w-48 shrink-0" : "w-0 overflow-hidden")}>
         <div className="flex items-center justify-between gap-2 border-b border-ink-800 px-3 py-2">
           <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-gold-gradient">Atlas</span>
           <button type="button" onClick={() => setLeftOpen(false)} className="text-ink-500 hover:text-ink-200"><ChevronsLeft size={12} /></button>
@@ -418,7 +418,13 @@ export function AtlasWorkspace({
       <div className="flex flex-1 flex-col overflow-hidden">
         <div className="flex items-center justify-between gap-3 border-b border-ink-800 bg-ink-950/70 px-4 py-2 backdrop-blur sm:px-6">
           <div className="flex min-w-0 items-center gap-2.5">
-            <span aria-hidden className="grid h-6 w-6 shrink-0 place-items-center rounded-md border border-accent-gold/40 bg-gradient-to-br from-accent-gold/25 via-accent-gold/10 to-accent-orange/10 text-[10px] font-bold tracking-tight text-accent-gold" title="LegendsOS · Atlas">L</span>
+            <span aria-hidden className="flex h-7 w-20 shrink-0 items-center rounded-md border border-accent-gold/25 bg-ink-950/50 px-1.5" title="LegendsOS · Atlas">
+              <img
+                src="/assets/logos/legends-os-logo.png"
+                alt=""
+                className="h-5 w-full object-contain"
+              />
+            </span>
             <div className="flex min-w-0 items-baseline gap-1.5">
               <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-gold-gradient">Atlas</span>
               <span className="text-ink-700">·</span>
@@ -434,14 +440,14 @@ export function AtlasWorkspace({
           </div>
         </div>
         <div ref={scrollerRef} className="flex-1 overflow-y-auto px-4 py-6 scrollbar-thin">
-          <div className="mx-auto flex max-w-3xl flex-col gap-5">
+          <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
             {messages.length === 0 && <EmptyChat provider={provider} configured={Boolean(providerEntry?.configured)} onPick={injectPrompt} />}
             {messages.map((m) => <MessageRow key={m.id} message={m} />)}
             {isPending && <div className="flex items-center gap-2 text-xs text-ink-300"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent-gold" />Atlas is thinking…</div>}
           </div>
         </div>
         <div className="border-t border-ink-800 bg-ink-950/80 px-3 pb-4 pt-3 backdrop-blur sm:px-6">
-          <div className="mx-auto w-full max-w-3xl">
+          <div className="mx-auto w-full max-w-5xl">
             {error && <p className="mb-2 rounded-lg border border-status-err/30 bg-status-err/10 px-3 py-2 text-xs text-status-err">{error}</p>}
             {attachments.length > 0 && (
               <div className="mb-2 flex flex-wrap gap-1">
@@ -465,7 +471,7 @@ export function AtlasWorkspace({
       </div>
 
       {/* Right: LO Workspace */}
-      <div className={cn("flex flex-col border-l border-ink-800 bg-ink-950/60 backdrop-blur transition-all duration-200", rightOpen ? "w-56 shrink-0" : "w-0 overflow-hidden")}>
+      <div className={cn("flex flex-col border-l border-ink-800 bg-ink-950/60 backdrop-blur transition-all duration-200", rightOpen ? "w-52 shrink-0" : "w-0 overflow-hidden")}>
         <div className="flex items-center justify-between gap-2 border-b border-ink-800 px-3 py-2">
           <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-300">LO Workspace</span>
           <button type="button" onClick={() => setRightOpen(false)} className="text-ink-500 hover:text-ink-200"><ChevronsRight size={12} /></button>

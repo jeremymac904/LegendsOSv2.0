@@ -2,15 +2,20 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   Activity,
+  Bot,
+  CalendarDays,
   ChartLine,
   ImageIcon,
+  KeyRound,
   Mail,
   MessageCircle,
+  PlugZap,
   Server,
   Share2,
   ShieldCheck,
   Sparkles,
   Users,
+  Video,
 } from "lucide-react";
 
 import { SectionHeader } from "@/components/ui/SectionHeader";
@@ -141,6 +146,52 @@ export default async function AdminCenterPage() {
     fal: env.FAL_KEY,
     huggingface: env.HF_TOKEN,
   };
+  const n8nWebhookCount = Object.values(env.N8N_WEBHOOKS).filter(Boolean).length;
+  const ownerConnectionCards = [
+    {
+      title: "n8n workflows",
+      detail: `${n8nWebhookCount} webhook${n8nWebhookCount === 1 ? "" : "s"} configured`,
+      configured: Boolean(env.N8N_BASE_URL || n8nWebhookCount > 0),
+      href: "/settings",
+      icon: PlugZap,
+    },
+    {
+      title: "Google/Gmail",
+      detail:
+        process.env.GOOGLE_OAUTH_CLIENT_ID && process.env.GOOGLE_OAUTH_CLIENT_SECRET
+          ? "OAuth client present"
+          : "OAuth client missing",
+      configured: Boolean(
+        process.env.GOOGLE_OAUTH_CLIENT_ID &&
+          process.env.GOOGLE_OAUTH_CLIENT_SECRET
+      ),
+      href: "/settings",
+      icon: CalendarDays,
+    },
+    {
+      title: "Telegram",
+      detail: process.env.TELEGRAM_BOT_TOKEN ? "Bot token present" : "Bot token missing",
+      configured: Boolean(process.env.TELEGRAM_BOT_TOKEN),
+      href: "/atlas",
+      icon: Bot,
+    },
+    {
+      title: "HeyGen video",
+      detail: process.env.NEXT_PUBLIC_WELCOME_VIDEO_URL
+        ? "Welcome embed present"
+        : "Welcome embed missing",
+      configured: Boolean(process.env.NEXT_PUBLIC_WELCOME_VIDEO_URL),
+      href: "/login",
+      icon: Video,
+    },
+    {
+      title: "AI subscriptions",
+      detail: `${liveStatuses.filter((p) => p.configured).length} provider${liveStatuses.filter((p) => p.configured).length === 1 ? "" : "s"} configured`,
+      configured: liveStatuses.some((p) => p.configured),
+      href: "/settings#ai-provider-gateway",
+      icon: KeyRound,
+    },
+  ];
 
   function nameFor(userId: string | null | undefined): string {
     if (!userId) return "—";
@@ -156,6 +207,48 @@ export default async function AdminCenterPage() {
         description="Users, usage, automation jobs, audit trail, and provider status — every visibility on this page is gated by RLS plus the owner role check."
         action={<StatusPill status="ok" label="owner" />}
       />
+
+      <section className="card-padded">
+        <div className="section-title">
+          <div>
+            <h2>Connection command board</h2>
+            <p>
+              Owner-facing setup status for the external services Atlas, Social,
+              Email, Calendar, and the login experience depend on.
+            </p>
+          </div>
+          <Link href="/settings" className="btn-ghost text-xs">
+            <PlugZap size={14} />
+            Open Settings
+          </Link>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          {ownerConnectionCards.map((card) => {
+            const Icon = card.icon;
+            return (
+              <Link
+                key={card.title}
+                href={card.href}
+                className="rounded-xl border border-ink-800 bg-ink-900/40 p-3 transition hover:border-accent-gold/30"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="grid h-9 w-9 place-items-center rounded-lg border border-accent-gold/20 bg-accent-gold/10 text-accent-gold">
+                    <Icon size={16} />
+                  </div>
+                  <StatusPill
+                    status={card.configured ? "ok" : "warn"}
+                    label={card.configured ? "ready" : "setup"}
+                  />
+                </div>
+                <p className="mt-3 text-sm font-medium text-ink-100">
+                  {card.title}
+                </p>
+                <p className="mt-1 text-xs text-ink-300">{card.detail}</p>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
