@@ -8,6 +8,7 @@ import {
   Video,
 } from "lucide-react";
 
+import { LegendsOSHelpCoaches } from "@/components/help/LegendsOSHelpCoaches";
 import { ProviderToggle } from "@/components/settings/ProviderToggle";
 import { MCPConnections } from "@/components/settings/MCPConnections";
 import { SectionHeader } from "@/components/ui/SectionHeader";
@@ -198,6 +199,8 @@ export default async function SettingsPage() {
         title="Profile & integrations"
         description="Your profile, organization, and provider gateway snapshot. Secrets never leave the server."
       />
+      <LegendsOSHelpCoaches />
+
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <section className="card-padded">
           <div className="section-title">

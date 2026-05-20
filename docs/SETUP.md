@@ -86,7 +86,17 @@ select public.promote_owner('newowner@example.com');
 - The dashboard at `/dashboard` shows your name and role
 - Settings → Providers reflects the env vars you have set
 
-## 5a. Login page extras
+## 5a. LegendsOS Help Coaches
+
+LegendsOS includes two official Custom GPT support resources in the setup and
+help surfaces:
+
+| Coach | Link | When to use it |
+|---|---|---|
+| LegendsOS Setup Coach | <https://chatgpt.com/g/g-6a0dfa05db788191974b89796687537b-legendsos-setup-coach> | Use this for step by step setup help with LegendsOS, n8n, Google Workspace, approved social accounts, MCP, and AI provider basics. |
+| LegendsOS Marketing Image Coach | <https://chatgpt.com/g/g-6a0e0ab69138819189185accaeff955e-legendsos-marketing-image-coach> | Use this before creating mortgage marketing images, preparing reference photos, writing Image Studio prompts, or checking that visuals stay mortgage safe. |
+
+## 5b. Login page extras
 
 The sign-in page (`/login`) reads three optional public env vars:
 

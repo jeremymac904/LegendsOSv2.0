@@ -1,10 +1,11 @@
 import Link from "next/link";
 
+import { LegendsOSHelpCoaches } from "@/components/help/LegendsOSHelpCoaches";
 import { PUBLIC_ENV } from "@/lib/env";
 
 export default function SetupPage() {
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center px-6 py-16">
+    <main className="mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center gap-5 px-6 py-16">
       <div className="card-padded w-full">
         <div className="flex items-center justify-between">
           <div>
@@ -53,6 +54,7 @@ export default function SetupPage() {
           </Link>
         </div>
       </div>
+      <LegendsOSHelpCoaches className="w-full" />
     </main>
   );
 }

@@ -7,6 +7,7 @@ import {
   type FalReadiness,
   type ReferenceAsset,
 } from "@/components/images/ImageStudioClient";
+import { LegendsOSHelpCoaches } from "@/components/help/LegendsOSHelpCoaches";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { imageLibrary } from "@/lib/assets";
@@ -134,6 +135,11 @@ export default async function ImageStudioPage() {
         description="Brand-aware image generation via Fal.ai. Outputs save to Supabase Storage and can be attached to social drafts."
         action={<div className="flex flex-wrap gap-2">{readinessChip}</div>}
       />
+      <LegendsOSHelpCoaches
+        coaches={["marketing"]}
+        intro="Use the official marketing image coach before generating campaign visuals, preparing reference photos, or tightening Image Studio prompts."
+      />
+
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_2fr]">
         <ImageStudioClient
           falReadiness={falReadiness}
