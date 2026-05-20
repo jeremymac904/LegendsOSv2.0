@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 
 import { StatusPill } from "@/components/ui/StatusPill";
-import { cn, formatRelative } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import type { Profile, UserRole } from "@/types/database";
 
 // Assignable roles in the UI. `owner` is intentionally excluded — there's
@@ -329,10 +329,10 @@ export function UserManager({ ownerProfileId, users }: Props) {
                       />
                     </td>
                     <td className="px-3 py-2 text-ink-300">
-                      {formatRelative(u.last_seen_at)}
+                      {formatDate(u.last_seen_at)}
                     </td>
                     <td className="px-3 py-2 text-ink-300">
-                      {formatRelative(u.created_at)}
+                      {formatDate(u.created_at)}
                     </td>
                     <td className="px-3 py-2">
                       <div className="flex flex-wrap items-center justify-end gap-1">
