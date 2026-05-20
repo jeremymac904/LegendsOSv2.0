@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { AtlasShell } from "@/components/atlas/AtlasShell";
+import { AtlasWorkspace } from "@/components/atlas/AtlasWorkspace";
 import { getAIProviderStatuses, getServerEnv } from "@/lib/env";
 import {
   getCurrentProfile,
@@ -57,7 +57,7 @@ export default async function AtlasThreadPage({ params }: PageProps) {
     "openrouter";
 
   return (
-    <AtlasShell
+    <AtlasWorkspace
       ownerId={profile.id}
       currentThread={thread as ChatThread}
       initialMessages={(messages ?? []) as ChatMessage[]}

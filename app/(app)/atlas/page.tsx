@@ -1,4 +1,4 @@
-import { AtlasShell } from "@/components/atlas/AtlasShell";
+import { AtlasWorkspace } from "@/components/atlas/AtlasWorkspace";
 import { getAIProviderStatuses, getServerEnv } from "@/lib/env";
 import {
   getCurrentProfile,
@@ -27,9 +27,7 @@ export default async function AtlasIndexPage() {
     ["openrouter", "deepseek", "nvidia"].includes(p.id)
   );
   const models = buildAtlasModelCatalog(env);
-  // Honor AI_DEFAULT_TEXT_PROVIDER when it points at a configured + enabled
-  // provider; otherwise fall back to the first available one. This makes the
-  // provider chip in the chat header match what the gateway actually calls.
+
   const envDefault = env.AI_DEFAULT_TEXT_PROVIDER as
     | "openrouter"
     | "deepseek"
@@ -44,7 +42,7 @@ export default async function AtlasIndexPage() {
     "openrouter";
 
   return (
-    <AtlasShell
+    <AtlasWorkspace
       ownerId={profile.id}
       currentThread={null}
       assistants={assistantList}
