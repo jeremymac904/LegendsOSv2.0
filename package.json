@@ -18,7 +18,7 @@
     "desktop:dev": "electron .",
     "desktop:dev:local": "LEGENDSOS_DESKTOP_URL=http://localhost:3000 electron .",
     "desktop:build": "electron-builder",
-    "desktop:build:mac": "electron-builder --mac dmg --publish never",
+    "desktop:build:mac": "electron-builder --mac dmg --publish never && node scripts/repair-mac-test-build.mjs",
     "desktop:build:windows": "electron-builder --win nsis --publish never",
     "desktop:rebuild-icon": "sips -z 384 768 public/assets/logos/legends-os-logo.png --out /tmp/legendsos-icon-sized.png > /dev/null && sips --padToHeightWidth 1024 1024 --padColor 0a0a0d /tmp/legendsos-icon-sized.png --out electron/icon.png > /dev/null && echo 'electron/icon.png regenerated'"
   },
@@ -77,8 +77,7 @@
           "arch": ["arm64", "x64"]
         }
       ],
-      "identity": null,
-      "hardenedRuntime": false,
+      "hardenedRuntime": true,
       "gatekeeperAssess": false,
       "extendInfo": {
         "LSMinimumSystemVersion": "11.0.0"

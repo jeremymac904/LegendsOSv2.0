@@ -24,6 +24,7 @@ Tauri later without changing the web app.
 | `electron/main.cjs` | Main process. Creates the BrowserWindow, loads the URL, handles external links. |
 | `electron/preload.cjs` | Tiny preload exposing `window.legendsos = { desktop: true, shellVersion }` for the web app. |
 | `electron/icon.png` | 1024×1024 source icon. electron-builder generates `.icns` / `.ico` automatically. |
+| `scripts/repair-mac-test-build.mjs` | Local Mac test-build repair step. Rebuilds the DMG from a clean temporary app bundle and applies an ad-hoc signature when Apple signing credentials are not configured. |
 | `package.json` → `"build"` | electron-builder config: appId, productName, targets, dmg layout, nsis. |
 | `package.json` → `"main"` | Points at `electron/main.cjs` for Electron launches. Next.js ignores it. |
 
@@ -66,6 +67,23 @@ Produces:
 - `dist-desktop/mac/LegendsOS.app` — unpacked `.app` bundle (for direct testing without DMG)
 - `dist-desktop/mac-arm64/LegendsOS.app` — Apple Silicon `.app`
 
+For local unsigned builds, `npm run desktop:build:mac` runs a final repair
+step after electron-builder finishes. That step:
+
+1. copies the completed `.app` into a temporary folder with resource forks
+   and extended attributes stripped,
+2. applies a local ad-hoc signature,
+3. rebuilds the DMG from that clean bundle, and
+4. mounts the DMG and verifies the app inside it with
+   `codesign --verify --deep --strict`.
+
+On Jeremy's Mac, the project folder lives on Desktop, which can be managed
+by Apple's FileProvider stack. FileProvider may reattach `FinderInfo`
+metadata to package directories under `dist-desktop/` after the build. If
+that happens, direct validation of `dist-desktop/mac-arm64/LegendsOS.app`
+can fail even when the rebuilt DMG is clean. Treat the DMG and the copied
+`/Applications/LegendsOS.app` as the local test artifacts.
+
 To distribute the simplest single artifact: copy the arm64 DMG to
 `public/downloads/LegendsOS.dmg` (gitignored) and the login page picks it
 up automatically:
@@ -74,17 +92,61 @@ up automatically:
 cp dist-desktop/LegendsOS-*-arm64.dmg public/downloads/LegendsOS.dmg
 ```
 
-### First-launch warning (unsigned build)
+### Local test install on Jeremy's Mac
 
-The current build is **unsigned**. macOS Gatekeeper will block it on first
-launch with a message like *"LegendsOS can't be opened because Apple cannot
-check it for malicious software."* This is expected for a test build. To
-open:
+For the current unsigned local build:
 
 1. Drag `LegendsOS.app` from the DMG into `/Applications`.
-2. **Right-click → Open** (not double-click). Confirm in the dialog.
-3. After one approval, macOS remembers the choice; future launches open
-   normally.
+2. Clear quarantine for the local test app:
+
+   ```bash
+   xattr -dr com.apple.quarantine /Applications/LegendsOS.app
+   ```
+
+3. Verify the bundle:
+
+   ```bash
+   codesign --verify --deep --strict --verbose=2 /Applications/LegendsOS.app
+   ```
+
+4. Launch:
+
+   ```bash
+   open /Applications/LegendsOS.app
+   ```
+
+You can do the same install directly from the verified DMG in one shell:
+
+```bash
+tmp_mount=$(mktemp -d /tmp/legendsos-install.XXXXXX)
+hdiutil attach -readonly -nobrowse -mountpoint "$tmp_mount" dist-desktop/LegendsOS-2.0.0-arm64.dmg
+rm -rf /Applications/LegendsOS.app
+/usr/bin/ditto --norsrc --noextattr "$tmp_mount/LegendsOS.app" /Applications/LegendsOS.app
+hdiutil detach "$tmp_mount" -quiet
+xattr -dr com.apple.quarantine /Applications/LegendsOS.app
+open /Applications/LegendsOS.app
+```
+
+### First-launch warning (unsigned build)
+
+The current local test build is ad-hoc signed, not Developer ID signed or
+notarized. macOS Gatekeeper can block it on first launch with a message like
+*"LegendsOS can't be opened because Apple cannot check it for malicious
+software."* A quarantined, unsigned, or incompletely sealed Electron bundle
+can also show the harsher *"LegendsOS is damaged and can't be opened"*
+dialog.
+
+The May 20, 2026 broken artifact had both symptoms:
+
+- the app bundle had no complete `_CodeSignature` seal and `codesign`
+  reported `code has no resources but signature indicates they must be
+  present`;
+- the downloaded app had `com.apple.quarantine` attributes from Chrome.
+
+The local test fix is to rebuild the DMG with the repair script, install the
+clean bundle into `/Applications`, and clear quarantine. `spctl` will still
+reject the app until it is signed with an Apple Developer ID certificate and
+notarized, but the local app can open after quarantine is removed.
 
 If the user closes the warning without right-click-opening, they can also
 clear the quarantine attribute:
@@ -93,20 +155,43 @@ clear the quarantine attribute:
 xattr -dr com.apple.quarantine /Applications/LegendsOS.app
 ```
 
-To ship a signed build later, set Apple Developer ID env vars before the
-build:
+### Production signing and notarization path
+
+For the proper public Mac release, use Apple Developer ID signing and
+notarization instead of the local ad-hoc repair path. Required Apple setup:
+
+- active Apple Developer Program membership,
+- Developer ID Application certificate exported as a protected `.p12`, or a
+  keychain identity available to the build machine,
+- Apple notarization credentials, preferably App Store Connect API key
+  credentials.
+
+Common electron-builder environment variables:
 
 ```bash
 export CSC_LINK=/path/to/developer-id.p12
-export CSC_KEY_PASSWORD=...
-export APPLE_ID=...
-export APPLE_APP_SPECIFIC_PASSWORD=...
-export APPLE_TEAM_ID=...
+export CSC_KEY_PASSWORD=<p12 password>
+export APPLE_API_KEY=/path/to/AuthKey_XXXXXXXXXX.p8
+export APPLE_API_KEY_ID=<key id>
+export APPLE_API_ISSUER=<issuer id>
 npm run desktop:build:mac
 ```
 
-electron-builder will auto-sign + notarize when those are present. No code
-changes needed.
+An Apple ID app-specific password flow can also be used:
+
+```bash
+export CSC_LINK=/path/to/developer-id.p12
+export CSC_KEY_PASSWORD=<p12 password>
+export APPLE_ID=<apple id>
+export APPLE_APP_SPECIFIC_PASSWORD=<app-specific password>
+export APPLE_TEAM_ID=<team id>
+npm run desktop:build:mac
+```
+
+When production signing variables are present, the local ad-hoc repair
+script skips itself so electron-builder's signed and notarized artifact is
+the source of truth. Do not expose certificate files, passwords, Apple IDs,
+or API keys in browser code or checked-in files.
 
 ## Building the Windows app
 
@@ -137,7 +222,10 @@ build. Two safe options:
    differs.
 
 A first-launch SmartScreen warning is also expected for unsigned builds.
-The user clicks "More info" → "Run anyway". To sign, set:
+The user clicks "More info" → "Run anyway". For production, use an OV/EV
+Windows code-signing certificate or a managed signing provider such as
+Azure Trusted Signing. SmartScreen reputation may still take time to build
+after the first signed releases. With a `.pfx`, set:
 
 ```bash
 export CSC_LINK=/path/to/codesign.pfx
