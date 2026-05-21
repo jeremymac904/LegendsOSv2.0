@@ -2,17 +2,15 @@ import { redirect } from "next/navigation";
 
 import { UserManager } from "@/components/admin/UserManager";
 import { SectionHeader } from "@/components/ui/SectionHeader";
+import { getEffectiveProfile } from "@/lib/impersonation";
 import { isOwner } from "@/lib/permissions";
-import {
-  getCurrentProfile,
-  getSupabaseServerClient,
-} from "@/lib/supabase/server";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { Profile } from "@/types/database";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminUsersPage() {
-  const profile = await getCurrentProfile();
+  const { profile } = await getEffectiveProfile();
   if (!profile || !isOwner(profile)) redirect("/dashboard");
   const supabase = getSupabaseServerClient();
   const { data } = await supabase

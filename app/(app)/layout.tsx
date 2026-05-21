@@ -57,8 +57,8 @@ export default async function ProtectedLayout({
           {fullBleed ? (
             <main className="flex-1 overflow-hidden">{children}</main>
           ) : (
-            <main className="flex-1 px-5 py-6">
-              <div className="mx-auto max-w-6xl">{children}</div>
+            <main className="flex-1 px-4 py-6 sm:px-5 lg:px-6">
+              <div className="mx-auto w-full max-w-[1500px]">{children}</div>
             </main>
           )}
         </div>

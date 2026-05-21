@@ -1,16 +1,13 @@
 import Link from "next/link";
-import {
-  Bot,
-  CalendarDays,
-  KeyRound,
-  Mail,
-  PlugZap,
-  Video,
-} from "lucide-react";
+import { Video } from "lucide-react";
 
 import { LegendsOSHelpCoaches } from "@/components/help/LegendsOSHelpCoaches";
 import { ProviderToggle } from "@/components/settings/ProviderToggle";
 import { MCPConnections } from "@/components/settings/MCPConnections";
+import {
+  SettingsConnectionSetup,
+  type ConnectionSetupGuide,
+} from "@/components/settings/SettingsConnectionSetup";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatusPill } from "@/components/ui/StatusPill";
 import {
@@ -19,18 +16,16 @@ import {
   maskedKeyPreview,
   PUBLIC_ENV,
 } from "@/lib/env";
+import { getEffectiveProfile } from "@/lib/impersonation";
 import { isOwner } from "@/lib/permissions";
-import {
-  getCurrentProfile,
-  getSupabaseServerClient,
-} from "@/lib/supabase/server";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { formatRelative } from "@/lib/utils";
 import type { ProviderCredentialPublic } from "@/types/database";
 
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
-  const profile = await getCurrentProfile();
+  const { profile } = await getEffectiveProfile();
   if (!profile) return null;
   const supabase = getSupabaseServerClient();
   const env = getServerEnv();
@@ -96,99 +91,218 @@ export default async function SettingsPage() {
     huggingface: [env.HUGGINGFACE_DEFAULT_MODEL].filter(Boolean),
   };
   const n8nWebhookCount = Object.values(env.N8N_WEBHOOKS).filter(Boolean).length;
-  const connectionGuides = [
+  const connectionGuides: ConnectionSetupGuide[] = [
     {
+      id: "n8n",
       title: "n8n workflow broker",
       detail: `${n8nWebhookCount} webhook${n8nWebhookCount === 1 ? "" : "s"} configured`,
-      envNames: "N8N_BASE_URL / N8N_WEBHOOK_*",
+      envNames: ["N8N_BASE_URL", "N8N_WEBHOOK_*"],
       configured: Boolean(env.N8N_BASE_URL || n8nWebhookCount > 0),
-      icon: PlugZap,
+      icon: "plug",
+      scope: "Owner",
       href: "/admin",
+      buttonLabel: "Open Admin Center",
+      steps: [
+        "Create or confirm the n8n workflow in the broker workspace.",
+        "Set the n8n base URL and required webhook names in the hosting environment.",
+        "Keep live actions disabled until the owner flags and workflow tests are ready.",
+      ],
+      ownerAction:
+        "Review webhook status, run sandbox tests, and keep publishing/sending flags off until approved.",
+      teamAction:
+        "Use Studio draft and schedule flows. Do not publish live unless Jeremy has enabled the safe path.",
+      videoPlaceholder: "n8n broker setup walkthrough",
     },
     {
+      id: "heygen",
       title: "HeyGen welcome video",
       detail: process.env.NEXT_PUBLIC_WELCOME_VIDEO_URL
         ? "Login welcome video URL present"
         : "Embed URL missing",
-      envNames: "NEXT_PUBLIC_WELCOME_VIDEO_URL",
+      envNames: ["NEXT_PUBLIC_WELCOME_VIDEO_URL"],
       configured: Boolean(process.env.NEXT_PUBLIC_WELCOME_VIDEO_URL),
-      icon: Video,
+      icon: "video",
+      scope: "Owner",
       href: "/login",
+      buttonLabel: "View Login",
+      steps: [
+        "Create or approve the welcome video in HeyGen.",
+        "Use the safe embed URL, not raw iframe HTML.",
+        "Set the public welcome video URL and verify the login page render.",
+      ],
+      ownerAction: "Update the embed URL only through environment configuration.",
+      teamAction: "Loan officers can watch the login welcome video before signing in.",
+      videoPlaceholder: "HeyGen welcome video setup",
     },
     {
+      id: "google-oauth",
       title: "Google, Gmail, Calendar",
       detail:
         process.env.GOOGLE_OAUTH_CLIENT_ID && process.env.GOOGLE_OAUTH_CLIENT_SECRET
           ? "OAuth client present"
           : "OAuth client missing",
-      envNames: "GOOGLE_OAUTH_CLIENT_ID / GOOGLE_OAUTH_CLIENT_SECRET",
+      envNames: ["GOOGLE_OAUTH_CLIENT_ID", "GOOGLE_OAUTH_CLIENT_SECRET"],
       configured: Boolean(
         process.env.GOOGLE_OAUTH_CLIENT_ID &&
           process.env.GOOGLE_OAUTH_CLIENT_SECRET
       ),
-      icon: CalendarDays,
+      icon: "google",
+      scope: "Team",
       href: "/calendar",
+      buttonLabel: "Open Calendar",
+      steps: [
+        "Create or confirm the Google OAuth client for the LegendsOS app.",
+        "Add the authorized redirect URL used by the app.",
+        "Enable Gmail, Calendar, and Drive scopes only where the app supports them.",
+        "Use the Connect with Google path when it is available in the relevant module.",
+      ],
+      ownerAction:
+        "Configure OAuth client credentials in the deployment environment. Saved values are never shown in the browser.",
+      teamAction:
+        "Use supported Google connection buttons when they appear. If not available, follow the setup coach instructions.",
+      videoPlaceholder: "Google Workspace connection walkthrough",
     },
     {
+      id: "google-drive",
       title: "Google Drive",
       detail:
         process.env.GOOGLE_OAUTH_CLIENT_ID && process.env.GOOGLE_OAUTH_CLIENT_SECRET
           ? "OAuth client present"
           : "OAuth client missing",
-      envNames: "GOOGLE_OAUTH_CLIENT_ID / GOOGLE_OAUTH_CLIENT_SECRET",
+      envNames: ["GOOGLE_OAUTH_CLIENT_ID", "GOOGLE_OAUTH_CLIENT_SECRET"],
       configured: Boolean(
         process.env.GOOGLE_OAUTH_CLIENT_ID &&
           process.env.GOOGLE_OAUTH_CLIENT_SECRET
       ),
-      icon: CalendarDays,
+      icon: "google",
+      scope: "Team",
       href: "/knowledge",
+      buttonLabel: "Open Knowledge",
+      steps: [
+        "Confirm OAuth is configured.",
+        "Use Knowledge Sources for files that Atlas should retrieve.",
+        "Use LF Resources and Training for user-facing Drive folders and videos.",
+      ],
+      ownerAction: "Add approved Drive source folders as resource cards or knowledge sources.",
+      teamAction: "Upload allowed docs through Knowledge or open approved LF Resource source links.",
+      videoPlaceholder: "Google Drive knowledge and resources walkthrough",
     },
     {
+      id: "social-platforms",
       title: "Meta, YouTube, GBP",
       detail: "Social publishing stays draft-only until webhooks and owner flags are on",
-      envNames: "N8N_WEBHOOK_FACEBOOK_POST / N8N_WEBHOOK_INSTAGRAM_POST / N8N_WEBHOOK_YOUTUBE_POST / N8N_WEBHOOK_GBP_POST",
+      envNames: [
+        "N8N_WEBHOOK_FACEBOOK_POST",
+        "N8N_WEBHOOK_INSTAGRAM_POST",
+        "N8N_WEBHOOK_YOUTUBE_POST",
+        "N8N_WEBHOOK_GBP_POST",
+      ],
       configured: Boolean(
         env.N8N_WEBHOOKS.facebook_post ||
           env.N8N_WEBHOOKS.instagram_post ||
           env.N8N_WEBHOOKS.youtube_post ||
           env.N8N_WEBHOOKS.gbp_post
       ),
-      icon: PlugZap,
+      icon: "plug",
+      scope: "Owner",
       href: "/social",
+      buttonLabel: "Open Social Studio",
+      steps: [
+        "Connect approved social accounts in the external platform or n8n workflow.",
+        "Set the platform webhook names only after the workflow is tested.",
+        "Keep live posting disabled unless Jeremy enables the owner flag.",
+      ],
+      ownerAction:
+        "Use draft previews and sandbox workflow tests before enabling any external publish path.",
+      teamAction: "Create and save drafts. Live social publishing remains disabled unless configured.",
+      videoPlaceholder: "Social connector setup walkthrough",
     },
     {
+      id: "zapier-mcp",
       title: "Zapier MCP",
       detail: "Personal or team MCP endpoints can be saved below",
-      envNames: "Zapier MCP URL / token",
+      envNames: ["Zapier MCP URL", "Zapier MCP token"],
       configured: true,
-      icon: PlugZap,
+      icon: "plug",
+      scope: "Personal",
       href: "#mcp-connections",
+      buttonLabel: "Open MCP Connections",
+      steps: [
+        "Create the MCP endpoint in Zapier.",
+        "Save the endpoint URL and token in the MCP Connections panel.",
+        "Test with Atlas before relying on it for workflow tasks.",
+      ],
+      ownerAction: "Use team scoped MCP only for shared workflows.",
+      teamAction: "Use personal MCP for personal connector actions and keep tokens private.",
+      videoPlaceholder: "Zapier MCP setup walkthrough",
     },
     {
+      id: "telegram",
       title: "Telegram bot actions",
       detail: process.env.TELEGRAM_BOT_TOKEN
         ? "Bot token present"
         : "Bot token missing",
-      envNames: "TELEGRAM_BOT_TOKEN",
+      envNames: ["TELEGRAM_BOT_TOKEN"],
       configured: Boolean(process.env.TELEGRAM_BOT_TOKEN),
-      icon: Bot,
+      icon: "bot",
+      scope: "Owner",
       href: "/atlas",
+      buttonLabel: "Open Atlas",
+      steps: [
+        "Create or confirm the Telegram bot with the approved account.",
+        "Set the bot token in the server environment.",
+        "Route Telegram actions through Atlas or n8n only after testing.",
+      ],
+      ownerAction: "Store the bot token server-side only. Never paste saved secrets into the browser.",
+      teamAction: "Use Atlas prompts that call configured tools; do not share bot tokens.",
+      videoPlaceholder: "Telegram bot action setup walkthrough",
     },
     {
+      id: "mcp-apps",
       title: "MCP app connections",
       detail: "User-managed endpoints live below this panel",
-      envNames: "Zapier / Composio / custom MCP URL",
+      envNames: ["MCP URL", "MCP token"],
       configured: true,
-      icon: Mail,
+      icon: "mail",
+      scope: "Personal",
       href: "#mcp-connections",
+      buttonLabel: "Open MCP Connections",
+      steps: [
+        "Choose whether the connection is personal or team scoped.",
+        "Save the endpoint and token in the MCP Connections panel.",
+        "Ask Atlas what connected tools are available after saving.",
+      ],
+      ownerAction: "Keep team endpoints limited to shared workflows.",
+      teamAction: "Use personal endpoints for user-owned connector actions.",
+      videoPlaceholder: "Personal MCP setup walkthrough",
     },
     {
+      id: "ai-providers",
       title: "AI subscriptions",
       detail: `${merged.filter((p) => p.configured).length} provider${merged.filter((p) => p.configured).length === 1 ? "" : "s"} configured`,
-      envNames: "OPENROUTER / FAL / HF / DeepSeek / NVIDIA / MINIMAX",
+      envNames: [
+        "OPENROUTER_API_KEY",
+        "FAL_KEY",
+        "HF_TOKEN",
+        "DEEPSEEK_API_KEY",
+        "NVIDIA_API_KEY",
+        "MINIMAX_API_KEY",
+      ],
       configured: merged.some((p) => p.configured),
-      icon: KeyRound,
+      icon: "key",
+      scope: "Owner",
       href: "#ai-provider-gateway",
+      buttonLabel: "Open Provider Gateway",
+      steps: [
+        "Choose the provider and model lane needed by Atlas or Image Studio.",
+        "Set provider keys only in secure server environment variables.",
+        "Use masked previews and provider status to confirm readiness.",
+        "Use the owner toggle to disable a provider without exposing or deleting keys.",
+      ],
+      ownerAction:
+        "Add provider keys in Netlify or the secure host environment. MiniMax is included as a supported provider lane.",
+      teamAction: "Use enabled providers through Atlas and Studios. Provider keys are never shown to users.",
+      videoPlaceholder: "AI provider gateway setup walkthrough",
     },
   ];
 
@@ -239,7 +353,7 @@ export default async function SettingsPage() {
             {externalToggles.map((s) => (
               <li
                 key={s.env_var}
-                className="flex items-center justify-between rounded-lg border border-ink-800 bg-ink-900/40 px-3 py-2"
+                className="flex items-center justify-between rounded-lg border border-accent-champagne/10 bg-ink-950/30 px-3 py-2 backdrop-blur-sm"
               >
                 <div>
                   <p className="text-ink-100">{s.label}</p>
@@ -260,46 +374,7 @@ export default async function SettingsPage() {
         </section>
       </div>
 
-      <section className="card-padded">
-        <div className="section-title">
-          <div>
-            <h2>Connection setup</h2>
-            <p>
-              Per-user and owner-level integration paths Jeremy called out:
-              n8n, HeyGen, Google, Gmail, Telegram, MCPs, and AI subscriptions.
-            </p>
-          </div>
-        </div>
-        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {connectionGuides.map((guide) => {
-            const Icon = guide.icon;
-            return (
-              <Link
-                key={guide.title}
-                href={guide.href}
-                className="rounded-xl border border-ink-800 bg-ink-900/40 p-3 transition hover:border-accent-gold/30"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="grid h-9 w-9 place-items-center rounded-lg border border-accent-gold/20 bg-accent-gold/10 text-accent-gold">
-                    <Icon size={16} />
-                  </div>
-                  <StatusPill
-                    status={guide.configured ? "ok" : "warn"}
-                    label={guide.configured ? "ready" : "setup needed"}
-                  />
-                </div>
-                <p className="mt-3 text-sm font-medium text-ink-100">
-                  {guide.title}
-                </p>
-                <p className="mt-1 text-xs text-ink-300">{guide.detail}</p>
-                <p className="mt-2 font-mono text-[10px] text-ink-400">
-                  {guide.envNames}
-                </p>
-              </Link>
-            );
-          })}
-        </div>
-      </section>
+      <SettingsConnectionSetup guides={connectionGuides} />
 
       <section className="card-padded">
         <div className="section-title">
@@ -316,10 +391,10 @@ export default async function SettingsPage() {
           ].map(([title, detail]) => (
             <div
               key={title}
-              className="overflow-hidden rounded-xl border border-ink-800 bg-ink-900/35"
+              className="overflow-hidden rounded-xl border border-accent-champagne/10 bg-ink-950/30 backdrop-blur-sm"
             >
-              <div className="grid aspect-video place-items-center border-b border-ink-800 bg-ink-950/70">
-                <Video size={22} className="text-accent-gold/80" />
+              <div className="grid aspect-video place-items-center border-b border-accent-champagne/10 bg-ink-950/50">
+                <Video size={22} className="text-accent-champagne/80" />
               </div>
               <div className="p-3">
                 <p className="text-sm font-medium text-ink-100">{title}</p>
@@ -355,9 +430,9 @@ export default async function SettingsPage() {
             </span>
           </div>
         </div>
-        <div className="mt-4 overflow-hidden rounded-xl border border-ink-800">
+          <div className="mt-4 overflow-hidden rounded-xl border border-accent-champagne/10">
           <table className="w-full text-left text-sm">
-            <thead className="bg-ink-900/70 text-[10px] uppercase tracking-[0.18em] text-ink-300">
+            <thead className="bg-ink-950/50 text-[10px] uppercase tracking-[0.18em] text-ink-300">
               <tr>
                 <th className="px-3 py-2">Provider</th>
                 <th className="px-3 py-2">Env var(s)</th>
@@ -376,7 +451,7 @@ export default async function SettingsPage() {
                 const isImageDefault =
                   p.id === env.AI_DEFAULT_IMAGE_PROVIDER && p.id === "fal";
                 return (
-                <tr key={p.id} className="border-t border-ink-800">
+                <tr key={p.id} className="border-t border-accent-champagne/10">
                   <td className="px-3 py-2 text-ink-100">
                     <div className="flex flex-wrap items-center gap-2">
                       <span>{p.label}</span>
@@ -458,7 +533,7 @@ export default async function SettingsPage() {
             </p>
           </div>
         </div>
-        <pre className="mt-3 whitespace-pre-wrap rounded-xl border border-ink-800 bg-ink-900/40 p-3 text-xs text-ink-200">
+        <pre className="mt-3 whitespace-pre-wrap rounded-xl border border-accent-champagne/10 bg-ink-950/30 p-3 text-xs text-ink-200">
 {PUBLIC_ENV.BRAND_LINE}
         </pre>
       </section>

@@ -22,11 +22,9 @@ import { StatusPill } from "@/components/ui/StatusPill";
 import { imageLibrary } from "@/lib/assets";
 import { renderEmailPreview } from "@/lib/email/render";
 import { PUBLIC_ENV, getServerEnv } from "@/lib/env";
+import { getEffectiveProfile } from "@/lib/impersonation";
 import { isOwner } from "@/lib/permissions";
-import {
-  getCurrentProfile,
-  getSupabaseServerClient,
-} from "@/lib/supabase/server";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { formatRelative } from "@/lib/utils";
 import type {
   AutomationJob,
@@ -96,7 +94,7 @@ const QUICK_LAUNCH = [
 ];
 
 export default async function DashboardPage() {
-  const profile = await getCurrentProfile();
+  const { profile } = await getEffectiveProfile();
   if (!profile) return null;
   const supabase = getSupabaseServerClient();
   const nowIso = new Date().toISOString();
@@ -331,7 +329,7 @@ export default async function DashboardPage() {
       />
 
       <section>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <UsageCard
             label="Atlas chats today"
             used={chatsUsed}
@@ -370,7 +368,7 @@ export default async function DashboardPage() {
             <p>Jump into the highest-value workflows.</p>
           </div>
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">
           {QUICK_LAUNCH.map(({ href, label, description, icon: Icon }) => (
             <Link
               key={href}
@@ -414,7 +412,7 @@ export default async function DashboardPage() {
                   <Link
                     key={d.id}
                     href={`/social/${d.id}`}
-                    className="flex items-start justify-between gap-3 rounded-xl border border-ink-800 bg-ink-900/40 p-3"
+                  className="flex items-start justify-between gap-3 rounded-xl border border-accent-champagne/10 bg-ink-950/30 p-3 backdrop-blur-sm"
                   >
                     <div>
                       <p className="text-sm font-medium text-ink-100">
@@ -438,7 +436,7 @@ export default async function DashboardPage() {
                   <Link
                     key={e.id}
                     href={`/email/${e.id}`}
-                    className="flex items-start justify-between gap-3 rounded-xl border border-ink-800 bg-ink-900/40 p-3"
+                    className="flex items-start justify-between gap-3 rounded-xl border border-accent-champagne/10 bg-ink-950/30 p-3 backdrop-blur-sm"
                   >
                     <div>
                       <p className="text-sm font-medium text-ink-100">
@@ -586,7 +584,7 @@ export default async function DashboardPage() {
                 <Link
                   key={`${u.kind}-${u.id}`}
                   href={u.href}
-                  className="flex items-start justify-between gap-3 rounded-xl border border-ink-800 bg-ink-900/40 p-3 transition hover:border-accent-gold/40"
+                  className="flex items-start justify-between gap-3 rounded-xl border border-accent-champagne/10 bg-ink-950/30 p-3 backdrop-blur-sm transition hover:border-accent-champagne/30"
                 >
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-ink-100">
@@ -638,7 +636,7 @@ export default async function DashboardPage() {
               activityRows.map((ev, i) => (
                 <div
                   key={`${ev.created_at}-${i}`}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-ink-800 bg-ink-900/40 p-3"
+                  className="flex items-center justify-between gap-3 rounded-xl border border-accent-champagne/10 bg-ink-950/30 p-3 backdrop-blur-sm"
                 >
                   <div className="min-w-0">
                     <p className="truncate text-sm text-ink-100">
@@ -749,9 +747,9 @@ function UsageCard({
       </div>
       <p className="text-base font-semibold text-ink-100">{headline}</p>
       <p className="text-[11px] text-ink-300">{sub}</p>
-      <div className="h-1 w-full overflow-hidden rounded-full bg-ink-800">
+        <div className="h-1 w-full overflow-hidden rounded-full bg-ink-800/70">
         <div
-          className="h-full rounded-full bg-gradient-to-r from-accent-gold to-accent-orange"
+          className="h-full rounded-full bg-gradient-to-r from-accent-champagne via-accent-gold to-accent-orange"
           style={{ width: `${pct}%` }}
         />
       </div>

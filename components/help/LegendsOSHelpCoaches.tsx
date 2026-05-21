@@ -69,10 +69,10 @@ export function LegendsOSHelpCoaches({
           return (
             <article
               key={coach.href}
-              className="rounded-xl border border-ink-800 bg-ink-900/40 p-4 shadow-glass"
+              className="rounded-xl border border-accent-champagne/10 bg-ink-950/30 p-4 shadow-glass backdrop-blur-sm"
             >
               <div className="flex items-start gap-3">
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-accent-gold/25 bg-accent-gold/10 text-accent-gold">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-accent-champagne/25 bg-accent-gold/10 text-accent-champagne">
                   <Icon size={18} />
                 </span>
                 <div className="min-w-0">

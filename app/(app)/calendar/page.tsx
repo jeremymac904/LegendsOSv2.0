@@ -341,7 +341,7 @@ function AgendaList({ entries }: { entries: CalendarEntry[] }) {
   );
   if (sorted.length === 0) {
     return (
-      <p className="mt-3 rounded-xl border border-dashed border-ink-700 bg-ink-900/35 p-4 text-sm text-ink-300">
+      <p className="mt-3 rounded-xl border border-dashed border-ink-700 bg-ink-900/30 p-4 text-sm text-ink-300">
         No items in this month. Create a calendar item or schedule a campaign to fill the agenda.
       </p>
     );

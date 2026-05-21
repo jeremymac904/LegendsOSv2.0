@@ -97,7 +97,7 @@ export default async function TrainingPage() {
           {TRAINING_NUGGETS.map((nugget) => (
             <div
               key={nugget}
-              className="rounded-xl border border-ink-800 bg-ink-900/35 p-3 text-sm text-ink-200"
+              className="rounded-xl border border-accent-champagne/10 bg-ink-950/30 p-3 text-sm text-ink-200 backdrop-blur-sm"
             >
               {nugget}
             </div>
@@ -139,9 +139,9 @@ function HeroStat({
   value: string;
 }) {
   return (
-    <div className="rounded-xl border border-ink-800 bg-ink-900/40 p-3">
+    <div className="rounded-xl border border-accent-champagne/10 bg-ink-950/30 p-3 backdrop-blur-sm">
       <div className="flex items-center gap-2">
-        <span className="grid h-8 w-8 place-items-center rounded-lg border border-accent-gold/20 bg-accent-gold/10 text-accent-gold">
+        <span className="grid h-8 w-8 place-items-center rounded-lg border border-accent-champagne/20 bg-accent-gold/10 text-accent-champagne">
           <Icon size={15} />
         </span>
         <p className="text-[10px] uppercase tracking-[0.18em] text-ink-400">

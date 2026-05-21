@@ -305,7 +305,7 @@ export function AtlasProjectsPanel({
 
       <div className="space-y-2 p-3">
         {visibleProjects.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-ink-700 bg-ink-900/35 p-3 text-[11px] text-ink-300">
+          <div className="rounded-xl border border-dashed border-ink-700 bg-ink-900/30 p-3 text-[11px] text-ink-300">
             Create a project to bind instructions, up to 40 knowledge collections, and project chats.
           </div>
         ) : (
@@ -316,9 +316,9 @@ export function AtlasProjectsPanel({
               <article
                 key={project.id}
                 className={cn(
-                  "rounded-xl border bg-ink-900/45 p-2.5 transition",
+                  "rounded-xl border bg-ink-900/40 p-2.5 transition",
                   active
-                    ? "border-accent-gold/45 bg-accent-gold/[0.07]"
+                    ? "border-accent-gold/40 bg-accent-gold/[0.07]"
                     : "border-ink-800 hover:border-ink-600"
                 )}
               >
@@ -392,7 +392,7 @@ export function AtlasProjectsPanel({
         </div>
         <div className="mt-2 grid gap-1">
           {projectThreads.length === 0 ? (
-            <p className="rounded-lg border border-ink-800 bg-ink-900/35 p-2 text-[10.5px] text-ink-400">
+            <p className="rounded-lg border border-ink-800 bg-ink-900/30 p-2 text-[10.5px] text-ink-400">
               No scoped chats yet.
             </p>
           ) : (
@@ -506,7 +506,7 @@ export function AtlasProjectsPanel({
                   </div>
                 </div>
                 <div className="space-y-3">
-                  <div className="rounded-xl border border-ink-800 bg-ink-900/35 p-3">
+                  <div className="rounded-xl border border-ink-800 bg-ink-900/30 p-3">
                     <p className="label flex items-center gap-1.5">
                       <Settings2 size={12} />
                       Tool and connector settings
@@ -537,7 +537,7 @@ export function AtlasProjectsPanel({
                       ))}
                     </div>
                   </div>
-                  <div className="rounded-xl border border-ink-800 bg-ink-900/35 p-3">
+                  <div className="rounded-xl border border-ink-800 bg-ink-900/30 p-3">
                     <div className="flex items-center justify-between gap-2">
                       <p className="label flex items-center gap-1.5">
                         <BookOpen size={12} />
@@ -562,7 +562,7 @@ export function AtlasProjectsPanel({
                                 "flex cursor-pointer items-start gap-2 rounded-lg border p-2 text-[11px]",
                                 checked
                                   ? "border-accent-gold/40 bg-accent-gold/10"
-                                  : "border-ink-800 bg-ink-950/45"
+                                  : "border-ink-800 bg-ink-950/40"
                               )}
                             >
                               <input

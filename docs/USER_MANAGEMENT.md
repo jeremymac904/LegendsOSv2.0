@@ -111,14 +111,15 @@ How it works:
    target user's profile via the service-role client and returns that as
    the "effective" profile.
 5. The owner is redirected to `/dashboard`.
-6. The protected layout renders the orange `ImpersonationBanner` and
-   passes the impersonated profile to all child components, so sidebar +
-   role gates render as that user.
+6. The protected layout renders the compact preview banner and passes the
+   impersonated profile to child components, so sidebar + role gates render as
+   that user. Admin pages also use `getEffectiveProfile()` for page guards, so
+   owner-only routes redirect while previewing as a non-owner.
 7. Clicking "Stop preview" POSTs the same endpoint with `user_id: null`,
    which clears the cookie. `DELETE /api/admin/impersonate` also works.
 
 Audit log entries are recorded as `impersonation_started` /
-`impersonation_ended`.
+`impersonation_ended`. Both POST stop and DELETE stop paths audit the end event.
 
 ### Why not a real session swap?
 

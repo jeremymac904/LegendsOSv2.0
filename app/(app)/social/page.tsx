@@ -342,7 +342,7 @@ function SetupStatusCard({
   ready: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-ink-800 bg-ink-900/35 p-3">
+    <div className="rounded-xl border border-ink-800 bg-ink-900/30 p-3">
       <div className="flex items-center justify-between gap-2">
         <span className="grid h-8 w-8 place-items-center rounded-lg border border-accent-gold/20 bg-accent-gold/10 text-accent-gold">
           <PlugZap size={14} />

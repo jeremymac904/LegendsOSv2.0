@@ -38,9 +38,18 @@ Payload fields used by the UI:
 - `audience`
 - `format`
 - `instructions`
+- `detail`
 
 Owners can add official links from the page. Loan officers can search, filter,
-read notes, and open resources in a new tab.
+open internal detail pages, read notes, and open source resources in a new tab
+when a source URL exists.
+
+## Detail routes
+
+Each resource opens an internal guide at `/lf-resources/[resourceId]`. The
+internal guide explains what the resource is, who should use it, when to use it,
+what is included, how to use it, and the next best action. External Drive links
+are secondary source actions instead of the primary user experience.
 
 ## Google Drive source
 
@@ -48,11 +57,10 @@ The provided top-level Drive folder is included as a default resource:
 
 <https://drive.google.com/drive/folders/164oRV4Vn1XRh6UTySL52USyXDugfQp6a?usp=sharing>
 
-The Google Drive connector was able to list the folder and identify source
-folders/files such as Training Knowledge, Marketing & Recruiting Project
-Folder, Loan Factory team directory files, LO Development Docs, AI Loan
-Placement HelpDesk, and AI Training Roadmap. Jeremy can curate more links from
-that source into team-shared LF resources.
+This sprint did not directly read the Drive folder through a connector. The UI
+keeps the provided folder as a top-level source link and seeds internal resource
+guides so Jeremy can curate approved private links into team-shared LF
+resources.
 
 ## Help Coach
 

@@ -38,9 +38,23 @@ Payload fields used by the UI:
 - `instructions`
 - `intended_use`
 - `thumbnail_url`
+- `detail`
 
 Owners can add materials from the page. Loan officers can search, filter, open
-source files, expand details, and copy usage instructions.
+internal detail pages, open source files, and copy usage instructions.
+
+## Detail routes
+
+Each material opens a finished internal page at
+`/marketing-materials/[materialId]`. The detail page includes intended
+audience, use case, included assets, customization instructions, copy guidance,
+download/source links when present, related templates, and next steps.
+
+Starter content now includes first-time homebuyer webinar material, first-time
+homebuyer guide, real estate agent guide, Real Estate AI seminar material,
+YouTube/podcast topics, monthly newsletter, realtor co-branded social campaign
+pack, open house material, buyer education handout, presentation outline, and
+script templates.
 
 ## Editing scope
 

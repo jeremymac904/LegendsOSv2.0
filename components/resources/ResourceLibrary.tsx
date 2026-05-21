@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  ArrowRight,
   Check,
   Copy,
   ExternalLink,
@@ -17,13 +17,14 @@ import {
 
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
-  MARKETING_RESOURCE_TYPE,
+  routeForResource,
   type TeamResourceItem,
+  type TeamResourceMode,
   youtubeEmbedUrl,
 } from "@/lib/teamResources";
 import { cn, truncate } from "@/lib/utils";
 
-type LibraryMode = "training" | "marketing" | "lf";
+type LibraryMode = TeamResourceMode;
 
 interface Props {
   mode: LibraryMode;
@@ -80,7 +81,6 @@ export function ResourceLibrary({
   const labels = actionLabels(mode);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All");
-  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -287,10 +287,10 @@ export function ResourceLibrary({
         </form>
       )}
 
-      <div className="grid gap-3 lg:grid-cols-2">
+      <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
         {filtered.length === 0 ? (
-          <div className="card-padded lg:col-span-2">
-            <div className="rounded-2xl border border-dashed border-ink-700 bg-ink-900/35 p-6 text-center">
+          <div className="card-padded md:col-span-2 2xl:col-span-3">
+            <div className="rounded-2xl border border-dashed border-accent-champagne/20 bg-ink-950/30 p-6 text-center">
               <FileText className="mx-auto text-accent-gold" size={26} />
               <h2 className="mt-3 text-base font-semibold text-ink-100">
                 {emptyTitle}
@@ -302,15 +302,12 @@ export function ResourceLibrary({
           </div>
         ) : (
           filtered.map((item) => {
-            const expanded = expandedId === item.id;
             const hasEmbed = Boolean(item.embedUrl);
+            const detailHref = routeForResource(mode, item.id);
             return (
               <article
                 key={item.id}
-                className={cn(
-                  "card-padded overflow-hidden transition",
-                  expanded && "border-accent-gold/35"
-                )}
+                className="card-padded overflow-hidden transition"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -331,7 +328,7 @@ export function ResourceLibrary({
                       <PlayCircle size={18} />
                     </span>
                   ) : (
-                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-ink-700 bg-ink-900/70 text-ink-300">
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-accent-champagne/10 bg-ink-950/40 text-ink-300">
                       <FileText size={18} />
                     </span>
                   )}
@@ -348,57 +345,21 @@ export function ResourceLibrary({
                   ))}
                 </div>
 
-                {expanded && (
-                  <div className="mt-4 space-y-3">
-                    {item.embedUrl && (
-                      <div className="overflow-hidden rounded-xl border border-ink-800 bg-ink-950/70">
-                        <iframe
-                          src={item.embedUrl}
-                          title={item.title}
-                          className="aspect-video w-full"
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                          allowFullScreen
-                        />
-                      </div>
-                    )}
-                    {(item.intendedUse || item.instructions) && (
-                      <div className="rounded-xl border border-ink-800 bg-ink-900/40 p-3">
-                        {item.intendedUse && (
-                          <p className="text-xs text-ink-300">
-                            <span className="font-medium text-ink-100">Use: </span>
-                            {item.intendedUse}
-                          </p>
-                        )}
-                        {item.instructions && (
-                          <p className="mt-2 text-xs leading-relaxed text-ink-300">
-                            <span className="font-medium text-ink-100">Notes: </span>
-                            {item.instructions}
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-
                 <div className="mt-4 flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    className="btn-secondary h-9 px-3 text-xs"
-                    onClick={() => setExpandedId(expanded ? null : item.id)}
-                  >
-                    {hasEmbed ? labels.secondary : "Details"}
-                    <ArrowRight size={13} />
-                  </button>
+                  <Link href={detailHref} className="btn-primary h-9 px-3 text-xs">
+                    {labels.primary}
+                  </Link>
+                  <Link href={detailHref} className="btn-secondary h-9 px-3 text-xs">
+                    {labels.secondary}
+                  </Link>
                   {item.url && (
                     <a
                       href={item.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="btn-primary h-9 px-3 text-xs"
+                      className="btn-ghost h-9 px-3 text-xs"
                     >
-                      {mode === "marketing" && item.resourceType !== MARKETING_RESOURCE_TYPE
-                        ? labels.open
-                        : labels.primary}
+                      {labels.open}
                       <ExternalLink size={13} />
                     </a>
                   )}

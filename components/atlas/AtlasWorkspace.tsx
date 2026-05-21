@@ -213,7 +213,7 @@ function EmptyChat({ provider, configured, onPick }: {
 }) {
   return (
     <div className="grid place-items-center py-12">
-      <div className="w-full max-w-xl rounded-2xl border border-ink-800 bg-ink-900/40 p-6">
+      <div className="card w-full max-w-xl p-6">
         <div className="flex flex-col items-center text-center">
           <div className="grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-accent-gold via-accent-gold to-accent-orange text-ink-950">
             <Sparkles size={16} />
@@ -225,7 +225,7 @@ function EmptyChat({ provider, configured, onPick }: {
         <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
           {STARTER_PROMPTS.map((p) => (
             <button key={p} type="button" onClick={() => onPick(p)}
-              className="rounded-xl border border-ink-700 bg-ink-950/50 px-3 py-2 text-left text-[12px] text-ink-200 transition hover:border-accent-gold/40 hover:bg-accent-gold/5 hover:text-ink-100">
+              className="rounded-xl border border-accent-champagne/10 bg-ink-950/40 px-3 py-2 text-left text-[12px] text-ink-200 transition hover:border-accent-champagne/30 hover:bg-accent-gold/5 hover:text-ink-100">
               {p}
             </button>
           ))}
@@ -304,7 +304,7 @@ function WorkspaceResourcePanel({
       </div>
       <div className="space-y-2 p-3">
         {resources.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-ink-700 bg-ink-900/35 p-3">
+          <div className="rounded-xl border border-dashed border-ink-700 bg-ink-900/30 p-3">
             <p className="text-[11px] font-medium text-ink-200">No sources yet</p>
             <p className="mt-1 text-[10.5px] leading-snug text-ink-400">
               Ask Atlas to use project knowledge, create a draft, schedule an item, or explain connected tools.
@@ -319,7 +319,7 @@ function WorkspaceResourcePanel({
                   key={prompt}
                   type="button"
                   onClick={() => onPrompt(prompt)}
-                  className="rounded-lg border border-ink-800 bg-ink-950/45 px-2 py-1.5 text-left text-[10.5px] text-ink-300 hover:border-accent-gold/30 hover:text-ink-100"
+                  className="rounded-lg border border-ink-800 bg-ink-950/40 px-2 py-1.5 text-left text-[10.5px] text-ink-300 hover:border-accent-gold/30 hover:text-ink-100"
                 >
                   {prompt}
                 </button>
@@ -330,7 +330,7 @@ function WorkspaceResourcePanel({
           resources.map((resource) => (
             <div
               key={resource.id}
-              className="rounded-xl border border-ink-800 bg-ink-900/45 p-2.5"
+              className="rounded-xl border border-ink-800 bg-ink-900/40 p-2.5"
             >
               <div className="flex items-start gap-2">
                 <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-lg border border-accent-gold/20 bg-accent-gold/10 text-accent-gold">
@@ -484,10 +484,11 @@ export function AtlasWorkspace({
   );
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [leftOpen, setLeftOpen] = useState(true);
-  const [rightOpen, setRightOpen] = useState(true);
+  const [leftOpen, setLeftOpen] = useState(false);
+  const [rightOpen, setRightOpen] = useState(false);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
+  const autoOpenedResourcesRef = useRef(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -520,6 +521,18 @@ export function AtlasWorkspace({
 
   const providerEntry = providerCatalog.find((p) => p.id === provider);
   const currentProject = projects.find((p) => p.id === selectedProjectId) ?? null;
+  const hasWorkspaceResources = useMemo(
+    () => buildResources(messages).length > 0 || Boolean(currentProject),
+    [messages, currentProject]
+  );
+
+  useEffect(() => {
+    if (!hasWorkspaceResources || rightOpen || autoOpenedResourcesRef.current) return;
+    if (typeof window !== "undefined" && window.innerWidth >= 1280) {
+      autoOpenedResourcesRef.current = true;
+      setRightOpen(true);
+    }
+  }, [hasWorkspaceResources, rightOpen]);
 
   function injectPrompt(prompt: string) { setInput(prompt); setTimeout(() => composerRef.current?.focus(), 0); }
 
@@ -551,7 +564,7 @@ export function AtlasWorkspace({
     setError(null);
     try {
       if (!navigator.mediaDevices?.getDisplayMedia) {
-        setError("Screen capture is not available in this browser. Attach a screenshot file instead.");
+        setError("Screen or window capture is available in the desktop app or supported browsers. Attach a screenshot file instead.");
         return;
       }
       const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
@@ -610,10 +623,10 @@ export function AtlasWorkspace({
   }
 
   async function send() {
-    if (!input.trim() || isPending) return;
+    if ((!input.trim() && attachments.length === 0) || isPending) return;
     if (providerEntry && !providerEntry.configured) { setError(`${providerEntry.label} is not configured.`); return; }
     setError(null);
-    const userText = input.trim();
+    const userText = input.trim() || "Review the attached file(s).";
     setInput("");
     const tempMsg: ChatMessage = { id: `local-${Date.now()}`, thread_id: threadId ?? "pending", user_id: ownerId, role: "user", content: userText, metadata: {}, token_count: null, created_at: new Date().toISOString() };
     setMessages((m) => [...m, tempMsg]);
@@ -656,7 +669,7 @@ export function AtlasWorkspace({
   return (
     <div className="flex h-[calc(100vh-3.25rem)] w-full overflow-hidden">
       {/* Left: Projects */}
-      <div className={cn("flex flex-col border-r border-ink-800 bg-ink-950/65 backdrop-blur-xl transition-all duration-200", leftOpen ? "w-72 shrink-0 xl:w-80" : "w-0 overflow-hidden")}>
+      <div className={cn("flex flex-col border-r border-accent-champagne/10 bg-ink-950/60 backdrop-blur-xl transition-all duration-200", leftOpen ? "w-72 shrink-0 xl:w-80" : "w-0 overflow-hidden")}>
         <div className="flex items-center justify-between gap-2 border-b border-ink-800 px-3 py-2">
           <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-gold-gradient">Atlas workspace</span>
           <button type="button" onClick={() => setLeftOpen(false)} className="text-ink-500 hover:text-ink-200"><ChevronsLeft size={12} /></button>
@@ -673,15 +686,15 @@ export function AtlasWorkspace({
         />
       </div>
       {!leftOpen && (
-        <button type="button" onClick={() => setLeftOpen(true)} title="Open connector panel"
-          className="flex w-7 shrink-0 flex-col items-center justify-center gap-1 border-r border-ink-800 bg-ink-950/60 text-ink-500 transition hover:bg-ink-900/60 hover:text-ink-200">
+        <button type="button" onClick={() => setLeftOpen(true)} title="Open projects"
+          className="flex w-8 shrink-0 flex-col items-center justify-center gap-1 border-r border-accent-champagne/10 bg-ink-950/50 text-ink-400 transition hover:bg-ink-900/50 hover:text-accent-champagne">
           <PanelLeft size={13} />
         </button>
       )}
 
       {/* Center: Chat */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        <div className="flex items-center justify-between gap-3 border-b border-ink-800 bg-ink-950/70 px-4 py-2 backdrop-blur sm:px-6">
+        <div className="flex items-center justify-between gap-3 border-b border-accent-champagne/10 bg-ink-950/70 px-4 py-2 backdrop-blur sm:px-6">
           <div className="flex min-w-0 items-center gap-2.5">
             <span aria-hidden className="flex h-7 w-20 shrink-0 items-center rounded-md border border-accent-gold/25 bg-ink-950/50 px-1.5" title="LegendsOS · Atlas">
               <img
@@ -708,20 +721,20 @@ export function AtlasWorkspace({
           <div className="flex shrink-0 items-center gap-2">
             <ProviderModelChip provider={provider} setProvider={setProvider} model={model} setModel={setModel} providerCatalog={providerCatalog} modelCatalog={modelCatalog} />
             <button type="button" onClick={() => setRightOpen((o) => !o)} title={rightOpen ? "Close resources" : "Open resources"}
-              className={cn("grid h-7 w-7 place-items-center rounded-full border border-ink-700/80 bg-ink-900/70 text-ink-300 backdrop-blur-sm transition hover:border-accent-gold/60 hover:text-accent-gold", rightOpen && "border-accent-gold/40 text-accent-gold")}>
+              className={cn("grid h-7 w-7 place-items-center rounded-full border border-ink-700/80 bg-ink-950/50 text-ink-300 backdrop-blur-sm transition hover:border-accent-champagne/60 hover:text-accent-champagne", rightOpen && "border-accent-champagne/40 text-accent-champagne")}>
               <PanelRight size={13} />
             </button>
           </div>
         </div>
         <div ref={scrollerRef} className="flex-1 overflow-y-auto px-4 py-6 scrollbar-thin">
-          <div className="mx-auto flex w-full max-w-6xl flex-col gap-5">
+          <div className="mx-auto flex w-full max-w-7xl flex-col gap-5">
             {messages.length === 0 && <EmptyChat provider={provider} configured={Boolean(providerEntry?.configured)} onPick={injectPrompt} />}
             {messages.map((m) => <MessageRow key={m.id} message={m} />)}
             {isPending && <div className="flex items-center gap-2 text-xs text-ink-300"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent-gold" />Atlas is thinking…</div>}
           </div>
         </div>
-        <div className="border-t border-ink-800 bg-ink-950/85 px-3 pb-8 pt-3 backdrop-blur-xl sm:px-6">
-          <div className="mx-auto w-full max-w-6xl">
+        <div className="border-t border-accent-champagne/10 bg-ink-950/80 px-3 pb-10 pt-4 backdrop-blur-xl sm:px-6">
+          <div className="mx-auto w-full max-w-7xl">
             {error && <p className="mb-2 rounded-lg border border-status-err/30 bg-status-err/10 px-3 py-2 text-xs text-status-err">{error}</p>}
             {attachments.length > 0 && (
               <div className="mb-2 flex flex-wrap gap-1">
@@ -730,7 +743,7 @@ export function AtlasWorkspace({
                 ))}
               </div>
             )}
-            <div className="flex items-end gap-2 rounded-2xl border border-ink-700 bg-ink-900/80 px-2 py-1.5 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.7)] focus-within:border-accent-gold/40">
+            <div className="flex items-end gap-2 rounded-2xl border border-accent-champagne/20 bg-ink-950/60 px-2 py-1.5 shadow-glass backdrop-blur-xl focus-within:border-accent-champagne/40">
               <label className="grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-xl text-ink-300 hover:bg-ink-800 hover:text-ink-100" title="Attach file">
                 <Paperclip size={15} />
                 <input type="file" multiple hidden onChange={(e) => handleAttach(e.target.files)} />
@@ -739,13 +752,13 @@ export function AtlasWorkspace({
                 type="button"
                 onClick={captureScreen}
                 className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-ink-300 hover:bg-ink-800 hover:text-ink-100"
-                title="Capture screen or window"
+                title="Capture screen/window in the desktop app or a supported browser"
               >
                 <MonitorUp size={15} />
               </button>
               <textarea ref={composerRef} className="max-h-[40vh] min-h-[40px] flex-1 resize-none bg-transparent px-1 py-2 text-sm text-ink-100 outline-none placeholder:text-ink-400" placeholder="Ask Atlas. Paste screenshots or attach files. Enter to send, Shift+Enter for a new line." value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKey} onPaste={handlePaste} disabled={isPending} rows={1}
                 onInput={(e) => { const el = e.target as HTMLTextAreaElement; el.style.height = "auto"; el.style.height = `${Math.min(el.scrollHeight, 320)}px`; }} />
-              <button onClick={send} className="btn-primary h-9 shrink-0 px-3" disabled={isPending || !input.trim()} aria-label="Send message"><Send size={14} /><span className="hidden sm:inline">Send</span></button>
+              <button onClick={send} className="btn-primary h-9 shrink-0 px-3" disabled={isPending || (!input.trim() && attachments.length === 0)} aria-label="Send message"><Send size={14} /><span className="hidden sm:inline">Send</span></button>
             </div>
             <p className="mt-1.5 text-center text-[10px] text-ink-400">
               via <span className="text-ink-300">{provider}</span>
@@ -757,7 +770,7 @@ export function AtlasWorkspace({
       </div>
 
       {/* Right: Sources and action resources */}
-      <div className={cn("flex flex-col border-l border-ink-800 bg-ink-950/65 backdrop-blur-xl transition-all duration-200", rightOpen ? "w-72 shrink-0 xl:w-80" : "w-0 overflow-hidden")}>
+      <div className={cn("flex flex-col border-l border-accent-champagne/10 bg-ink-950/60 backdrop-blur-xl transition-all duration-200", rightOpen ? "w-72 shrink-0 xl:w-80" : "w-0 overflow-hidden")}>
         <div className="flex items-center justify-between gap-2 border-b border-ink-800 px-3 py-2">
           <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-300">Resources</span>
           <button type="button" onClick={() => setRightOpen(false)} className="text-ink-500 hover:text-ink-200"><ChevronsRight size={12} /></button>

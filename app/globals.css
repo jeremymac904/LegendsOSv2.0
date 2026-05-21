@@ -7,8 +7,15 @@
   --bg: 5 6 10;
   --fg: 231 234 242;
   --muted: 140 147 175;
-  --accent: 216 179 90;
-  --accent-2: 185 138 46;
+  --accent: 199 150 53;
+  --accent-2: 155 104 40;
+  --primary-gold: 199 150 53;
+  --burnt-gold: 155 104 40;
+  --champagne-highlight: 226 201 120;
+  --dark-charcoal: 8 9 13;
+  --black-glass: 5 6 10;
+  --glass-border: 226 201 120;
+  --muted-text: 140 147 175;
 }
 
 html,
@@ -22,8 +29,8 @@ body {
   /* Pewter / gold command-center background from the walkthrough. */
   background-image:
     linear-gradient(180deg, rgba(5, 6, 10, 0.72), rgba(5, 6, 10, 0.9)),
-    radial-gradient(70% 55% at 30% 8%, rgba(216, 179, 90, 0.11) 0%, rgba(216, 179, 90, 0) 62%),
-    radial-gradient(45% 50% at 88% 20%, rgba(198, 166, 93, 0.12) 0%, rgba(198, 166, 93, 0) 64%),
+    radial-gradient(70% 55% at 30% 8%, rgba(var(--burnt-gold), 0.14) 0%, rgba(var(--burnt-gold), 0) 62%),
+    radial-gradient(45% 50% at 88% 20%, rgba(var(--champagne-highlight), 0.11) 0%, rgba(var(--champagne-highlight), 0) 64%),
     url("/assets/backgrounds/command-center-futuristic.jpg");
   background-size: cover;
   background-position: center top;
@@ -33,22 +40,22 @@ body {
 @layer components {
   /* ─── Glass surfaces ─────────────────────────────────────────────── */
   .card {
-    @apply relative rounded-2xl border border-ink-800/70 bg-ink-900/40 backdrop-blur-xl shadow-card transition-colors;
+    @apply relative rounded-2xl border border-accent-champagne/10 bg-ink-950/30 backdrop-blur-xl shadow-card transition-colors;
     background-image:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0%, rgba(255, 255, 255, 0.012) 42%),
-      linear-gradient(180deg, rgba(10, 12, 18, 0.25) 0%, rgba(10, 12, 18, 0.58) 100%);
+      linear-gradient(180deg, rgba(255, 255, 255, 0.055) 0%, rgba(255, 255, 255, 0.014) 46%),
+      linear-gradient(145deg, rgba(var(--black-glass), 0.22) 0%, rgba(var(--dark-charcoal), 0.54) 100%);
   }
   .card::before {
     content: "";
-    @apply pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-accent-gold/30 to-transparent opacity-60;
+    @apply pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-accent-champagne/40 to-transparent opacity-70;
   }
   .card:hover {
-    @apply border-accent-gold/25;
+    @apply border-accent-champagne/25;
     box-shadow:
       0 1px 0 0 rgba(255, 255, 255, 0.04) inset,
       0 12px 32px -16px rgba(0, 0, 0, 0.8),
-      0 0 0 1px rgba(216, 179, 90, 0.08),
-      0 8px 36px -18px rgba(216, 179, 90, 0.16);
+      0 0 0 1px rgba(var(--champagne-highlight), 0.08),
+      0 8px 36px -18px rgba(var(--burnt-gold), 0.22);
   }
   .card-padded {
     @apply card p-5;
@@ -59,22 +66,21 @@ body {
     @apply inline-flex items-center justify-center gap-2 rounded-xl border border-ink-700 bg-ink-800/80 px-4 py-2 text-sm font-medium text-ink-100 transition-all hover:bg-ink-700/80 disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-primary {
-    /* Gold gradient with inset highlight; warms further on hover. */
-    @apply btn border-accent-gold/50 bg-gradient-to-b from-accent-gold via-accent-gold to-accent-orange text-ink-950 font-semibold shadow-glow;
+    @apply btn border-accent-champagne/40 bg-gradient-to-b from-accent-champagne via-accent-gold to-accent-orange text-ink-950 font-semibold shadow-glow;
     box-shadow:
-      inset 0 1px 0 0 rgba(255, 255, 255, 0.4),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.38),
       inset 0 -1px 0 0 rgba(0, 0, 0, 0.15),
-      0 8px 24px -10px rgba(216, 179, 90, 0.38);
+      0 9px 26px -12px rgba(var(--burnt-gold), 0.5);
   }
   .btn-primary:hover {
-    @apply from-accent-orange to-accent-gold;
+    @apply from-accent-champagne via-accent-gold to-accent-bronze;
     box-shadow:
       inset 0 1px 0 0 rgba(255, 255, 255, 0.5),
       inset 0 -1px 0 0 rgba(0, 0, 0, 0.15),
-      0 10px 32px -8px rgba(185, 138, 46, 0.42);
+      0 10px 32px -10px rgba(var(--burnt-gold), 0.52);
   }
   .btn-secondary {
-    @apply btn border-accent-gold/30 bg-ink-900/60 text-ink-100 backdrop-blur-sm hover:border-accent-gold/55 hover:bg-ink-800/70;
+    @apply btn border-accent-champagne/25 bg-ink-950/40 text-ink-100 backdrop-blur-sm hover:border-accent-champagne/40 hover:bg-ink-800/50;
   }
   .btn-ghost {
     @apply btn border-transparent bg-transparent text-ink-300 hover:bg-ink-800/50 hover:text-ink-100;
@@ -82,7 +88,7 @@ body {
 
   /* ─── Form ───────────────────────────────────────────────────────── */
   .input {
-    @apply w-full rounded-xl border border-ink-700/80 bg-ink-900/70 px-3 py-2 text-sm text-ink-100 backdrop-blur-sm placeholder:text-ink-400 focus:border-accent-gold/60 focus:outline-none focus:ring-2 focus:ring-accent-gold/20;
+    @apply w-full rounded-xl border border-ink-700/80 bg-ink-950/50 px-3 py-2 text-sm text-ink-100 backdrop-blur-sm placeholder:text-ink-400 focus:border-accent-champagne/60 focus:outline-none focus:ring-2 focus:ring-accent-gold/20;
   }
   .textarea {
     @apply input min-h-[120px] leading-relaxed;
@@ -96,10 +102,10 @@ body {
 
   /* ─── Chips / pills ──────────────────────────────────────────────── */
   .chip {
-    @apply inline-flex h-6 items-center gap-1 rounded-full border border-ink-700/80 bg-ink-900/70 px-2.5 text-[10px] font-medium uppercase tracking-[0.08em] text-ink-200 backdrop-blur-sm;
+    @apply inline-flex h-6 items-center gap-1 rounded-full border border-ink-700/80 bg-ink-950/40 px-2.5 text-[10px] font-medium uppercase tracking-[0.08em] text-ink-200 backdrop-blur-sm;
   }
   .chip-active {
-    @apply chip border-accent-gold/50 bg-gradient-to-b from-accent-gold/15 to-accent-orange/10 text-accent-gold;
+    @apply chip border-accent-champagne/40 bg-gradient-to-b from-accent-champagne/10 to-accent-orange/10 text-accent-champagne;
   }
   .chip-ok {
     @apply chip border-status-ok/40 bg-status-ok/10 text-status-ok;
@@ -134,14 +140,14 @@ body {
 
   /* ─── Nav ────────────────────────────────────────────────────────── */
   .nav-item {
-    @apply relative flex items-center gap-3 rounded-xl border border-transparent px-3 py-2 text-sm text-ink-300 transition-colors hover:bg-ink-800/40 hover:text-ink-100;
+    @apply relative flex items-center gap-3 rounded-xl border border-transparent px-3 py-2 text-sm text-ink-300 transition-colors hover:bg-ink-800/30 hover:text-ink-100;
   }
   .nav-item-active {
-    @apply relative flex items-center gap-3 rounded-xl border border-accent-gold/20 bg-gradient-to-r from-accent-gold/10 via-ink-800/55 to-ink-800/25 px-3 py-2 text-sm font-medium text-ink-100 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)] transition-colors;
+    @apply relative flex items-center gap-3 rounded-xl border border-accent-champagne/25 bg-gradient-to-r from-accent-gold/10 via-ink-800/40 to-ink-950/20 px-3 py-2 text-sm font-medium text-ink-100 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.045)] transition-colors;
   }
   .nav-item-active::before {
     content: "";
-    @apply absolute left-0 top-1/2 h-5 w-[2px] -translate-y-1/2 rounded-r-full bg-gradient-to-b from-accent-gold to-accent-orange shadow-[0_0_8px_rgba(216,179,90,0.48)];
+    @apply absolute left-0 top-1/2 h-5 w-[2px] -translate-y-1/2 rounded-r-full bg-gradient-to-b from-accent-champagne to-accent-orange shadow-[0_0_8px_rgba(199,150,53,0.42)];
   }
 
   .scrollbar-thin::-webkit-scrollbar {
@@ -165,6 +171,39 @@ body {
     background-position: 0 0, 8px 8px;
   }
   .text-gold-gradient {
-    @apply bg-gradient-to-r from-accent-gold via-accent-gold to-accent-orange bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-accent-champagne via-accent-gold to-accent-orange bg-clip-text text-transparent;
+  }
+  .gold-shimmer {
+    background-size: 180% 100%;
+    animation: gold-shimmer 9s ease-in-out infinite;
+  }
+  .command-glow {
+    animation: command-glow 7s ease-in-out infinite;
+  }
+}
+
+@keyframes gold-shimmer {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes command-glow {
+  0%,
+  100% {
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.05) inset,
+      0 18px 54px -32px rgba(0, 0, 0, 0.92),
+      0 0 0 1px rgba(var(--champagne-highlight), 0.07);
+  }
+  50% {
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.07) inset,
+      0 18px 54px -28px rgba(0, 0, 0, 0.9),
+      0 0 28px -14px rgba(var(--burnt-gold), 0.32);
   }
 }

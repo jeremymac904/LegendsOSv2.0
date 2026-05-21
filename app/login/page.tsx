@@ -70,73 +70,75 @@ export default function LoginPage({
       />
       <span
         aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(5,6,10,0.84),rgba(5,6,10,0.58)_48%,rgba(5,6,10,0.86)),radial-gradient(65%_55%_at_30%_12%,rgba(216,179,90,0.14),transparent_62%)]"
+        className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(5,6,10,0.86),rgba(5,6,10,0.54)_48%,rgba(5,6,10,0.88)),radial-gradient(65%_55%_at_30%_12%,rgba(155,104,40,0.18),transparent_62%)]"
       />
-      <div className="relative grid min-h-screen items-center gap-10 px-6 py-10 lg:grid-cols-[minmax(0,0.95fr)_420px] lg:px-14 xl:px-20">
-      <section className="hidden min-h-[720px] max-w-[560px] flex-col justify-center lg:flex">
-        <div className="mb-10 flex items-center gap-4">
-          <Logo />
-          <div>
-            <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-ink-400">
-              {PUBLIC_ENV.APP_NAME}
-            </p>
-            <p className="text-sm text-ink-200">v2.0 · internal</p>
+      <div className="relative grid min-h-screen items-center gap-10 px-6 py-10 lg:grid-cols-[minmax(0,1fr)_420px] lg:px-14 xl:px-20">
+        <section className="hidden min-h-[720px] w-full max-w-[680px] flex-col justify-center lg:flex">
+          <div className="mb-10 flex flex-col gap-5">
+            <Logo />
+            <div>
+              <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-accent-champagne/80">
+                {PUBLIC_ENV.APP_NAME}
+              </p>
+              <h1 className="mt-3 max-w-2xl text-5xl font-semibold leading-[1.04] tracking-tight text-ink-100">
+                The AI command center for{" "}
+                <span className="text-gold-gradient gold-shimmer">
+                  The Legends Mortgage Team
+                </span>
+                .
+              </h1>
+              <p className="mt-4 max-w-xl text-base leading-relaxed text-ink-300">
+                One place for Atlas, marketing, training, resources, and team execution.
+              </p>
+            </div>
           </div>
-        </div>
-        <div className="flex flex-col gap-7">
-          <h1 className="max-w-xl text-4xl font-semibold leading-tight tracking-tight text-ink-100">
-            One command center for{" "}
-            <span className="bg-gradient-to-r from-accent-gold to-accent-orange bg-clip-text text-transparent">
-              The Legends Mortgage Team
-            </span>
-            .
-          </h1>
-          <div className="w-full max-w-[520px]">
-            {welcomeVideoUrl ? (
-              <div className="aspect-video overflow-hidden rounded-2xl border border-accent-gold/20 bg-ink-950/80 shadow-card">
-                <iframe
-                  src={welcomeVideoUrl}
-                  title="LegendsOS welcome"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen
-                  className="h-full w-full"
-                />
-              </div>
-            ) : (
-              <div className="card flex aspect-video flex-col items-center justify-center gap-2 p-6 text-center text-ink-300">
-                <PlayCircle size={28} className="text-accent-gold" />
-                <p className="text-sm font-medium text-ink-100">
-                  Welcome video coming soon
-                </p>
-                <p className="text-xs text-ink-400">
-                  Drop the URL into{" "}
-                  <code className="text-accent-gold/90">
-                    NEXT_PUBLIC_WELCOME_VIDEO_URL
-                  </code>{" "}
-                  and it embeds here automatically.
-                </p>
-              </div>
-            )}
+          <div className="flex w-full max-w-[580px] flex-col items-center gap-5">
+            <div className="w-full">
+              {welcomeVideoUrl ? (
+                <div className="card command-glow aspect-video overflow-hidden border-accent-champagne/20 bg-ink-950/60">
+                  <iframe
+                    src={welcomeVideoUrl}
+                    title="LegendsOS welcome"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                    className="h-full w-full"
+                  />
+                </div>
+              ) : (
+                <div className="card command-glow flex aspect-video flex-col items-center justify-center gap-2 p-6 text-center text-ink-300">
+                  <PlayCircle size={28} className="text-accent-champagne" />
+                  <p className="text-sm font-medium text-ink-100">
+                    Welcome video coming soon
+                  </p>
+                  <p className="text-xs text-ink-400">
+                    Drop the URL into{" "}
+                    <code className="text-accent-champagne/90">
+                      NEXT_PUBLIC_WELCOME_VIDEO_URL
+                    </code>{" "}
+                    and it embeds here automatically.
+                  </p>
+                </div>
+              )}
+            </div>
+            <DesktopDownloadCard
+              macUrl={macDownloadUrl}
+              winUrl={winDownloadUrl}
+              shellVersion={DESKTOP_SHELL_VERSION}
+            />
           </div>
-          <DesktopDownloadCard
-            macUrl={macDownloadUrl}
-            winUrl={winDownloadUrl}
-            shellVersion={DESKTOP_SHELL_VERSION}
-          />
-        </div>
-      </section>
+        </section>
 
       <section className="relative flex items-center justify-center lg:justify-end">
         <div className="w-full max-w-sm">
           {/* Centered wordmark above the form — small but present. */}
           <div className="mb-7 flex flex-col items-center gap-3 lg:hidden">
-            <Logo />
+            <Logo compact />
             <p className="text-xs font-semibold uppercase tracking-[0.32em] text-gold-gradient">
               LegendsOS
             </p>
           </div>
 
-          <div className="card-padded relative overflow-hidden p-7">
+          <div className="card-padded command-glow relative overflow-hidden p-7">
             <p className="label">Sign in</p>
             <h2 className="mt-1 text-[22px] font-semibold tracking-tight text-ink-100">
               Welcome back
@@ -184,13 +186,19 @@ export default function LoginPage({
   );
 }
 
-function Logo() {
+function Logo({ compact = false }: { compact?: boolean }) {
   return (
-    <div className="flex h-12 w-40 items-center justify-center rounded-xl border border-accent-gold/20 bg-ink-950/55 px-3 shadow-glass backdrop-blur">
+    <div
+      className={
+        compact
+          ? "flex h-12 w-40 items-center justify-center rounded-xl border border-accent-champagne/20 bg-ink-950/40 px-3 shadow-glass backdrop-blur"
+          : "flex h-20 w-72 items-center justify-center rounded-2xl border border-accent-champagne/20 bg-ink-950/40 px-5 shadow-glass backdrop-blur"
+      }
+    >
       <img
         src="/assets/logos/legends-os-logo.png"
         alt="LegendsOS"
-        className="h-10 w-full object-contain"
+        className={compact ? "h-10 w-full object-contain" : "h-16 w-full object-contain"}
       />
     </div>
   );
@@ -206,10 +214,10 @@ function DesktopDownloadCard({
   shellVersion: string;
 }) {
   return (
-    <div className="card w-full max-w-md p-5">
+    <div className="card command-glow w-full max-w-[580px] p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-accent-gold/30 bg-accent-gold/10 text-accent-gold">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-accent-champagne/30 bg-accent-gold/10 text-accent-champagne">
             <Download size={16} />
           </span>
           <div className="min-w-0">
@@ -221,7 +229,7 @@ function DesktopDownloadCard({
             </p>
           </div>
         </div>
-        <span className="rounded-full border border-ink-800 bg-ink-900/60 px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-ink-300">
+        <span className="rounded-full border border-accent-champagne/20 bg-ink-950/40 px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-ink-300">
           v{shellVersion}
         </span>
       </div>
@@ -281,7 +289,7 @@ function DesktopButton({
     );
   }
   return (
-    <a href={href} className={baseClasses} target="_blank" rel="noreferrer">
+    <a href={href} className={baseClasses} target="_blank" rel="noopener noreferrer">
       {icon}
       {label}
     </a>

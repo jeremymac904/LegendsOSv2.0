@@ -9,11 +9,9 @@ import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { loadAssetManifest, type AssetCategory } from "@/lib/assets";
 import { loadOrgUploadedAssets } from "@/lib/admin/orgAssets";
+import { getEffectiveProfile } from "@/lib/impersonation";
 import { isOwner } from "@/lib/permissions";
-import {
-  getCurrentProfile,
-  getSupabaseServerClient,
-} from "@/lib/supabase/server";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -66,7 +64,7 @@ type MergedAsset = {
 };
 
 export default async function AssetLibraryPage({ searchParams }: PageProps) {
-  const profile = await getCurrentProfile();
+  const { profile } = await getEffectiveProfile();
   if (!profile || !isOwner(profile)) redirect("/dashboard");
 
   const sb = getSupabaseServerClient();

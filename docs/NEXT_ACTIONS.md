@@ -1,5 +1,19 @@
 # NEXT ACTIONS — LegendsOS 2.0
 
+## Current next actions — UI/UX PowerPoint sprint
+
+1. **Jeremy visual review.** Review `/login`, `/dashboard`, `/atlas`,
+   `/training`, `/marketing-materials`, `/lf-resources`, and `/settings` on
+   production after the Netlify deploy finishes.
+2. **Curate real content.** Add approved private Drive links and videos into the
+   Training, Marketing Materials, and LF Resources libraries as team-shared
+   resources. The internal detail routes are ready for this.
+3. **Loan officer preview review.** Open `/admin/users`, preview as the LO test
+   account, confirm Owner Only nav stays hidden, then stop preview from the
+   banner.
+4. **Settings setup review.** Click each setup card and confirm the listed env
+   names and steps match Jeremy's actual integration setup path.
+
 ## Desktop apps — what to do now
 
 1. **Test the Mac build locally.** Open `dist-desktop/LegendsOS-2.0.0-arm64.dmg`
@@ -94,7 +108,6 @@ work above is priority 1 right now.
 - Owner tooling to flip provider status (`configured` / `disabled`) without SQL.
 - Per-user message search across threads (full-text on `chat_messages`).
 - Brand asset library backed by `shared_resources` with image previews.
-- Postiz API integration as an alternative dispatch target to n8n.
 
 ## Requires Jeremy approval
 

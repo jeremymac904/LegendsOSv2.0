@@ -24,9 +24,18 @@ Training payload fields:
 - `tags`
 - `format`
 - `instructions`
+- `detail`
 
 Owners can add team-shared training records from the page. Loan officers can
-search, filter, view details, open source links, and watch safe YouTube embeds.
+search, filter, open internal detail pages, open source links, and watch safe
+YouTube embeds.
+
+## Detail routes
+
+Each card now opens an internal guide at `/training/[resourceId]` before the
+user leaves LegendsOS. Detail pages show the title, description, category,
+video embed when available, training notes, resources, next steps, related
+items, and a secondary source button when the item has a Drive or external URL.
 
 ## Video behavior
 

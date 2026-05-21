@@ -26,11 +26,9 @@ import {
   getServerEnv,
   maskedKeyPreview,
 } from "@/lib/env";
+import { getEffectiveProfile } from "@/lib/impersonation";
 import { isOwner } from "@/lib/permissions";
-import {
-  getCurrentProfile,
-  getSupabaseServerClient,
-} from "@/lib/supabase/server";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { formatRelative, truncate } from "@/lib/utils";
 import type {
   AuditLog,
@@ -47,7 +45,7 @@ import type {
 export const dynamic = "force-dynamic";
 
 export default async function AdminCenterPage() {
-  const profile = await getCurrentProfile();
+  const { profile } = await getEffectiveProfile();
   if (!profile || !isOwner(profile)) redirect("/dashboard");
   const supabase = getSupabaseServerClient();
   const env = getServerEnv();

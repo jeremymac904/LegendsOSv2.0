@@ -24,13 +24,15 @@ const config: Config = {
           100: "#e7eaf2",
         },
         accent: {
-          gold: "#D8B35A",
-          orange: "#B98A2E",
-          ember: "#A66C24",
+          gold: "#C79635",
+          champagne: "#E2C978",
+          orange: "#9B6828",
+          ember: "#704417",
+          bronze: "#A8752B",
         },
         status: {
           ok: "#22c55e",
-          warn: "#f59e0b",
+          warn: "#D49A3A",
           err: "#ef4444",
           info: "#38bdf8",
           off: "#6b7280",
@@ -60,17 +62,17 @@ const config: Config = {
         ],
       },
       boxShadow: {
-        card: "0 1px 0 0 rgba(255,255,255,0.04) inset, 0 8px 24px -12px rgba(0,0,0,0.7)",
-        glow: "0 0 0 1px rgba(216,179,90,0.28), 0 8px 32px -10px rgba(185,138,46,0.28)",
-        "glow-sm": "0 0 0 1px rgba(216,179,90,0.18), 0 4px 18px -10px rgba(185,138,46,0.22)",
+        card: "0 1px 0 0 rgba(255,255,255,0.045) inset, 0 14px 44px -26px rgba(0,0,0,0.86)",
+        glow: "0 0 0 1px rgba(226,201,120,0.24), 0 10px 36px -14px rgba(155,104,40,0.32)",
+        "glow-sm": "0 0 0 1px rgba(226,201,120,0.16), 0 6px 20px -12px rgba(155,104,40,0.28)",
         glass:
-          "0 1px 0 0 rgba(255,255,255,0.05) inset, 0 0 0 1px rgba(216,179,90,0.06), 0 12px 36px -18px rgba(0,0,0,0.85)",
+          "0 1px 0 0 rgba(255,255,255,0.055) inset, 0 0 0 1px rgba(226,201,120,0.08), 0 18px 54px -28px rgba(0,0,0,0.9)",
       },
       backgroundImage: {
         "grid-lines":
           "linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)",
         "ember-radial":
-          "radial-gradient(60% 60% at 30% 20%, rgba(185,138,46,0.14) 0%, rgba(185,138,46,0) 60%), radial-gradient(80% 80% at 80% 80%, rgba(216,179,90,0.07) 0%, rgba(216,179,90,0) 60%)",
+          "radial-gradient(60% 60% at 30% 20%, rgba(155,104,40,0.16) 0%, rgba(155,104,40,0) 60%), radial-gradient(80% 80% at 80% 80%, rgba(226,201,120,0.08) 0%, rgba(226,201,120,0) 60%)",
       },
     },
   },

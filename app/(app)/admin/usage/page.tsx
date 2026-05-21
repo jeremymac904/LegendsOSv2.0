@@ -3,15 +3,16 @@ import { redirect } from "next/navigation";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatCard } from "@/components/ui/StatCard";
+import { getEffectiveProfile } from "@/lib/impersonation";
 import { isOwner } from "@/lib/permissions";
-import { getCurrentProfile, getSupabaseServerClient } from "@/lib/supabase/server";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { formatRelative } from "@/lib/utils";
 import type { Profile, UsageEvent } from "@/types/database";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminUsagePage() {
-  const profile = await getCurrentProfile();
+  const { profile } = await getEffectiveProfile();
   if (!profile || !isOwner(profile)) redirect("/dashboard");
   const supabase = getSupabaseServerClient();
   const since7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();

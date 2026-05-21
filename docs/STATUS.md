@@ -5,6 +5,52 @@
 Phase 0 → Phase 7 scaffold complete. Clean v2 foundation is in place.
 `npm run typecheck`, `npm run lint`, and `npm run build` all pass.
 
+## UI/UX PowerPoint sprint — 2026-05-20
+
+Source reviewed: `/Users/JeremyMcDonald/Downloads/LegendsOS UI_UX May 20th Audit 9pm (1).pptx`.
+
+Completed in this pass:
+
+- Global burnt/champagne gold brand tokens and more transparent liquid-glass
+  cards, chips, buttons, active nav, shell, and login styling.
+- Wider protected app shell so Dashboard, Training, Marketing Materials, LF
+  Resources, and Settings use the available screen instead of feeling boxed in.
+- Login page updated with larger logo, stronger command-center headline,
+  centered HeyGen/video and desktop download lane, and refined gold styling.
+- Training, Marketing Materials, and LF Resources now use internal detail routes
+  before source links:
+  - `/training/[resourceId]`
+  - `/marketing-materials/[materialId]`
+  - `/lf-resources/[resourceId]`
+- Marketing Materials seeded with richer starter content for first-time
+  homebuyer webinars, buyer guides, realtor guides, Real Estate AI seminars,
+  newsletter templates, social campaign packs, open house material, handouts,
+  outlines, and scripts.
+- LF Resources seeded with internal guides for all required Loan Factory areas,
+  with the provided Drive folder preserved as a secondary source link.
+- Atlas defaults to chat focus with collapsible Projects and Resources panels,
+  attachment-only send support, and clearer desktop/window capture guidance.
+- Settings connection cards now open setup guidance panels with exact env names,
+  owner/team actions, tutorial placeholders, and Setup Coach access.
+- Owner preview mode now protects admin page guards through
+  `getEffectiveProfile()`, rejects owner promotion through the user API update
+  route, and audits DELETE-based impersonation stops.
+
+Verification in this pass:
+
+- `npm run lint` passed.
+- `npm run typecheck` passed.
+- `npm run build` passed.
+- `npm run test:e2e` passed, 5/5 Playwright smoke tests.
+- Authenticated Playwright pass verified `/dashboard`, `/training`,
+  `/training/lf-training-folder`, `/marketing-materials`,
+  `/marketing-materials/homebuyer-webinar-template`, `/lf-resources`,
+  `/lf-resources/lf-training-folder`, `/settings`, `/atlas`, Settings setup
+  panel click behavior, GPT help coach link target/rel attributes, and
+  impersonation start/stop.
+- `/login` verified locally for HTTP 200, welcome video iframe, and desktop
+  download card.
+
 ## Completed
 
 ### Repository & tooling

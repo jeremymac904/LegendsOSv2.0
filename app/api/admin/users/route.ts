@@ -57,7 +57,6 @@ const updateRoleSchema = z.object({
   action: z.literal("update_role"),
   user_id: z.string().uuid(),
   role: z.enum([
-    "owner",
     "admin",
     "loan_officer",
     "processor",

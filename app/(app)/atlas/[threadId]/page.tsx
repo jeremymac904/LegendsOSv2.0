@@ -2,10 +2,8 @@ import { notFound } from "next/navigation";
 
 import { AtlasWorkspace } from "@/components/atlas/AtlasWorkspace";
 import { getAIProviderStatuses, getServerEnv } from "@/lib/env";
-import {
-  getCurrentProfile,
-  getSupabaseServerClient,
-} from "@/lib/supabase/server";
+import { getEffectiveProfile } from "@/lib/impersonation";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type {
   AtlasAssistant,
   ChatMessage,
@@ -22,7 +20,7 @@ interface PageProps {
 }
 
 export default async function AtlasThreadPage({ params }: PageProps) {
-  const profile = await getCurrentProfile();
+  const { profile } = await getEffectiveProfile();
   if (!profile) return null;
   const supabase = getSupabaseServerClient();
   const env = getServerEnv();
@@ -36,7 +34,12 @@ export default async function AtlasThreadPage({ params }: PageProps) {
     { data: itemCounts },
   ] =
     await Promise.all([
-      supabase.from("chat_threads").select("*").eq("id", params.threadId).maybeSingle(),
+      supabase
+        .from("chat_threads")
+        .select("*")
+        .eq("id", params.threadId)
+        .eq("user_id", profile.id)
+        .maybeSingle(),
       supabase
         .from("chat_messages")
         .select("*")

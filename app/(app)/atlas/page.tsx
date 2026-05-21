@@ -1,9 +1,7 @@
 import { AtlasWorkspace } from "@/components/atlas/AtlasWorkspace";
 import { getAIProviderStatuses, getServerEnv } from "@/lib/env";
-import {
-  getCurrentProfile,
-  getSupabaseServerClient,
-} from "@/lib/supabase/server";
+import { getEffectiveProfile } from "@/lib/impersonation";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { AtlasAssistant, KnowledgeCollection } from "@/types/database";
 
 import { buildAtlasModelCatalog } from "./model-catalog";
@@ -11,7 +9,7 @@ import { buildAtlasModelCatalog } from "./model-catalog";
 export const dynamic = "force-dynamic";
 
 export default async function AtlasIndexPage() {
-  const profile = await getCurrentProfile();
+  const { profile } = await getEffectiveProfile();
   if (!profile) return null;
   const supabase = getSupabaseServerClient();
   const env = getServerEnv();

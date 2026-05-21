@@ -20,11 +20,10 @@ export function Sidebar({ profile }: { profile: Profile }) {
   };
 
   return (
-    <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-ink-800/70 bg-ink-950/85 px-3 py-5 backdrop-blur-md lg:flex relative">
-      {/* Faint vertical gold seam on the inside edge of the sidebar. */}
+    <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-accent-champagne/10 bg-ink-950/78 px-3 py-5 backdrop-blur-xl lg:flex relative">
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-accent-gold/15 to-transparent"
+        className="pointer-events-none absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-accent-champagne/20 to-transparent"
       />
 
       <div className="px-2">
@@ -75,7 +74,7 @@ export function Sidebar({ profile }: { profile: Profile }) {
                             size={16}
                             className={
                               active
-                                ? "text-accent-gold"
+                                ? "text-accent-champagne"
                                 : "text-ink-400 group-hover:text-ink-200"
                             }
                           />
@@ -86,7 +85,7 @@ export function Sidebar({ profile }: { profile: Profile }) {
                           className={cn(
                             "transition-all",
                             active
-                              ? "text-accent-gold opacity-100"
+                              ? "text-accent-champagne opacity-100"
                               : "text-ink-400 opacity-0 group-hover:opacity-70"
                           )}
                         />
@@ -102,19 +101,19 @@ export function Sidebar({ profile }: { profile: Profile }) {
       </nav>
 
       <div className="mt-4 border-t border-ink-800/70 pt-4">
-        <div className="relative overflow-hidden rounded-2xl border border-ink-800/80 bg-ink-900/60 p-3 backdrop-blur-sm">
+        <div className="relative overflow-hidden rounded-2xl border border-accent-champagne/10 bg-ink-950/40 p-3 backdrop-blur-sm">
           <span
             aria-hidden
-            className="pointer-events-none absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-accent-gold/30 to-transparent"
+            className="pointer-events-none absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-accent-champagne/30 to-transparent"
           />
           <p className="truncate text-xs font-medium text-ink-100">
             {profile.full_name ?? profile.email}
           </p>
           <p className="truncate text-[11px] text-ink-400">{profile.email}</p>
-          <p className="mt-2 inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.18em] text-accent-gold">
+          <p className="mt-2 inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.18em] text-accent-champagne">
             <span
               aria-hidden
-              className="inline-block h-1 w-1 rounded-full bg-accent-gold shadow-[0_0_6px_rgba(216,179,90,0.52)]"
+              className="inline-block h-1 w-1 rounded-full bg-accent-champagne shadow-[0_0_6px_rgba(199,150,53,0.52)]"
             />
             {profile.role}
           </p>
