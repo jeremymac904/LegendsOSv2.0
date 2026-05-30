@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { ProcessorCockpit } from "@/components/processing/ProcessorCockpit";
+import { SampleModeBanner } from "@/components/loanbrain/SampleModeBanner";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { sampleBoardRows } from "@/lib/loanbrain/store";
 import { getEffectiveProfile } from "@/lib/impersonation";
@@ -24,6 +25,7 @@ export default async function ProcessingPage() {
         title="Processor cockpit"
         description="Your assigned files, what's missing, conditions, and one-click draft tools. Everything is a draft — nothing sends itself."
       />
+      <SampleModeBanner note="Demo assigned loans until real files are connected · no borrower data · drafts only." />
       <ProcessorCockpit rows={rows} />
     </div>
   );

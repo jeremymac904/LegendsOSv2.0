@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { CoordinatorBoard } from "@/components/coordinator/CoordinatorBoard";
+import { SampleModeBanner } from "@/components/loanbrain/SampleModeBanner";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { sampleBoardRows } from "@/lib/loanbrain/store";
 import { getEffectiveProfile } from "@/lib/impersonation";
@@ -26,6 +27,7 @@ export default async function CoordinatorPage() {
         title="Follow-up board"
         description="Who needs contact, what to collect, and draft messages — with one tap to escalate to Jeremy. Draft-first; nothing sends itself."
       />
+      <SampleModeBanner note="Demo follow-ups until real leads are connected · no borrower data · drafts only." />
       <CoordinatorBoard rows={rows} />
     </div>
   );

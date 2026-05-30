@@ -22,7 +22,7 @@ import type { Profile, UserRole } from "@/types/database";
 // only one owner per org and promotion has to go through `promote_owner()`
 // in the SQL editor so it lands in audit_logs at the DB level too. The
 // server route also rejects `update_role -> owner` for the same reason.
-// Order: admin → loan_officer → processor → marketing → viewer.
+// Order: admin → loan_officer → processor → coordinator → marketing → viewer.
 const ROLES: { value: UserRole; label: string; description: string }[] = [
   {
     value: "admin",
@@ -37,7 +37,12 @@ const ROLES: { value: UserRole; label: string; description: string }[] = [
   {
     value: "processor",
     label: "Processor",
-    description: "Operations team — read-mostly across modules.",
+    description: "Ashley — sees loans assigned to her in Processing (FLO).",
+  },
+  {
+    value: "coordinator",
+    label: "Coordinator",
+    description: "Geraldine — sees leads/loans assigned to her for follow-up.",
   },
   {
     value: "marketing",
