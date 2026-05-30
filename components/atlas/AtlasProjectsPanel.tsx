@@ -269,13 +269,13 @@ export function AtlasProjectsPanel({
 
   return (
     <div className="flex h-full flex-col overflow-y-auto scrollbar-thin">
-      <div className="border-b border-ink-800 p-3">
+      <div className="border-b border-ink-200 dark:border-ink-800 p-3">
         <div className="flex items-center justify-between gap-2">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-300">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-600 dark:text-ink-300">
               Projects
             </p>
-            <p className="mt-1 text-[10.5px] leading-snug text-ink-400">
+            <p className="mt-1 text-[10.5px] leading-snug text-ink-500 dark:text-ink-400">
               Instructions, scoped chats, tools, and knowledge.
             </p>
           </div>
@@ -295,7 +295,7 @@ export function AtlasProjectsPanel({
             "mt-3 flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-[11px] transition",
             selectedProjectId === null
               ? "border-accent-gold/40 bg-accent-gold/10 text-accent-gold"
-              : "border-ink-800 bg-ink-900/40 text-ink-200 hover:border-ink-600"
+              : "border-ink-200 dark:border-ink-800 bg-white/40 dark:bg-ink-900/40 text-ink-800 dark:text-ink-200 hover:border-ink-300 dark:hover:border-ink-600"
           )}
         >
           <FolderKanban size={12} />
@@ -305,7 +305,7 @@ export function AtlasProjectsPanel({
 
       <div className="space-y-2 p-3">
         {visibleProjects.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-ink-700 bg-ink-900/30 p-3 text-[11px] text-ink-300">
+          <div className="rounded-xl border border-dashed border-ink-200 dark:border-ink-700 bg-white/30 dark:bg-ink-900/30 p-3 text-[11px] text-ink-600 dark:text-ink-300">
             Create a project to bind instructions, up to 40 knowledge collections, and project chats.
           </div>
         ) : (
@@ -316,10 +316,10 @@ export function AtlasProjectsPanel({
               <article
                 key={project.id}
                 className={cn(
-                  "rounded-xl border bg-ink-900/40 p-2.5 transition",
+                  "rounded-xl border bg-white/40 dark:bg-ink-900/40 p-2.5 transition",
                   active
                     ? "border-accent-gold/40 bg-accent-gold/[0.07]"
-                    : "border-ink-800 hover:border-ink-600"
+                    : "border-ink-200 dark:border-ink-800 hover:border-ink-300 dark:hover:border-ink-600"
                 )}
               >
                 <button
@@ -331,10 +331,10 @@ export function AtlasProjectsPanel({
                     <Layers3 size={13} />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[12px] font-semibold text-ink-100">
+                    <span className="block truncate text-[12px] font-semibold text-ink-900 dark:text-ink-100">
                       {project.name}
                     </span>
-                    <span className="mt-0.5 block line-clamp-2 text-[10.5px] leading-snug text-ink-400">
+                    <span className="mt-0.5 block line-clamp-2 text-[10.5px] leading-snug text-ink-500 dark:text-ink-400">
                       {project.description || "No description yet."}
                     </span>
                   </span>
@@ -358,11 +358,11 @@ export function AtlasProjectsPanel({
                   <button
                     type="button"
                     onClick={() => editProject(project)}
-                    className="text-[10.5px] text-ink-300 hover:text-accent-gold"
+                    className="text-[10.5px] text-ink-600 dark:text-ink-300 hover:text-accent-gold"
                   >
                     Edit workspace
                   </button>
-                  <span className="text-[9.5px] text-ink-500">
+                  <span className="text-[9.5px] text-ink-500 dark:text-ink-500">
                     {formatRelative(project.updated_at)}
                   </span>
                 </div>
@@ -372,9 +372,9 @@ export function AtlasProjectsPanel({
         )}
       </div>
 
-      <div className="border-t border-ink-800 p-3">
+      <div className="border-t border-ink-200 dark:border-ink-800 p-3">
         <div className="flex items-center justify-between gap-2">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-300">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-600 dark:text-ink-300">
             Project threads
           </p>
           {selectedProject && (
@@ -384,7 +384,7 @@ export function AtlasProjectsPanel({
                 onSelectProject(selectedProject.id);
                 router.push("/atlas");
               }}
-              className="text-[10px] text-accent-gold hover:text-ink-100"
+              className="text-[10px] text-accent-gold hover:text-ink-900 dark:hover:text-ink-100"
             >
               New chat
             </button>
@@ -392,7 +392,7 @@ export function AtlasProjectsPanel({
         </div>
         <div className="mt-2 grid gap-1">
           {projectThreads.length === 0 ? (
-            <p className="rounded-lg border border-ink-800 bg-ink-900/30 p-2 text-[10.5px] text-ink-400">
+            <p className="rounded-lg border border-ink-200 dark:border-ink-800 bg-white/30 dark:bg-ink-900/30 p-2 text-[10.5px] text-ink-500 dark:text-ink-400">
               No scoped chats yet.
             </p>
           ) : (
@@ -400,11 +400,11 @@ export function AtlasProjectsPanel({
               <Link
                 key={thread.id}
                 href={`/atlas/${thread.id}`}
-                className="rounded-lg border border-ink-800 bg-ink-900/40 px-2 py-1.5 text-[10.5px] text-ink-200 hover:border-accent-gold/30"
+                className="rounded-lg border border-ink-200 dark:border-ink-800 bg-white/40 dark:bg-ink-900/40 px-2 py-1.5 text-[10.5px] text-ink-800 dark:text-ink-200 hover:border-accent-gold/30"
               >
                 <span className="block truncate">{thread.title}</span>
                 {thread.last_message_at && (
-                  <span className="text-[9px] text-ink-500">
+                  <span className="text-[9px] text-ink-500 dark:text-ink-500">
                     {formatRelative(thread.last_message_at)}
                   </span>
                 )}
@@ -415,7 +415,7 @@ export function AtlasProjectsPanel({
       </div>
 
       {(error || info) && (
-        <div className="border-t border-ink-800 p-3">
+        <div className="border-t border-ink-200 dark:border-ink-800 p-3">
           {error && (
             <p className="rounded-lg border border-status-err/30 bg-status-err/10 px-2 py-1.5 text-[10.5px] text-status-err">
               {error}
@@ -430,21 +430,21 @@ export function AtlasProjectsPanel({
       )}
 
       {editorOpen && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-ink-950/75 p-4 backdrop-blur-sm">
-          <div className="max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-2xl border border-ink-700 bg-ink-950 shadow-card">
-            <div className="flex items-center justify-between gap-3 border-b border-ink-800 px-4 py-3">
+        <div className="fixed inset-0 z-50 grid place-items-center bg-white/75 dark:bg-ink-950/75 p-4 backdrop-blur-sm">
+          <div className="max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-2xl border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-950 shadow-card">
+            <div className="flex items-center justify-between gap-3 border-b border-ink-200 dark:border-ink-800 px-4 py-3">
               <div>
                 <p className="text-[10px] uppercase tracking-[0.2em] text-accent-gold">
                   Atlas Project
                 </p>
-                <h2 className="text-base font-semibold text-ink-100">
+                <h2 className="text-base font-semibold text-ink-900 dark:text-ink-100">
                   {draft.id ? "Edit project workspace" : "Create project workspace"}
                 </h2>
               </div>
               <button
                 type="button"
                 onClick={() => setEditorOpen(false)}
-                className="grid h-8 w-8 place-items-center rounded-lg text-ink-300 hover:bg-ink-800 hover:text-ink-100"
+                className="grid h-8 w-8 place-items-center rounded-lg text-ink-600 dark:text-ink-300 hover:bg-ink-100 dark:hover:bg-ink-800 hover:text-ink-900 dark:hover:text-ink-100"
                 aria-label="Close"
               >
                 <X size={16} />
@@ -506,7 +506,7 @@ export function AtlasProjectsPanel({
                   </div>
                 </div>
                 <div className="space-y-3">
-                  <div className="rounded-xl border border-ink-800 bg-ink-900/30 p-3">
+                  <div className="rounded-xl border border-ink-200 dark:border-ink-800 bg-white/30 dark:bg-ink-900/30 p-3">
                     <p className="label flex items-center gap-1.5">
                       <Settings2 size={12} />
                       Tool and connector settings
@@ -520,7 +520,7 @@ export function AtlasProjectsPanel({
                       ].map(([key, label]) => (
                         <label
                           key={key}
-                          className="flex items-center gap-2 rounded-lg border border-ink-800 bg-ink-950/50 px-2 py-2 text-[11px] text-ink-200"
+                          className="flex items-center gap-2 rounded-lg border border-ink-200 dark:border-ink-800 bg-white/50 dark:bg-ink-950/50 px-2 py-2 text-[11px] text-ink-800 dark:text-ink-200"
                         >
                           <input
                             type="checkbox"
@@ -537,7 +537,7 @@ export function AtlasProjectsPanel({
                       ))}
                     </div>
                   </div>
-                  <div className="rounded-xl border border-ink-800 bg-ink-900/30 p-3">
+                  <div className="rounded-xl border border-ink-200 dark:border-ink-800 bg-white/30 dark:bg-ink-900/30 p-3">
                     <div className="flex items-center justify-between gap-2">
                       <p className="label flex items-center gap-1.5">
                         <BookOpen size={12} />
@@ -549,7 +549,7 @@ export function AtlasProjectsPanel({
                     </div>
                     <div className="mt-3 max-h-72 space-y-2 overflow-y-auto pr-1 scrollbar-thin">
                       {knowledgeCollections.length === 0 ? (
-                        <p className="rounded-lg border border-dashed border-ink-700 p-3 text-[11px] text-ink-300">
+                        <p className="rounded-lg border border-dashed border-ink-200 dark:border-ink-700 p-3 text-[11px] text-ink-600 dark:text-ink-300">
                           Create or upload a knowledge collection first.
                         </p>
                       ) : (
@@ -562,7 +562,7 @@ export function AtlasProjectsPanel({
                                 "flex cursor-pointer items-start gap-2 rounded-lg border p-2 text-[11px]",
                                 checked
                                   ? "border-accent-gold/40 bg-accent-gold/10"
-                                  : "border-ink-800 bg-ink-950/40"
+                                  : "border-ink-200 dark:border-ink-800 bg-white/40 dark:bg-ink-950/40"
                               )}
                             >
                               <input
@@ -571,10 +571,10 @@ export function AtlasProjectsPanel({
                                 onChange={() => toggleKnowledge(collection.id)}
                               />
                               <span className="min-w-0 flex-1">
-                                <span className="block truncate font-medium text-ink-100">
+                                <span className="block truncate font-medium text-ink-900 dark:text-ink-100">
                                   {collection.name}
                                 </span>
-                                <span className="block truncate text-ink-400">
+                                <span className="block truncate text-ink-500 dark:text-ink-400">
                                   {collection.item_count} docs · {collection.visibility.replace("_", " ")}
                                 </span>
                               </span>
@@ -586,7 +586,7 @@ export function AtlasProjectsPanel({
                   </div>
                 </div>
               </div>
-              <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-ink-800 pt-4">
+              <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-ink-200 dark:border-ink-800 pt-4">
                 <button
                   type="button"
                   className="btn-primary"
@@ -607,7 +607,7 @@ export function AtlasProjectsPanel({
                     Archive
                   </button>
                 )}
-                <p className="ml-auto max-w-xs text-[11px] text-ink-300">
+                <p className="ml-auto max-w-xs text-[11px] text-ink-600 dark:text-ink-300">
                   Project chats use these instructions and selected knowledge before global context.
                 </p>
               </div>

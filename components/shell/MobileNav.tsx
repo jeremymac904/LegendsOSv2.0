@@ -26,20 +26,20 @@ export function MobileNav({ profile }: { profile: Profile }) {
       {open && (
         <div className="fixed inset-0 z-40 flex">
           <div
-            className="absolute inset-0 bg-ink-950/80 backdrop-blur-sm"
+            className="absolute inset-0 bg-ink-900/25 backdrop-blur-sm dark:bg-ink-950/80"
             onClick={() => setOpen(false)}
           />
-          <div className="relative ml-auto h-full w-72 overflow-y-auto border-l border-ink-800/80 bg-ink-950/95 p-4 backdrop-blur-md">
+          <div className="relative ml-auto h-full w-72 overflow-y-auto border-l border-ink-900/10 bg-white/90 p-4 backdrop-blur-md dark:border-ink-800/80 dark:bg-ink-950/95">
             <span
               aria-hidden
-              className="pointer-events-none absolute inset-y-0 left-0 w-px bg-gradient-to-b from-transparent via-accent-gold/20 to-transparent"
+              className="pointer-events-none absolute inset-y-0 left-0 w-px bg-gradient-to-b from-transparent via-accent-gold/30 to-transparent dark:via-accent-gold/20"
             />
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-accent-orange to-accent-gold text-xs font-black text-ink-950 shadow-glow-sm">
                   L
                 </div>
-                <p className="text-sm font-semibold tracking-tight text-ink-100">
+                <p className="text-sm font-semibold tracking-tight text-ink-900 dark:text-ink-100">
                   LegendsOS
                 </p>
               </div>
@@ -51,7 +51,7 @@ export function MobileNav({ profile }: { profile: Profile }) {
                 <X size={14} />
               </button>
             </div>
-            <p className="mt-4 px-1 text-[10px] font-medium uppercase tracking-[0.22em] text-ink-400">
+            <p className="mt-4 px-1 text-[10px] font-medium uppercase tracking-[0.22em] text-ink-500 dark:text-ink-400">
               Navigation
             </p>
             <ul className="mt-2 space-y-0.5">
@@ -73,7 +73,9 @@ export function MobileNav({ profile }: { profile: Profile }) {
                         <Icon
                           size={16}
                           className={
-                            active ? "text-accent-gold" : "text-ink-400"
+                            active
+                              ? "text-accent-orange dark:text-accent-gold"
+                              : "text-ink-600 dark:text-ink-400"
                           }
                         />
                         {item.label}

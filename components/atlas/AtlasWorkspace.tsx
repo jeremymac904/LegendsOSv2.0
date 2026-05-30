@@ -134,20 +134,20 @@ function ToolResultCard({ result, createdAt }: { result: AtlasToolResultMeta; cr
       <div className="min-w-0 flex-1">
         <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent-gold">
           {entry.label}
-          {timeLabel && <span className="ml-1.5 font-normal text-ink-300">· {result.kind === "explain_capabilities" ? "Snapshot" : "Created"} {timeLabel}</span>}
+          {timeLabel && <span className="ml-1.5 font-normal text-ink-600 dark:text-ink-300">· {result.kind === "explain_capabilities" ? "Snapshot" : "Created"} {timeLabel}</span>}
         </p>
-        <p className="truncate text-[12px] font-medium text-ink-100">{title}</p>
+        <p className="truncate text-[12px] font-medium text-ink-900 dark:text-ink-100">{title}</p>
         {providerDots.length > 0 && (
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             {providerDots.map((p) => (
-              <span key={p.id} title={p.next_action ?? `${p.label} is ${p.status}`} className="inline-flex items-center gap-1 rounded-full border border-ink-700/80 bg-ink-900/60 px-1.5 py-[1px] text-[9.5px] uppercase tracking-[0.14em] text-ink-300">
+              <span key={p.id} title={p.next_action ?? `${p.label} is ${p.status}`} className="inline-flex items-center gap-1 rounded-full border border-ink-200/80 dark:border-ink-700/80 bg-white/60 dark:bg-ink-900/60 px-1.5 py-[1px] text-[9.5px] uppercase tracking-[0.14em] text-ink-600 dark:text-ink-300">
                 <span className={cn("h-1.5 w-1.5 rounded-full", p.status === "ready" ? "bg-status-ok" : p.status === "disabled" ? "bg-status-off" : "bg-status-warn")} />
                 {p.label}
               </span>
             ))}
           </div>
         )}
-        <p className="mt-1 text-[11px] leading-relaxed text-ink-300">
+        <p className="mt-1 text-[11px] leading-relaxed text-ink-600 dark:text-ink-300">
           {result.summary}
         </p>
       </div>
@@ -175,23 +175,23 @@ function MessageRow({ message }: { message: ChatMessage }) {
             <Sparkles size={9} />{khits} source{khits === 1 ? "" : "s"}
           </span>
           {ksources.slice(0, 3).map((s, i) => (
-            <span key={`${i}-${s.title}`} className="inline-flex max-w-[18rem] items-center gap-1 truncate rounded-full border border-ink-700/70 bg-ink-900/70 px-2 py-0.5 text-[10px] text-ink-200">
+            <span key={`${i}-${s.title}`} className="inline-flex max-w-[18rem] items-center gap-1 truncate rounded-full border border-ink-200/70 dark:border-ink-700/70 bg-white/70 dark:bg-ink-900/70 px-2 py-0.5 text-[10px] text-ink-800 dark:text-ink-200">
               <span aria-hidden className="text-accent-gold/70">·</span>
               <span className="truncate">{s.source_path ? `${s.title} · ${s.source_path.split("/").slice(-2).join("/")}` : s.title}</span>
             </span>
           ))}
-          {ksources.length > 3 && <span className="inline-flex items-center rounded-full border border-ink-700/70 bg-ink-900/70 px-2 py-0.5 text-[10px] text-ink-300">+{ksources.length - 3} more</span>}
+          {ksources.length > 3 && <span className="inline-flex items-center rounded-full border border-ink-200/70 dark:border-ink-700/70 bg-white/70 dark:bg-ink-900/70 px-2 py-0.5 text-[10px] text-ink-600 dark:text-ink-300">+{ksources.length - 3} more</span>}
         </div>
       )}
       <div className={cn(
         "max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap shadow-sm",
-        isUser ? "bg-gradient-to-br from-accent-orange/80 to-accent-gold/80 text-ink-950"
+        isUser ? "bg-gradient-to-br from-accent-orange/80 to-accent-gold/80 text-ink-950 dark:text-ink-950"
           : isSystem ? "border border-status-warn/30 bg-status-warn/10 text-status-warn"
-          : "border border-ink-800 bg-ink-900/70 text-ink-100"
+          : "border border-ink-200 dark:border-ink-800 bg-white/70 dark:bg-ink-900/70 text-ink-900 dark:text-ink-100"
       )}>
         {message.content}
         {!isUser && !isSystem && toolResult && <ToolResultCard result={toolResult} createdAt={message.created_at} />}
-        <p className={cn("mt-1.5 text-[10px] uppercase tracking-[0.18em]", isUser ? "text-ink-950/60" : "text-ink-300")}>
+        <p className={cn("mt-1.5 text-[10px] uppercase tracking-[0.18em]", isUser ? "text-ink-950/60 dark:text-ink-950/60" : "text-ink-600 dark:text-ink-300")}>
           {message.role} · {formatRelative(message.created_at)}
         </p>
       </div>
@@ -215,17 +215,17 @@ function EmptyChat({ provider, configured, onPick }: {
     <div className="grid place-items-center py-12">
       <div className="card w-full max-w-xl p-6">
         <div className="flex flex-col items-center text-center">
-          <div className="grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-accent-gold via-accent-gold to-accent-orange text-ink-950">
+          <div className="grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-accent-gold via-accent-gold to-accent-orange text-ink-950 dark:text-ink-950">
             <Sparkles size={16} />
           </div>
-          <h2 className="mt-3 text-base font-semibold text-ink-100">Start a conversation</h2>
-          <p className="mt-1 text-xs text-ink-300">Ask Atlas for marketing copy, mortgage explainers, or anything in your daily workflow.</p>
+          <h2 className="mt-3 text-base font-semibold text-ink-900 dark:text-ink-100">Start a conversation</h2>
+          <p className="mt-1 text-xs text-ink-600 dark:text-ink-300">Ask Atlas for marketing copy, mortgage explainers, or anything in your daily workflow.</p>
           {!configured && <p className="mt-3 text-[11px] text-status-warn">{provider} is not configured — open Chat settings to switch provider.</p>}
         </div>
         <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
           {STARTER_PROMPTS.map((p) => (
             <button key={p} type="button" onClick={() => onPick(p)}
-              className="rounded-xl border border-accent-champagne/10 bg-ink-950/40 px-3 py-2 text-left text-[12px] text-ink-200 transition hover:border-accent-champagne/30 hover:bg-accent-gold/5 hover:text-ink-100">
+              className="rounded-xl border border-accent-champagne/10 bg-white/40 dark:bg-ink-950/40 px-3 py-2 text-left text-[12px] text-ink-800 dark:text-ink-200 transition hover:border-accent-champagne/30 hover:bg-accent-gold/5 hover:text-ink-900 dark:hover:text-ink-100">
               {p}
             </button>
           ))}
@@ -294,19 +294,19 @@ function WorkspaceResourcePanel({
   const tasks = taskList(currentProject?.metadata);
   return (
     <div className="flex h-full flex-col overflow-y-auto scrollbar-thin">
-      <div className="border-b border-ink-800 px-3 py-2">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-300">
+      <div className="border-b border-ink-200 dark:border-ink-800 px-3 py-2">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-600 dark:text-ink-300">
           Sources & resources
         </p>
-        <p className="mt-1 text-[10.5px] leading-snug text-ink-500">
+        <p className="mt-1 text-[10.5px] leading-snug text-ink-500 dark:text-ink-500">
           Knowledge hits, tool outputs, and project work stay visible here.
         </p>
       </div>
       <div className="space-y-2 p-3">
         {resources.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-ink-700 bg-ink-900/30 p-3">
-            <p className="text-[11px] font-medium text-ink-200">No sources yet</p>
-            <p className="mt-1 text-[10.5px] leading-snug text-ink-400">
+          <div className="rounded-xl border border-dashed border-ink-200 dark:border-ink-700 bg-white/30 dark:bg-ink-900/30 p-3">
+            <p className="text-[11px] font-medium text-ink-800 dark:text-ink-200">No sources yet</p>
+            <p className="mt-1 text-[10.5px] leading-snug text-ink-500 dark:text-ink-400">
               Ask Atlas to use project knowledge, create a draft, schedule an item, or explain connected tools.
             </p>
             <div className="mt-3 grid gap-1.5">
@@ -319,7 +319,7 @@ function WorkspaceResourcePanel({
                   key={prompt}
                   type="button"
                   onClick={() => onPrompt(prompt)}
-                  className="rounded-lg border border-ink-800 bg-ink-950/40 px-2 py-1.5 text-left text-[10.5px] text-ink-300 hover:border-accent-gold/30 hover:text-ink-100"
+                  className="rounded-lg border border-ink-200 dark:border-ink-800 bg-white/40 dark:bg-ink-950/40 px-2 py-1.5 text-left text-[10.5px] text-ink-600 dark:text-ink-300 hover:border-accent-gold/30 hover:text-ink-900 dark:hover:text-ink-100"
                 >
                   {prompt}
                 </button>
@@ -330,23 +330,23 @@ function WorkspaceResourcePanel({
           resources.map((resource) => (
             <div
               key={resource.id}
-              className="rounded-xl border border-ink-800 bg-ink-900/40 p-2.5"
+              className="rounded-xl border border-ink-200 dark:border-ink-800 bg-white/40 dark:bg-ink-900/40 p-2.5"
             >
               <div className="flex items-start gap-2">
                 <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-lg border border-accent-gold/20 bg-accent-gold/10 text-accent-gold">
                   {resource.type === "source" ? <Search size={12} /> : <Sparkles size={12} />}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[11.5px] font-medium text-ink-100">
+                  <p className="truncate text-[11.5px] font-medium text-ink-900 dark:text-ink-100">
                     {resource.title}
                   </p>
-                  <p className="mt-0.5 line-clamp-3 text-[10.5px] leading-snug text-ink-400">
+                  <p className="mt-0.5 line-clamp-3 text-[10.5px] leading-snug text-ink-500 dark:text-ink-400">
                     {resource.detail}
                   </p>
                   {resource.link && (
                     <a
                       href={resource.link}
-                      className="mt-2 inline-flex text-[10.5px] text-accent-gold hover:text-ink-100"
+                      className="mt-2 inline-flex text-[10.5px] text-accent-gold hover:text-ink-900 dark:hover:text-ink-100"
                     >
                       Open result
                     </a>
@@ -358,21 +358,21 @@ function WorkspaceResourcePanel({
         )}
       </div>
       {currentProject && (
-        <div className="border-t border-ink-800 p-3">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-300">
+        <div className="border-t border-ink-200 dark:border-ink-800 p-3">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-600 dark:text-ink-300">
             Active project
           </p>
           <div className="mt-2 rounded-xl border border-accent-gold/25 bg-accent-gold/[0.06] p-3">
-            <p className="truncate text-[12px] font-semibold text-ink-100">
+            <p className="truncate text-[12px] font-semibold text-ink-900 dark:text-ink-100">
               {currentProject.name}
             </p>
-            <p className="mt-1 line-clamp-3 text-[10.5px] leading-snug text-ink-300">
+            <p className="mt-1 line-clamp-3 text-[10.5px] leading-snug text-ink-600 dark:text-ink-300">
               {currentProject.description || "Project instructions and sources are active for new chats."}
             </p>
             {tasks.length > 0 && (
               <ul className="mt-2 space-y-1">
                 {tasks.slice(0, 4).map((task) => (
-                  <li key={task} className="flex gap-1.5 text-[10.5px] text-ink-300">
+                  <li key={task} className="flex gap-1.5 text-[10.5px] text-ink-600 dark:text-ink-300">
                     <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-accent-gold/70" />
                     <span className="line-clamp-2">{task}</span>
                   </li>
@@ -382,7 +382,7 @@ function WorkspaceResourcePanel({
           </div>
         </div>
       )}
-      <div className="border-t border-ink-800">
+      <div className="border-t border-ink-200 dark:border-ink-800">
         <LOWorkspace onPrompt={onPrompt} />
       </div>
     </div>
@@ -420,21 +420,21 @@ function ProviderModelChip(props: {
     <div className="relative" ref={ref}>
       <button type="button" onClick={() => setOpen(!open)}
         className={cn(
-          "inline-flex h-7 items-center gap-1.5 rounded-full border border-ink-700/80 bg-ink-900/70 px-3 text-[11px] font-medium text-ink-100 backdrop-blur-sm transition hover:border-accent-gold/60",
+          "inline-flex h-7 items-center gap-1.5 rounded-full border border-ink-200/80 dark:border-ink-700/80 bg-white/70 dark:bg-ink-900/70 px-3 text-[11px] font-medium text-ink-900 dark:text-ink-100 backdrop-blur-sm transition hover:border-accent-gold/60",
           open && "border-accent-gold/60 bg-accent-gold/5 text-accent-gold",
           providerEntry && !providerEntry.configured && "text-status-warn"
         )}>
         <span className={cn("h-1.5 w-1.5 rounded-full",
           providerEntry?.configured ? providerEntry.enabled ? "bg-status-ok" : "bg-status-off" : "bg-status-warn"
         )} />
-        <span className="truncate">{providerEntry?.label ?? provider}<span className="mx-1 text-ink-500">·</span><span className="text-ink-300">{truncate(modelShort, 20)}</span></span>
+        <span className="truncate">{providerEntry?.label ?? provider}<span className="mx-1 text-ink-500 dark:text-ink-500">·</span><span className="text-ink-600 dark:text-ink-300">{truncate(modelShort, 20)}</span></span>
         <ChevronDown size={11} className="shrink-0 opacity-70" />
       </button>
       {open && (
-        <div className="absolute right-0 top-full z-40 mt-1.5 w-72 overflow-hidden rounded-xl border border-ink-700 bg-ink-900/95 shadow-card backdrop-blur">
-          <div className="flex items-center justify-between gap-2 border-b border-ink-800 px-3 py-2">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-300">Model selector</p>
-            <button type="button" onClick={() => setOpen(false)} className="text-ink-400 hover:text-ink-100"><X size={11} /></button>
+        <div className="absolute right-0 top-full z-40 mt-1.5 w-72 overflow-hidden rounded-xl border border-ink-200 dark:border-ink-700 bg-white/95 dark:bg-ink-900/95 shadow-card backdrop-blur">
+          <div className="flex items-center justify-between gap-2 border-b border-ink-200 dark:border-ink-800 px-3 py-2">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-600 dark:text-ink-300">Model selector</p>
+            <button type="button" onClick={() => setOpen(false)} className="text-ink-500 dark:text-ink-400 hover:text-ink-900 dark:hover:text-ink-100"><X size={11} /></button>
           </div>
           <div className="max-h-72 overflow-y-auto px-1.5 py-2 scrollbar-thin">
             {providerCatalog.map((p) => {
@@ -442,7 +442,7 @@ function ProviderModelChip(props: {
               const isDisabled = !p.configured || !p.enabled;
               return (
                 <div key={p.id} className="mb-2 last:mb-0">
-                  <p className={cn("flex items-center gap-2 px-2 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-[0.18em]", isDisabled ? "text-ink-500" : "text-ink-400")}>
+                  <p className={cn("flex items-center gap-2 px-2 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-[0.18em]", isDisabled ? "text-ink-500 dark:text-ink-500" : "text-ink-500 dark:text-ink-400")}>
                     <span className={cn("h-1.5 w-1.5 rounded-full", p.configured ? p.enabled ? "bg-status-ok" : "bg-status-off" : "bg-status-warn")} />
                     {p.label}
                     {!p.configured && <span className="ml-auto text-[9px] font-normal text-status-warn">Not configured</span>}
@@ -450,7 +450,7 @@ function ProviderModelChip(props: {
                   <button type="button" disabled={isDisabled}
                     onClick={() => { setProvider(p.id); setModel(pModels[0]?.id ?? ""); setOpen(false); }}
                     className={cn("flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left text-[11px] transition",
-                      isDisabled ? "cursor-not-allowed text-ink-500" : provider === p.id ? "bg-accent-gold/10 text-accent-gold" : "text-ink-200 hover:bg-ink-800/70"
+                      isDisabled ? "cursor-not-allowed text-ink-500 dark:text-ink-500" : provider === p.id ? "bg-accent-gold/10 text-accent-gold" : "text-ink-800 dark:text-ink-200 hover:bg-ink-100/70 dark:hover:bg-ink-800/70"
                     )}>
                     <span>{pModels[0]?.label ?? "provider default"}</span>
                     {provider === p.id && !isDisabled && <Check size={11} className="text-accent-gold" />}
@@ -667,12 +667,12 @@ export function AtlasWorkspace({
   function handleKey(e: React.KeyboardEvent<HTMLTextAreaElement>) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }
 
   return (
-    <div className="flex h-[calc(100vh-3.25rem)] w-full overflow-hidden">
+    <div className="flex h-full min-h-0 w-full overflow-hidden">
       {/* Left: Projects */}
-      <div className={cn("flex flex-col border-r border-accent-champagne/10 bg-ink-950/60 backdrop-blur-xl transition-all duration-200", leftOpen ? "w-72 shrink-0 xl:w-80" : "w-0 overflow-hidden")}>
-        <div className="flex items-center justify-between gap-2 border-b border-ink-800 px-3 py-2">
+      <div className={cn("flex flex-col border-r border-accent-champagne/10 bg-white/60 dark:bg-ink-950/60 backdrop-blur-xl transition-all duration-200", leftOpen ? "w-72 shrink-0 xl:w-80" : "w-0 overflow-hidden")}>
+        <div className="flex items-center justify-between gap-2 border-b border-ink-200 dark:border-ink-800 px-3 py-2">
           <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-gold-gradient">Atlas workspace</span>
-          <button type="button" onClick={() => setLeftOpen(false)} className="text-ink-500 hover:text-ink-200"><ChevronsLeft size={12} /></button>
+          <button type="button" onClick={() => setLeftOpen(false)} className="text-ink-500 dark:text-ink-500 hover:text-ink-800 dark:hover:text-ink-200"><ChevronsLeft size={12} /></button>
         </div>
         <AtlasProjectsPanel
           ownerId={ownerId}
@@ -687,16 +687,16 @@ export function AtlasWorkspace({
       </div>
       {!leftOpen && (
         <button type="button" onClick={() => setLeftOpen(true)} title="Open projects"
-          className="flex w-8 shrink-0 flex-col items-center justify-center gap-1 border-r border-accent-champagne/10 bg-ink-950/50 text-ink-400 transition hover:bg-ink-900/50 hover:text-accent-champagne">
+          className="flex w-8 shrink-0 flex-col items-center justify-center gap-1 border-r border-accent-champagne/10 bg-white/50 dark:bg-ink-950/50 text-ink-500 dark:text-ink-400 transition hover:bg-white/50 dark:hover:bg-ink-900/50 hover:text-accent-champagne">
           <PanelLeft size={13} />
         </button>
       )}
 
       {/* Center: Chat */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        <div className="flex items-center justify-between gap-3 border-b border-accent-champagne/10 bg-ink-950/70 px-4 py-2 backdrop-blur sm:px-6">
+        <div className="flex items-center justify-between gap-3 border-b border-accent-champagne/10 bg-white/70 dark:bg-ink-950/70 px-4 py-2 backdrop-blur sm:px-6">
           <div className="flex min-w-0 items-center gap-2.5">
-            <span aria-hidden className="flex h-7 w-20 shrink-0 items-center rounded-md border border-accent-gold/25 bg-ink-950/50 px-1.5" title="LegendsOS · Atlas">
+            <span aria-hidden className="flex h-7 w-20 shrink-0 items-center rounded-md border border-accent-gold/25 bg-white/50 dark:bg-ink-950/50 px-1.5" title="LegendsOS · Atlas">
               <img
                 src="/assets/logos/legends-os-logo.png"
                 alt=""
@@ -705,11 +705,11 @@ export function AtlasWorkspace({
             </span>
             <div className="flex min-w-0 items-baseline gap-1.5">
               <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-gold-gradient">Atlas</span>
-              <span className="text-ink-700">·</span>
-              <p className="truncate text-xs font-medium text-ink-100">{currentThread?.title ?? "New conversation"}</p>
+              <span className="text-ink-900 dark:text-ink-700">·</span>
+              <p className="truncate text-xs font-medium text-ink-900 dark:text-ink-100">{currentThread?.title ?? "New conversation"}</p>
               {currentProject && (
                 <>
-                  <span className="hidden text-ink-700 sm:inline">·</span>
+                  <span className="hidden text-ink-900 dark:text-ink-700 sm:inline">·</span>
                   <span className="hidden max-w-[16rem] items-center gap-1 truncate rounded-full border border-accent-gold/25 bg-accent-gold/10 px-2 py-0.5 text-[10px] text-accent-gold sm:inline-flex">
                     <Layers3 size={10} />
                     {currentProject.name}
@@ -721,7 +721,7 @@ export function AtlasWorkspace({
           <div className="flex shrink-0 items-center gap-2">
             <ProviderModelChip provider={provider} setProvider={setProvider} model={model} setModel={setModel} providerCatalog={providerCatalog} modelCatalog={modelCatalog} />
             <button type="button" onClick={() => setRightOpen((o) => !o)} title={rightOpen ? "Close resources" : "Open resources"}
-              className={cn("grid h-7 w-7 place-items-center rounded-full border border-ink-700/80 bg-ink-950/50 text-ink-300 backdrop-blur-sm transition hover:border-accent-champagne/60 hover:text-accent-champagne", rightOpen && "border-accent-champagne/40 text-accent-champagne")}>
+              className={cn("grid h-7 w-7 place-items-center rounded-full border border-ink-200/80 dark:border-ink-700/80 bg-white/50 dark:bg-ink-950/50 text-ink-600 dark:text-ink-300 backdrop-blur-sm transition hover:border-accent-champagne/60 hover:text-accent-champagne", rightOpen && "border-accent-champagne/40 text-accent-champagne")}>
               <PanelRight size={13} />
             </button>
           </div>
@@ -730,39 +730,39 @@ export function AtlasWorkspace({
           <div className="mx-auto flex w-full max-w-7xl flex-col gap-5">
             {messages.length === 0 && <EmptyChat provider={provider} configured={Boolean(providerEntry?.configured)} onPick={injectPrompt} />}
             {messages.map((m) => <MessageRow key={m.id} message={m} />)}
-            {isPending && <div className="flex items-center gap-2 text-xs text-ink-300"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent-gold" />Atlas is thinking…</div>}
+            {isPending && <div className="flex items-center gap-2 text-xs text-ink-600 dark:text-ink-300"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent-gold" />Atlas is thinking…</div>}
           </div>
         </div>
-        <div className="border-t border-accent-champagne/10 bg-ink-950/80 px-3 pb-10 pt-4 backdrop-blur-xl sm:px-6">
+        <div className="border-t border-accent-champagne/10 bg-white/80 dark:bg-ink-950/80 px-3 pb-10 pt-4 backdrop-blur-xl sm:px-6">
           <div className="mx-auto w-full max-w-7xl">
             {error && <p className="mb-2 rounded-lg border border-status-err/30 bg-status-err/10 px-3 py-2 text-xs text-status-err">{error}</p>}
             {attachments.length > 0 && (
               <div className="mb-2 flex flex-wrap gap-1">
                 {attachments.map((file, i) => (
-                  <span key={i} className="chip">{truncate(file.name, 28)}<button type="button" className="text-ink-300 hover:text-status-err" onClick={() => setAttachments((prev) => prev.filter((_, idx) => idx !== i))}><Trash2 size={10} /></button></span>
+                  <span key={i} className="chip">{truncate(file.name, 28)}<button type="button" className="text-ink-600 dark:text-ink-300 hover:text-status-err" onClick={() => setAttachments((prev) => prev.filter((_, idx) => idx !== i))}><Trash2 size={10} /></button></span>
                 ))}
               </div>
             )}
-            <div className="flex items-end gap-2 rounded-2xl border border-accent-champagne/20 bg-ink-950/60 px-2 py-1.5 shadow-glass backdrop-blur-xl focus-within:border-accent-champagne/40">
-              <label className="grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-xl text-ink-300 hover:bg-ink-800 hover:text-ink-100" title="Attach file">
+            <div className="flex items-end gap-2 rounded-2xl border border-accent-champagne/20 bg-white/60 dark:bg-ink-950/60 px-2 py-1.5 shadow-glass backdrop-blur-xl focus-within:border-accent-champagne/40">
+              <label className="grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-xl text-ink-600 dark:text-ink-300 hover:bg-ink-100 dark:hover:bg-ink-800 hover:text-ink-900 dark:hover:text-ink-100" title="Attach file">
                 <Paperclip size={15} />
                 <input type="file" multiple hidden onChange={(e) => handleAttach(e.target.files)} />
               </label>
               <button
                 type="button"
                 onClick={captureScreen}
-                className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-ink-300 hover:bg-ink-800 hover:text-ink-100"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-ink-600 dark:text-ink-300 hover:bg-ink-100 dark:hover:bg-ink-800 hover:text-ink-900 dark:hover:text-ink-100"
                 title="Capture screen/window in the desktop app or a supported browser"
               >
                 <MonitorUp size={15} />
               </button>
-              <textarea ref={composerRef} className="max-h-[40vh] min-h-[40px] flex-1 resize-none bg-transparent px-1 py-2 text-sm text-ink-100 outline-none placeholder:text-ink-400" placeholder="Ask Atlas. Paste screenshots or attach files. Enter to send, Shift+Enter for a new line." value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKey} onPaste={handlePaste} disabled={isPending} rows={1}
+              <textarea ref={composerRef} className="max-h-[40vh] min-h-[40px] flex-1 resize-none bg-transparent px-1 py-2 text-sm text-ink-900 dark:text-ink-100 outline-none placeholder:text-ink-500 dark:placeholder:text-ink-400" placeholder="Ask Atlas. Paste screenshots or attach files. Enter to send, Shift+Enter for a new line." value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKey} onPaste={handlePaste} disabled={isPending} rows={1}
                 onInput={(e) => { const el = e.target as HTMLTextAreaElement; el.style.height = "auto"; el.style.height = `${Math.min(el.scrollHeight, 320)}px`; }} />
               <button onClick={send} className="btn-primary h-9 shrink-0 px-3" disabled={isPending || (!input.trim() && attachments.length === 0)} aria-label="Send message"><Send size={14} /><span className="hidden sm:inline">Send</span></button>
             </div>
-            <p className="mt-1.5 text-center text-[10px] text-ink-400">
-              via <span className="text-ink-300">{provider}</span>
-              {model && <> · <span className="text-ink-300">{truncate(model.split("/").slice(-1)[0], 40)}</span></>}
+            <p className="mt-1.5 text-center text-[10px] text-ink-500 dark:text-ink-400">
+              via <span className="text-ink-600 dark:text-ink-300">{provider}</span>
+              {model && <> · <span className="text-ink-600 dark:text-ink-300">{truncate(model.split("/").slice(-1)[0], 40)}</span></>}
               {currentProject && <> · <span className="text-accent-gold">{truncate(currentProject.name, 36)}</span></>}
             </p>
           </div>
@@ -770,10 +770,10 @@ export function AtlasWorkspace({
       </div>
 
       {/* Right: Sources and action resources */}
-      <div className={cn("flex flex-col border-l border-accent-champagne/10 bg-ink-950/60 backdrop-blur-xl transition-all duration-200", rightOpen ? "w-72 shrink-0 xl:w-80" : "w-0 overflow-hidden")}>
-        <div className="flex items-center justify-between gap-2 border-b border-ink-800 px-3 py-2">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-300">Resources</span>
-          <button type="button" onClick={() => setRightOpen(false)} className="text-ink-500 hover:text-ink-200"><ChevronsRight size={12} /></button>
+      <div className={cn("flex flex-col border-l border-accent-champagne/10 bg-white/60 dark:bg-ink-950/60 backdrop-blur-xl transition-all duration-200", rightOpen ? "w-72 shrink-0 xl:w-80" : "w-0 overflow-hidden")}>
+        <div className="flex items-center justify-between gap-2 border-b border-ink-200 dark:border-ink-800 px-3 py-2">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-600 dark:text-ink-300">Resources</span>
+          <button type="button" onClick={() => setRightOpen(false)} className="text-ink-500 dark:text-ink-500 hover:text-ink-800 dark:hover:text-ink-200"><ChevronsRight size={12} /></button>
         </div>
         <WorkspaceResourcePanel
           messages={messages}
