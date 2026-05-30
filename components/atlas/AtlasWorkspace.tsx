@@ -66,6 +66,8 @@ interface ModelEntry {
 export interface AtlasWorkspaceProps {
   ownerId: string;
   currentThread?: ChatThread | null;
+  /** Pre-fills the composer for "send to Atlas" deep-links (/atlas?prompt=). */
+  initialInput?: string;
   initialMessages?: ChatMessage[];
   assistants: AtlasAssistant[];
   providerCatalog: ProviderEntry[];
@@ -212,28 +214,43 @@ const STARTER_PROMPTS = [
 function EmptyChat({ provider, configured, onPick }: {
   provider: string; configured: boolean; onPick: (p: string) => void;
 }) {
+  // Builder templates are collapsed by default so the empty state stays
+  // compact — clicking a starter prompt fills the composer instead of
+  // throwing the user down a wall of cards.
+  const [showTemplates, setShowTemplates] = useState(false);
   return (
-    <div className="grid place-items-center py-12">
-      <div className="card w-full max-w-xl p-6">
+    <div className="flex min-h-full items-center justify-center py-6">
+      <div className="w-full max-w-2xl">
         <div className="flex flex-col items-center text-center">
-          <div className="grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-accent-gold via-accent-gold to-accent-orange text-ink-950 dark:text-ink-950">
-            <Sparkles size={16} />
+          <div className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-accent-gold via-accent-gold to-accent-orange text-ink-950">
+            <Sparkles size={15} />
           </div>
-          <h2 className="mt-3 text-base font-semibold text-ink-900 dark:text-ink-100">Start a conversation</h2>
-          <p className="mt-1 text-xs text-ink-600 dark:text-ink-300">Ask Atlas for marketing copy, mortgage explainers, or anything in your daily workflow.</p>
-          {!configured && <p className="mt-3 text-[11px] text-status-warn">{provider} is not configured — open Chat settings to switch provider.</p>}
+          <h2 className="mt-2.5 text-[15px] font-semibold text-ink-900 dark:text-ink-100">How can Atlas help?</h2>
+          <p className="mt-1 text-xs text-ink-600 dark:text-ink-300">Marketing copy, mortgage explainers, drafts, or anything in your daily workflow.</p>
+          {!configured && <p className="mt-2 text-[11px] text-status-warn">{provider} is not configured — pick another provider in the chip above.</p>}
         </div>
-        <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
           {STARTER_PROMPTS.map((p) => (
             <button key={p} type="button" onClick={() => onPick(p)}
-              className="rounded-xl border border-accent-champagne/10 bg-white/40 dark:bg-ink-950/40 px-3 py-2 text-left text-[12px] text-ink-800 dark:text-ink-200 transition hover:border-accent-champagne/30 hover:bg-accent-gold/5 hover:text-ink-900 dark:hover:text-ink-100">
+              className="rounded-xl border border-ink-200 dark:border-accent-champagne/10 bg-white/60 dark:bg-ink-950/40 px-3 py-2 text-left text-[12px] text-ink-800 dark:text-ink-200 transition hover:border-accent-champagne/40 hover:bg-accent-gold/5 hover:text-ink-900 dark:hover:text-ink-100">
               {p}
             </button>
           ))}
         </div>
-        <div className="mt-4 border-t border-accent-champagne/10 pt-4">
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-600 dark:text-ink-300">Builder templates</p>
-          <BuilderPromptCards onPick={onPick} compact />
+        <div className="mt-3">
+          <button
+            type="button"
+            onClick={() => setShowTemplates((v) => !v)}
+            className="flex w-full items-center justify-between rounded-xl border border-ink-200 dark:border-accent-champagne/10 bg-white/40 dark:bg-ink-950/30 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-600 dark:text-ink-300 transition hover:border-accent-champagne/40 hover:text-ink-900 dark:hover:text-ink-100"
+          >
+            <span>Builder templates</span>
+            <ChevronDown size={14} className={cn("transition-transform", showTemplates && "rotate-180")} />
+          </button>
+          {showTemplates && (
+            <div className="mt-2">
+              <BuilderPromptCards onPick={onPick} compact />
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -473,14 +490,14 @@ function ProviderModelChip(props: {
 // ─── AtlasWorkspace (main export) ────────────────────────────────────────────
 
 export function AtlasWorkspace({
-  ownerId, currentThread, initialMessages = [],
+  ownerId, currentThread, initialInput = "", initialMessages = [],
   assistants: _assistants, providerCatalog, modelCatalog, defaultProvider,
   organizationId, projects, knowledgeCollections, projectAccess, recentThreads,
 }: AtlasWorkspaceProps) {
   const router = useRouter();
   const [threadId, setThreadId] = useState<string | null>(currentThread?.id ?? null);
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(initialInput);
   const [provider, setProvider] = useState<ProviderId>(defaultProvider);
   const [model, setModel] = useState<string>("");
   const [attachments, setAttachments] = useState<File[]>([]);

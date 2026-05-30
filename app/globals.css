@@ -9,7 +9,10 @@
  */
 :root {
   color-scheme: dark;
-  --bg: 5 6 10;
+  /* Lifted a touch off pure black (was 5 6 10) so flat panels read as deep
+   * charcoal-navy rather than dead black — premium, not flat. The command
+   * center background image still carries the atmosphere. */
+  --bg: 9 11 17;
   --fg: 231 234 242;
   --muted: 140 147 175;
   --accent: 199 150 53;
@@ -29,20 +32,21 @@
  */
 .light {
   color-scheme: light;
-  /* Warm off-white page background (champagne-tinted), not cool blue-white.
-   * Keeps the Legends gold palette feeling premium rather than corporate. */
-  --bg: 250 248 243;
-  --fg: 14 17 25;
-  --muted: 71 78 102;
+  /* Premium soft white — a crisp, near-white neutral (not beige/cream) with
+   * the faintest cool cast so the gold accents read as luxury rather than
+   * corporate. Text is high-contrast charcoal/black. */
+  --bg: 250 251 253;
+  --fg: 11 14 22;
+  --muted: 60 67 90;
   --accent: 199 150 53;
   --accent-2: 155 104 40;
   --primary-gold: 199 150 53;
   --burnt-gold: 155 104 40;
   --champagne-highlight: 226 201 120;
-  --dark-charcoal: 245 240 230;
+  --dark-charcoal: 252 252 254;
   --black-glass: 255 255 255;
   --glass-border: 199 150 53;
-  --muted-text: 71 78 102;
+  --muted-text: 60 67 90;
 }
 
 html,
@@ -67,13 +71,14 @@ body {
 /* Light mode body: drop the dark image + heavy overlays in favor of a
  * soft warm gradient. Brand accent radials stay at lower opacity. */
 .light body {
-  /* Three warm radials over a cream base for the "premium, breathing" feel
-   * — top-left burnt gold, top-right champagne, bottom-left soft champagne. */
+  /* Premium white base with whisper-faint champagne radials for depth — no
+   * cream, no muddy beige. The page reads as clean white; gold only hints at
+   * the corners so headings and body text stay crisp and high-contrast. */
   background-image:
-    linear-gradient(180deg, rgba(252, 250, 244, 0.55) 0%, rgba(250, 248, 242, 0.92) 60%, rgba(244, 241, 232, 0.98) 100%),
-    radial-gradient(70% 55% at 30% 8%, rgba(var(--burnt-gold), 0.1) 0%, rgba(var(--burnt-gold), 0) 62%),
-    radial-gradient(55% 50% at 88% 18%, rgba(var(--champagne-highlight), 0.1) 0%, rgba(var(--champagne-highlight), 0) 64%),
-    radial-gradient(60% 60% at 12% 92%, rgba(var(--champagne-highlight), 0.08) 0%, rgba(var(--champagne-highlight), 0) 64%);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, rgba(250, 251, 253, 0.92) 55%, rgba(247, 248, 251, 0.98) 100%),
+    radial-gradient(65% 50% at 28% 6%, rgba(var(--burnt-gold), 0.06) 0%, rgba(var(--burnt-gold), 0) 60%),
+    radial-gradient(50% 45% at 90% 16%, rgba(var(--champagne-highlight), 0.07) 0%, rgba(var(--champagne-highlight), 0) 62%),
+    radial-gradient(55% 55% at 10% 94%, rgba(var(--champagne-highlight), 0.05) 0%, rgba(var(--champagne-highlight), 0) 62%);
 }
 
 @layer components {
@@ -247,16 +252,15 @@ body {
  * enough to let the warm body gradient breathe through, contrasted enough
  * to keep text crisp. */
 .light .card {
-  background-color: rgba(255, 255, 255, 0.7);
+  background-color: rgba(255, 255, 255, 0.82);
   background-image:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(255, 253, 247, 0.62) 55%, rgba(252, 248, 240, 0.7) 100%),
-    linear-gradient(145deg, rgba(255, 255, 255, 0.96) 0%, rgba(252, 248, 240, 0.86) 100%);
-  border-color: rgba(199, 150, 53, 0.22);
-  color: rgb(14, 17, 25);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.86) 55%, rgba(252, 253, 255, 0.9) 100%);
+  border-color: rgba(17, 22, 36, 0.08);
+  color: rgb(11, 14, 22);
   box-shadow:
-    0 1px 0 0 rgba(255, 255, 255, 0.7) inset,
-    0 12px 28px -20px rgba(13, 18, 32, 0.12),
-    0 0 0 1px rgba(199, 150, 53, 0.05);
+    0 1px 0 0 rgba(255, 255, 255, 0.9) inset,
+    0 10px 30px -22px rgba(13, 18, 32, 0.16),
+    0 0 0 1px rgba(199, 150, 53, 0.04);
 }
 .light .card::before {
   opacity: 0.6;
@@ -273,12 +277,11 @@ body {
 /* `.glass-card` in light — even more pronounced liquid glass. Used by the
  * Academy hero/track/module/catalog cards for the "premium SaaS" feel. */
 .light .glass-card {
-  background-color: rgba(255, 255, 255, 0.55);
+  background-color: rgba(255, 255, 255, 0.72);
   background-image:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.88) 0%, rgba(255, 252, 244, 0.45) 60%, rgba(252, 248, 240, 0.6) 100%),
-    linear-gradient(145deg, rgba(255, 255, 255, 0.96) 0%, rgba(254, 250, 240, 0.7) 50%, rgba(248, 244, 234, 0.6) 100%);
-  border-color: rgba(199, 150, 53, 0.26);
-  color: rgb(14, 17, 25);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(255, 255, 255, 0.7) 60%, rgba(252, 253, 255, 0.78) 100%);
+  border-color: rgba(17, 22, 36, 0.08);
+  color: rgb(11, 14, 22);
   box-shadow:
     0 1px 0 0 rgba(255, 255, 255, 0.75) inset,
     0 16px 40px -22px rgba(13, 18, 32, 0.14),
@@ -403,8 +406,66 @@ body {
 }
 
 .light .scrollbar-thin::-webkit-scrollbar-thumb {
-  background-color: rgba(0, 0, 0, 0.1);
+  background-color: rgba(0, 0, 0, 0.14);
 }
+
+/* ─── Light-mode ink-utility remap ───────────────────────────────────────
+ * The app is built dark-first: lots of markup uses bare `text-ink-100` /
+ * `bg-ink-950/40` / `border-ink-800` (light text + near-black panels) with NO
+ * `dark:` prefix, so in light mode headings went invisible and panels went
+ * muddy. These rules ONLY match the BARE utilities — elements that correctly
+ * pair `text-ink-900 dark:text-ink-100` carry the `dark:` token instead and
+ * are untouched. This is the single highest-leverage light-mode contrast fix.
+ */
+
+/* Text: the light inks (100–300) were near-white headings/body — make them
+ * crisp charcoal so headings and body text are readable on white. The dark
+ * inks (500–950) are already dark enough on white and are left alone. */
+.light .text-ink-100 { color: rgb(13, 17, 27); }
+.light .text-ink-200 { color: rgb(22, 27, 42); }
+.light .text-ink-300 { color: rgb(58, 66, 92); }
+.light .text-ink-400 { color: rgb(74, 82, 108); }
+
+/* Near-black panel fills → clean translucent white so inner panels read as
+ * crisp glass, not muddy charcoal. */
+.light .bg-ink-950,
+.light .bg-ink-950\/80 { background-color: rgba(255, 255, 255, 0.86); }
+.light .bg-ink-950\/70 { background-color: rgba(255, 255, 255, 0.78); }
+.light .bg-ink-950\/60 { background-color: rgba(255, 255, 255, 0.72); }
+.light .bg-ink-950\/50 { background-color: rgba(255, 255, 255, 0.66); }
+.light .bg-ink-950\/40 { background-color: rgba(255, 255, 255, 0.6); }
+.light .bg-ink-950\/30 { background-color: rgba(255, 255, 255, 0.5); }
+.light .bg-ink-900,
+.light .bg-ink-900\/70 { background-color: rgba(248, 249, 252, 0.82); }
+.light .bg-ink-900\/60 { background-color: rgba(248, 249, 252, 0.74); }
+.light .bg-ink-900\/50 { background-color: rgba(248, 249, 252, 0.68); }
+.light .bg-ink-900\/40 { background-color: rgba(248, 249, 252, 0.6); }
+.light .bg-ink-900\/30 { background-color: rgba(248, 249, 252, 0.5); }
+.light .bg-ink-850,
+.light .bg-ink-800,
+.light .bg-ink-800\/80,
+.light .bg-ink-800\/70,
+.light .bg-ink-800\/60,
+.light .bg-ink-800\/50 { background-color: rgba(242, 244, 248, 0.85); }
+
+/* Dark borders → hairline charcoal so edges are visible but not harsh. */
+.light .border-ink-800,
+.light .border-ink-800\/80,
+.light .border-ink-800\/70,
+.light .border-ink-800\/60 { border-color: rgba(15, 20, 34, 0.1); }
+.light .border-ink-700,
+.light .border-ink-700\/80,
+.light .border-ink-700\/70,
+.light .border-ink-700\/60 { border-color: rgba(15, 20, 34, 0.08); }
+.light .border-ink-600 { border-color: rgba(15, 20, 34, 0.1); }
+.light .border-ink-500 { border-color: rgba(15, 20, 34, 0.12); }
+
+/* Hover/utility surfaces commonly used for menus and rows. */
+.light .hover\:bg-ink-800\/70:hover,
+.light .hover\:bg-ink-800\/50:hover,
+.light .hover\:bg-ink-800:hover { background-color: rgba(242, 244, 248, 0.9); }
+.light .hover\:bg-ink-900\/70:hover,
+.light .hover\:bg-ink-900\/60:hover { background-color: rgba(246, 247, 250, 0.92); }
 
 @layer utilities {
   .text-balance {

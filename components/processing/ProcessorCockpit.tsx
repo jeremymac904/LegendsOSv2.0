@@ -37,8 +37,8 @@ export function ProcessorCockpit({ rows }: { rows: BoardRow[] }) {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_1.3fr]">
-      {/* Board */}
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1.4fr]">
+      {/* Board — compact rows */}
       <div className="space-y-3">
         {COLUMNS.map((col) => {
           const items = rows.filter(col.match);
@@ -49,35 +49,38 @@ export function ProcessorCockpit({ rows }: { rows: BoardRow[] }) {
                 <span className="chip">{items.length}</span>
               </div>
               {items.length === 0 ? (
-                <p className="text-xs text-ink-400">Nothing here.</p>
+                <p className="text-xs text-ink-500 dark:text-ink-400">Nothing here.</p>
               ) : (
-                <ul className="space-y-1.5">
+                <ul className="space-y-1">
                   {items.map((r) => (
                     <li key={r.folderId}>
                       <button
                         type="button"
                         onClick={() => setSelected(r)}
+                        aria-pressed={selected?.folderId === r.folderId}
                         className={cn(
-                          "w-full rounded-xl border px-3 py-2.5 text-left transition-colors",
+                          "flex w-full items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left transition-colors",
                           selected?.folderId === r.folderId
-                            ? "border-accent-champagne/30 bg-ink-800/40"
-                            : "border-ink-800 bg-ink-900/40 hover:border-accent-champagne/20"
+                            ? "border-accent-champagne/40 bg-accent-champagne/10 dark:bg-ink-800/40"
+                            : "border-ink-200 bg-white/60 hover:border-accent-champagne/30 dark:border-ink-800 dark:bg-ink-950/40"
                         )}
                       >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="truncate text-sm font-medium text-ink-100">
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-medium text-ink-900 dark:text-ink-100">
                             {r.borrowerName}
                           </span>
-                          <StageStatusPill status={r.stageStatus} />
-                        </div>
-                        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-ink-300">
-                          <span>{r.loanProgram ?? "Program TBD"}</span>
-                          {r.loanNumber && <span>· #{r.loanNumber}</span>}
+                          <span className="block truncate text-[11px] text-ink-500 dark:text-ink-300">
+                            {r.loanProgram ?? "Program TBD"}
+                            {r.loanNumber ? ` · #${r.loanNumber}` : ""}
+                          </span>
+                        </span>
+                        <span className="flex shrink-0 items-center gap-1 text-[11px]">
                           {r.missingCount > 0 && (
-                            <span className="chip-warn">{r.missingCount} missing</span>
+                            <span className="chip-warn">{r.missingCount}</span>
                           )}
                           <PriorityPill priority={r.priority} />
-                        </div>
+                          <StageStatusPill status={r.stageStatus} />
+                        </span>
                       </button>
                     </li>
                   ))}

@@ -3,6 +3,10 @@ import { ImageIcon } from "lucide-react";
 
 import { GeneratedMediaCard } from "@/components/images/GeneratedMediaCard";
 import {
+  AssetLibraryBrowser,
+  type AssetLibraryItem,
+} from "@/components/images/AssetLibraryBrowser";
+import {
   ImageStudioClient,
   type FalReadiness,
   type ReferenceAsset,
@@ -97,6 +101,28 @@ export default async function ImageStudioPage() {
     .slice(0, 6);
   const showStarters = media.length < SHOW_STARTERS_THRESHOLD;
 
+  // Compact, client-searchable brand-library list. `origin` is the honest
+  // real-vs-shipped label: owner-uploaded assets are "uploaded" (real team
+  // brand), while checked-in manifest assets are "library". Starter previews
+  // shown on the empty-state row are flagged "sample" so nothing pretends to
+  // be generated output.
+  const uploadedIds = new Set(uploadedRefs.map((u) => u.id));
+  const starterIds = new Set(starters.map((s) => s.id));
+  const browserAssets: AssetLibraryItem[] = assetRefs
+    .filter((a) => a.public_path)
+    .map((a) => ({
+      id: a.id,
+      label: a.label,
+      file_name: a.file_name,
+      category: a.category,
+      public_path: a.public_path,
+      origin: uploadedIds.has(a.id)
+        ? "uploaded"
+        : starterIds.has(a.id)
+        ? "sample"
+        : "library",
+    }));
+
   // Three-state chip surfaced in the SectionHeader action slot. The
   // composer renders its own chip too — both pull from the same value so
   // they always agree.
@@ -173,8 +199,8 @@ export default async function ImageStudioPage() {
                 {starters.map((a) => (
                   <article
                     key={a.id}
-                    className="group overflow-hidden rounded-xl border border-ink-800 bg-checker"
-                    title={a.label}
+                    className="group overflow-hidden rounded-xl border border-ink-200 bg-checker dark:border-ink-800"
+                    title={`${a.label} (Sample)`}
                   >
                     <div className="relative aspect-square">
                       {a.public_path && (
@@ -185,15 +211,15 @@ export default async function ImageStudioPage() {
                           loading="lazy"
                         />
                       )}
-                      <span className="absolute left-1.5 top-1.5 rounded-full bg-ink-950/80 px-2 py-0.5 text-[9px] uppercase tracking-[0.18em] text-ink-200">
-                        {a.category.replace(/_/g, " ")}
+                      <span className="absolute left-1.5 top-1.5 rounded-full chip-warn px-1.5 py-0.5 text-[8px] uppercase tracking-[0.12em]">
+                        Sample
                       </span>
                     </div>
                     <div className="space-y-0.5 px-2.5 py-1.5 text-[11px]">
-                      <p className="line-clamp-1 font-medium text-ink-100">
+                      <p className="line-clamp-1 font-medium text-ink-900 dark:text-ink-100">
                         {a.label}
                       </p>
-                      <p className="line-clamp-1 text-[10px] text-ink-300">
+                      <p className="line-clamp-1 text-[10px] text-ink-500 dark:text-ink-400">
                         {a.file_name}
                       </p>
                     </div>
@@ -209,15 +235,15 @@ export default async function ImageStudioPage() {
                 {showStarters && starters.length > 0 && (
                   <>
                     <div className="col-span-full mt-2">
-                      <p className="text-[10px] uppercase tracking-[0.18em] text-ink-300">
-                        Brand starters
+                      <p className="text-[10px] uppercase tracking-[0.18em] text-ink-500 dark:text-ink-400">
+                        Brand starters · sample
                       </p>
                     </div>
                     {starters.map((a) => (
                       <article
                         key={a.id}
-                        className="overflow-hidden rounded-xl border border-ink-800 bg-checker"
-                        title={a.label}
+                        className="relative overflow-hidden rounded-xl border border-ink-200 bg-checker dark:border-ink-800"
+                        title={`${a.label} (Sample)`}
                       >
                         <div className="aspect-square">
                           {a.public_path && (
@@ -229,7 +255,10 @@ export default async function ImageStudioPage() {
                             />
                           )}
                         </div>
-                        <p className="line-clamp-1 px-2 py-1 text-[11px] text-ink-200">
+                        <span className="absolute left-1.5 top-1.5 rounded-full chip-warn px-1.5 py-0.5 text-[8px] uppercase tracking-[0.12em]">
+                          Sample
+                        </span>
+                        <p className="line-clamp-1 px-2 py-1 text-[11px] text-ink-700 dark:text-ink-200">
                           {a.label}
                         </p>
                       </article>
@@ -259,34 +288,19 @@ export default async function ImageStudioPage() {
               </Link>
             )}
           </div>
-          <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-7 xl:grid-cols-8">
-            {assetRefs.map((a) =>
-              a.public_path ? (
-                <a
-                  key={a.id}
-                  href={a.public_path}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="group block overflow-hidden rounded-lg border border-ink-800 bg-checker"
-                  title={a.label}
-                >
-                  <img
-                    src={a.public_path}
-                    alt={a.label}
-                    className="aspect-square w-full object-cover transition group-hover:opacity-90"
-                    loading="lazy"
-                  />
-                </a>
-              ) : null
-            )}
+          <div className="mt-4">
+            <AssetLibraryBrowser assets={browserAssets} />
           </div>
-          <p className="mt-3 text-[11px] text-ink-300">
-            Shows owner-uploaded assets (from{" "}
+          <p className="mt-3 text-[11px] text-ink-500 dark:text-ink-400">
+            <span className="text-status-ok">Uploaded</span> = owner assets from
+            the{" "}
             <Link href="/admin/assets" className="text-accent-gold">
               Asset Library
             </Link>
-            ) plus anything in <code>public/assets/</code> via{" "}
-            <code>npm run index-assets</code>.
+            ; <span className="text-status-info">Library</span> = checked-in{" "}
+            <code>public/assets/</code> via <code>npm run index-assets</code>;{" "}
+            <span className="text-status-warn">Sample</span> = shipped starter
+            visuals.
           </p>
         </section>
       )}

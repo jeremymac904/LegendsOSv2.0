@@ -8,9 +8,16 @@ import { buildAtlasModelCatalog } from "./model-catalog";
 
 export const dynamic = "force-dynamic";
 
-export default async function AtlasIndexPage() {
+export default async function AtlasIndexPage({
+  searchParams,
+}: {
+  searchParams?: { prompt?: string };
+}) {
   const { profile } = await getEffectiveProfile();
   if (!profile) return null;
+  // "Send to Atlas" deep-link: other surfaces (Vibe Coding, Builder) can link
+  // to /atlas?prompt=<encoded> to pre-fill the composer for a new chat.
+  const initialInput = (searchParams?.prompt ?? "").slice(0, 8000);
   const supabase = getSupabaseServerClient();
   const env = getServerEnv();
 
@@ -85,6 +92,7 @@ export default async function AtlasIndexPage() {
     <AtlasWorkspace
       ownerId={profile.id}
       currentThread={null}
+      initialInput={initialInput}
       assistants={assistantList}
       providerCatalog={textProviders.map((p) => ({
         id: p.id as "openrouter" | "deepseek" | "nvidia" | "minimax",

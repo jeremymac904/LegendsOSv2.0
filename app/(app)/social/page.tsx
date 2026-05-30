@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ExternalLink, PlayCircle, PlugZap, Share2 } from "lucide-react";
 
 import { SocialComposer } from "@/components/social/SocialComposer";
+import { Accordion, type AccordionItemData } from "@/components/ui/Accordion";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatusPill } from "@/components/ui/StatusPill";
@@ -79,7 +80,7 @@ function SavedPostMediaThumb({ media }: { media: SocialMediaPreview }) {
   if (!media.preview_url) return null;
   if (mediaLooksLikeVideo(media)) {
     return (
-      <span className="relative block h-14 w-14 overflow-hidden rounded-lg border border-ink-800 bg-ink-950">
+      <span className="relative block h-14 w-14 overflow-hidden rounded-lg border border-ink-200 bg-ink-950 dark:border-ink-800">
         <video
           src={media.preview_url}
           className="h-full w-full object-cover"
@@ -98,7 +99,7 @@ function SavedPostMediaThumb({ media }: { media: SocialMediaPreview }) {
     <img
       src={media.preview_url}
       alt={media.prompt ?? ""}
-      className="h-14 w-14 rounded-lg border border-ink-800 object-cover"
+      className="h-14 w-14 rounded-lg border border-ink-200 object-cover dark:border-ink-800"
     />
   );
 }
@@ -183,8 +184,59 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
   const mediaById = new Map(mediaLibrary.map((m) => [m.id, m]));
   const preselectedMediaId = searchParams?.media ?? null;
 
+  const publishEnabled = env.SAFETY.allowLiveSocialPublish;
+  const n8nConnected = Boolean(env.N8N_WEBHOOKS.social_publish);
+  const platformWebhooksReady = Boolean(
+    env.N8N_WEBHOOKS.facebook_post ||
+      env.N8N_WEBHOOKS.instagram_post ||
+      env.N8N_WEBHOOKS.gbp_post ||
+      env.N8N_WEBHOOKS.youtube_post
+  );
+
+  const setupItems: AccordionItemData[] = [
+    {
+      id: "posting-setup",
+      title: "Posting setup path",
+      icon: PlugZap,
+      meta: (
+        <span className="hidden sm:inline">
+          {publishEnabled ? "publishing enabled" : "publishing disabled"}
+        </span>
+      ),
+      children: (
+        <div className="space-y-3">
+          <p className="text-xs text-ink-600 dark:text-ink-300">
+            Drafting is live. External publishing stays disabled until the owner
+            flag and n8n webhooks are configured.
+          </p>
+          <div className="grid gap-2 md:grid-cols-3">
+            <SetupStatusCard
+              title="Owner publish flag"
+              detail="ALLOW_LIVE_SOCIAL_PUBLISH"
+              ready={publishEnabled}
+            />
+            <SetupStatusCard
+              title="n8n publish broker"
+              detail="N8N_WEBHOOK_SOCIAL_PUBLISH"
+              ready={n8nConnected}
+            />
+            <SetupStatusCard
+              title="Platform webhooks"
+              detail="FACEBOOK / INSTAGRAM / GBP / YOUTUBE"
+              ready={platformWebhooksReady}
+            />
+          </div>
+          <Link href="/settings" className="btn-ghost text-xs">
+            <ExternalLink size={13} />
+            Open setup
+          </Link>
+        </div>
+      ),
+    },
+  ];
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <SectionHeader
         eyebrow="Social Studio"
         title="Multi-channel drafts"
@@ -192,58 +244,46 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
         action={
           <div className="flex flex-wrap gap-2">
             <StatusPill
-              status={env.SAFETY.allowLiveSocialPublish ? "ok" : "warn"}
+              status={publishEnabled ? "ok" : "warn"}
               label={
-                env.SAFETY.allowLiveSocialPublish
-                  ? "external publishing enabled"
-                  : "external publishing disabled"
+                publishEnabled
+                  ? "live publishing on"
+                  : "live publishing off"
               }
             />
             <StatusPill
-              status={env.N8N_WEBHOOKS.social_publish ? "ok" : "warn"}
-              label={
-                env.N8N_WEBHOOKS.social_publish
-                  ? "n8n connected"
-                  : "n8n not configured"
-              }
+              status={n8nConnected ? "ok" : "off"}
+              label={n8nConnected ? "n8n connected" : "n8n not connected"}
             />
           </div>
         }
       />
-      <section className="card-padded">
-        <div className="section-title">
-          <div>
-            <h2>Posting setup path</h2>
-            <p>Drafting is live. External publishing remains disabled until owner flags and webhooks are configured.</p>
-          </div>
-          <Link href="/settings" className="btn-ghost text-xs">
-            <ExternalLink size={13} />
-            Setup
-          </Link>
-        </div>
-        <div className="mt-3 grid gap-2 md:grid-cols-3">
-          <SetupStatusCard
-            title="Owner publish flag"
-            detail="ALLOW_LIVE_SOCIAL_PUBLISH"
-            ready={env.SAFETY.allowLiveSocialPublish}
-          />
-          <SetupStatusCard
-            title="n8n publish broker"
-            detail="N8N_WEBHOOK_SOCIAL_PUBLISH"
-            ready={Boolean(env.N8N_WEBHOOKS.social_publish)}
-          />
-          <SetupStatusCard
-            title="Platform webhooks"
-            detail="FACEBOOK / INSTAGRAM / GBP / YOUTUBE"
-            ready={Boolean(
-              env.N8N_WEBHOOKS.facebook_post ||
-                env.N8N_WEBHOOKS.instagram_post ||
-                env.N8N_WEBHOOKS.gbp_post ||
-                env.N8N_WEBHOOKS.youtube_post
-            )}
-          />
-        </div>
-      </section>
+
+      {/* Compact status bar + collapsible setup detail, so the composer sits
+          near the top instead of below a tall 3-up card grid. */}
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-ink-200 bg-white/70 px-3 py-2 text-xs dark:border-ink-800 dark:bg-ink-950/40">
+        <span className="font-medium text-ink-900 dark:text-ink-100">
+          Drafting live
+        </span>
+        <span className="text-ink-500 dark:text-ink-400">·</span>
+        <span className="text-ink-600 dark:text-ink-300">
+          Live publishing is{" "}
+          {publishEnabled ? (
+            <span className="text-status-ok">enabled</span>
+          ) : (
+            <span className="text-status-warn">disabled</span>
+          )}
+        </span>
+        <span className="text-ink-500 dark:text-ink-400">·</span>
+        <span className="text-ink-600 dark:text-ink-300">
+          n8n {n8nConnected ? "connected" : "not connected"}
+        </span>
+        <Link href="/settings" className="btn-ghost ml-auto text-[11px]">
+          <ExternalLink size={12} />
+          Setup
+        </Link>
+      </div>
+
       <SocialComposer
         userId={profile.id}
         mediaLibrary={mediaLibrary}
@@ -251,6 +291,8 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
         assetUsage={assetUsage}
         atlasPrefill={atlasPrefill}
       />
+
+      <Accordion items={setupItems} />
 
       <section className="card-padded">
         <div className="section-title">
@@ -278,14 +320,14 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
               return (
                 <article
                   key={p.id}
-                  className="rounded-xl border border-ink-800 bg-ink-900/40 p-3"
+                  className="rounded-xl border border-ink-200 bg-white/70 p-3 dark:border-ink-800 dark:bg-ink-950/40"
                 >
                   <header className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-ink-100">
+                      <p className="text-sm font-medium text-ink-900 dark:text-ink-100">
                         {p.title ?? "Untitled draft"}
                       </p>
-                      <p className="mt-0.5 line-clamp-2 text-xs text-ink-300">
+                      <p className="mt-0.5 line-clamp-2 text-xs text-ink-600 dark:text-ink-300">
                         {p.body}
                       </p>
                     </div>
@@ -307,7 +349,7 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
                       )}
                     </div>
                   )}
-                  <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-ink-300">
+                  <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-ink-600 dark:text-ink-300">
                     <div className="flex flex-wrap gap-1">
                       {p.channels.map((c) => (
                         <span key={c} className="chip">
@@ -342,15 +384,15 @@ function SetupStatusCard({
   ready: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-ink-800 bg-ink-900/30 p-3">
+    <div className="rounded-xl border border-ink-200 bg-white/70 p-3 dark:border-ink-800 dark:bg-ink-950/40">
       <div className="flex items-center justify-between gap-2">
         <span className="grid h-8 w-8 place-items-center rounded-lg border border-accent-gold/20 bg-accent-gold/10 text-accent-gold">
           <PlugZap size={14} />
         </span>
         <StatusPill status={ready ? "ok" : "warn"} label={ready ? "ready" : "setup needed"} />
       </div>
-      <p className="mt-3 text-sm font-medium text-ink-100">{title}</p>
-      <p className="mt-1 font-mono text-[10px] text-ink-400">{detail}</p>
+      <p className="mt-3 text-sm font-medium text-ink-900 dark:text-ink-100">{title}</p>
+      <p className="mt-1 font-mono text-[10px] text-ink-500 dark:text-ink-400">{detail}</p>
     </div>
   );
 }

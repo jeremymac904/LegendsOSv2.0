@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Sparkles,
   Home,
@@ -14,14 +14,21 @@ import {
   CircleX,
   Wand2,
   ListChecks,
+  X,
+  ArrowUpRight,
+  ChevronRight,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   VIBE_PROMPT_TEMPLATES,
+  VIBE_BUILD_CARDS,
+  fillBuildPrompt,
   COMPLIANCE_SAFE_COPY,
   REVIEW_WORKFLOW_STEPS,
+  type VibeBuildCard,
 } from "@/lib/vibe/templates";
+import { JeremyReviewPanel } from "@/components/vibe/JeremyReviewPanel";
 
 type TabKey = "build" | "prompts" | "compliance" | "review";
 
@@ -32,38 +39,13 @@ const TABS: { key: TabKey; label: string; icon: LucideIcon }[] = [
   { key: "review", label: "Jeremy review", icon: ListChecks },
 ];
 
-const BUILD_CARDS: {
-  icon: LucideIcon;
-  title: string;
-  description: string;
-}[] = [
-  {
-    icon: Home,
-    title: "Realtor landing pages",
-    description:
-      "Co-branded one-pagers to partner with agents and capture leads.",
-  },
-  {
-    icon: FileText,
-    title: "Blog posts",
-    description: "Educational articles that build trust with homebuyers.",
-  },
-  {
-    icon: Globe,
-    title: "Simple websites",
-    description: "A clean personal site to introduce you and your services.",
-  },
-  {
-    icon: BookOpen,
-    title: "Content pages",
-    description: "FAQ and 'what to expect' resources you can reuse.",
-  },
-  {
-    icon: Lightbulb,
-    title: "Marketing ideas",
-    description: "Quick, compliant campaign concepts and post hooks.",
-  },
-];
+const BUILD_ICONS: Record<VibeBuildCard["iconKey"], LucideIcon> = {
+  home: Home,
+  fileText: FileText,
+  globe: Globe,
+  bookOpen: BookOpen,
+  lightbulb: Lightbulb,
+};
 
 export function VibeCodingHub() {
   const [tab, setTab] = useState<TabKey>("build");
@@ -123,29 +105,213 @@ export function VibeCodingHub() {
 }
 
 function BuildSection() {
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const activeCard = useMemo(
+    () => VIBE_BUILD_CARDS.find((c) => c.id === activeId) ?? null,
+    [activeId],
+  );
+
   return (
     <div className="space-y-4">
       <div className="section-title">
         <h2>What you can build</h2>
-        <p>Pick an asset type, then grab its prompt from the next tab.</p>
+        <p>
+          Pick an asset type to open its builder — fill in the blanks, copy the
+          prompt or send it straight to Atlas, then run the Jeremy AI Review.
+        </p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {BUILD_CARDS.map((c) => {
-          const Icon = c.icon;
+        {VIBE_BUILD_CARDS.map((c) => {
+          const Icon = BUILD_ICONS[c.iconKey];
           return (
-            <div key={c.title} className="card-padded">
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => setActiveId(c.id)}
+              className="card-padded group text-left transition-colors hover:border-accent-gold/40 hover:bg-white dark:hover:bg-ink-900/60"
+              aria-label={`Open ${c.title} builder`}
+            >
               <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-gold/15 text-accent-gold">
                 <Icon size={18} />
               </span>
-              <h3 className="mt-3 text-[14px] font-semibold text-ink-900 dark:text-ink-100">
+              <h3 className="mt-3 flex items-center gap-1 text-[14px] font-semibold text-ink-900 dark:text-ink-100">
                 {c.title}
+                <ChevronRight
+                  size={14}
+                  className="text-ink-400 transition-transform group-hover:translate-x-0.5 dark:text-ink-500"
+                />
               </h3>
               <p className="mt-1 text-[12px] leading-relaxed text-ink-600 dark:text-ink-400">
                 {c.description}
               </p>
-            </div>
+              <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-medium text-accent-gold">
+                Open builder
+              </span>
+            </button>
           );
         })}
+      </div>
+
+      {activeCard && (
+        <BuildDetailPanel
+          card={activeCard}
+          onClose={() => setActiveId(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function BuildDetailPanel({
+  card,
+  onClose,
+}: {
+  card: VibeBuildCard;
+  onClose: () => void;
+}) {
+  const Icon = BUILD_ICONS[card.iconKey];
+  const [values, setValues] = useState<Record<string, string>>({});
+  const [copied, setCopied] = useState(false);
+
+  const filledPrompt = useMemo(
+    () => fillBuildPrompt(card, values),
+    [card, values],
+  );
+
+  const setValue = (key: string, value: string) =>
+    setValues((prev) => ({ ...prev, [key]: value }));
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(filledPrompt);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard unavailable — keep the UI calm.
+    }
+  };
+
+  const handleSendToAtlas = () => {
+    window.location.href = `/atlas?prompt=${encodeURIComponent(filledPrompt)}`;
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex justify-end"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${card.title} builder`}
+    >
+      {/* Scrim */}
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Close builder"
+        className="absolute inset-0 bg-ink-950/40 backdrop-blur-sm"
+      />
+      {/* Panel */}
+      <div className="scrollbar-thin relative ml-auto flex h-full w-full max-w-xl flex-col overflow-y-auto border-l border-ink-200 bg-white shadow-glass dark:border-ink-800 dark:bg-ink-950">
+        <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-ink-200 bg-white/95 p-5 backdrop-blur dark:border-ink-800 dark:bg-ink-950/95">
+          <div className="flex items-start gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-gold/15 text-accent-gold">
+              <Icon size={18} />
+            </span>
+            <div className="min-w-0">
+              <h3 className="text-[15px] font-semibold text-ink-900 dark:text-ink-100">
+                {card.title}
+              </h3>
+              <p className="mt-1 text-[12px] leading-relaxed text-ink-600 dark:text-ink-300">
+                {card.whatItCreates}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close builder"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-ink-200 text-ink-600 hover:bg-ink-100 dark:border-ink-800 dark:text-ink-300 dark:hover:bg-ink-900"
+          >
+            <X size={15} />
+          </button>
+        </div>
+
+        <div className="space-y-5 p-5">
+          {/* Inputs */}
+          <div className="space-y-3">
+            <p className="label">Fill in your details</p>
+            {card.inputs.map((input) => (
+              <div key={input.key}>
+                <label
+                  htmlFor={`${card.id}-${input.key}`}
+                  className="mb-1 block text-[12px] font-medium text-ink-700 dark:text-ink-300"
+                >
+                  {input.label}
+                </label>
+                <input
+                  id={`${card.id}-${input.key}`}
+                  type="text"
+                  className="input"
+                  placeholder={input.placeholder}
+                  value={values[input.key] ?? ""}
+                  onChange={(e) => setValue(input.key, e.target.value)}
+                />
+              </div>
+            ))}
+            <p className="text-[11px] leading-relaxed text-ink-500 dark:text-ink-400">
+              Anything you leave blank shows up as a clearly-marked
+              [placeholder] in the prompt so nothing is faked.
+            </p>
+          </div>
+
+          {/* Prompt preview */}
+          <div>
+            <div className="mb-1.5 flex items-center justify-between gap-2">
+              <p className="label mb-0">Your prompt</p>
+              <button
+                type="button"
+                onClick={handleCopy}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12px] font-medium transition-colors",
+                  copied
+                    ? "border-status-ok/40 bg-status-ok/15 text-status-ok"
+                    : "border-ink-200 bg-white/60 text-ink-700 hover:bg-white dark:border-ink-800 dark:bg-ink-900/60 dark:text-ink-200 dark:hover:bg-ink-900",
+                )}
+                aria-label="Copy prompt"
+              >
+                {copied ? <Check size={14} /> : <Copy size={14} />}
+                {copied ? "Copied!" : "Copy prompt"}
+              </button>
+            </div>
+            <pre className="scrollbar-thin max-h-72 overflow-auto whitespace-pre-wrap rounded-xl border border-ink-200 bg-white/50 p-3 text-[12px] leading-relaxed text-ink-700 dark:border-ink-800 dark:bg-ink-950/50 dark:text-ink-300">
+              {filledPrompt}
+            </pre>
+          </div>
+
+          {/* Send to Atlas */}
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={handleSendToAtlas}
+              className="btn-primary flex items-center gap-1.5"
+            >
+              <ArrowUpRight size={14} />
+              Send to Atlas
+            </button>
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="btn-secondary flex items-center gap-1.5"
+            >
+              {copied ? <Check size={14} /> : <Copy size={14} />}
+              {copied ? "Copied!" : "Copy prompt"}
+            </button>
+          </div>
+
+          {/* Jeremy AI Review */}
+          <div className="rounded-xl border border-ink-200 bg-white/60 p-4 dark:border-ink-800 dark:bg-ink-950/40">
+            <JeremyReviewPanel content={filledPrompt} />
+          </div>
+        </div>
       </div>
     </div>
   );

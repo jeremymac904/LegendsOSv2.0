@@ -36,17 +36,45 @@ export const dynamic = "force-dynamic";
 export default async function SettingsPage() {
   const { profile } = await getEffectiveProfile();
   if (!profile) return null;
-  const supabase = getSupabaseServerClient();
-  const env = getServerEnv();
 
-  const { data: providerRows } = await supabase
-    .from("provider_credentials_public")
-    .select("*")
-    .order("provider");
+  // HARDENING: getServerEnv()/getAIProviderStatuses() read process.env and can
+  // throw if a required var is missing on a fresh deploy. Settings must never
+  // crash — fall back to a safe empty env snapshot so the page still renders.
+  let env: ReturnType<typeof getServerEnv>;
+  try {
+    env = getServerEnv();
+  } catch {
+    env = getSafeEnvFallback();
+  }
+
+  // HARDENING: the provider table may not exist yet (e.g.
+  // provider_credentials_public missing) or the supabase client may fail to
+  // construct when env is absent. Guard both the client creation and the query
+  // so a missing table/env returns [] instead of throwing.
+  let providerRows: ProviderCredentialPublic[] | null = null;
+  try {
+    const supabase = getSupabaseServerClient();
+    const { data } = await supabase
+      .from("provider_credentials_public")
+      .select("*")
+      .order("provider");
+    providerRows = (data ?? []) as ProviderCredentialPublic[];
+  } catch {
+    // Table missing, RLS rejection, or unconfigured supabase — degrade to no
+    // stored placeholders. Live env detection below still drives the gateway.
+    providerRows = [];
+  }
 
   const owner = isOwner(profile);
   const storedProviders = (providerRows ?? []) as ProviderCredentialPublic[];
-  const liveStatuses = getAIProviderStatuses();
+  // HARDENING: provider status derivation reads env flags; guard so a bad env
+  // can't take the whole page down.
+  let liveStatuses: ReturnType<typeof getAIProviderStatuses>;
+  try {
+    liveStatuses = getAIProviderStatuses();
+  } catch {
+    liveStatuses = [];
+  }
   const storedByProvider = new Map(storedProviders.map((r) => [r.provider, r]));
   const previewLookup: Record<string, string> = {
     openrouter: env.OPENROUTER_API_KEY,
@@ -585,4 +613,75 @@ export default async function SettingsPage() {
       <Accordion items={sections} />
     </div>
   );
+}
+
+// HARDENING: safe fallback for the env snapshot. Used only if getServerEnv()
+// throws (e.g. a required var is unexpectedly missing on a fresh deploy). Every
+// value resolves to an empty / disabled default so the gateway shows "missing"
+// rather than crashing the whole Settings route. Shape mirrors getServerEnv()'s
+// `as const` return; only the fields Settings reads need to be meaningful.
+function getSafeEnvFallback(): ReturnType<typeof getServerEnv> {
+  const empty = "";
+  const fallback = {
+    SUPABASE_URL: empty,
+    SUPABASE_PUBLISHABLE_KEY: empty,
+    SUPABASE_ANON_KEY: empty,
+    SUPABASE_SECRET_KEY: empty,
+    SUPABASE_SERVICE_ROLE_KEY: empty,
+    OPENROUTER_API_KEY: empty,
+    OPENROUTER_BASE_URL: empty,
+    OPENROUTER_DEFAULT_MODEL: empty,
+    OPENROUTER_FREE_MODELS: [] as string[],
+    DEEPSEEK_API_KEY: empty,
+    DEEPSEEK_BASE_URL: empty,
+    DEEPSEEK_DEFAULT_MODEL: empty,
+    NVIDIA_API_KEY: empty,
+    NVIDIA_BASE_URL: empty,
+    NVIDIA_MODELS: {
+      kimi_k2_5: empty,
+      nemotron_super_120b: empty,
+      mistral_small_4_119b: empty,
+    },
+    MINIMAX_API_KEY: empty,
+    MINIMAX_KEY: empty,
+    MINIMAX_BASE_URL: empty,
+    MINIMAX_DEFAULT_MODEL: empty,
+    MINIMAX_MODELS: [] as string[],
+    FAL_KEY: empty,
+    FAL_API_KEY: empty,
+    FAL_DEFAULT_MODEL: empty,
+    FAL_FAST_IMAGE_MODEL: empty,
+    FAL_PREMIUM_IMAGE_MODEL: empty,
+    HF_TOKEN: empty,
+    HUGGINGFACE_API_KEY: empty,
+    HUGGINGFACE_DEFAULT_MODEL: empty,
+    AI_DEFAULT_TEXT_PROVIDER: "openrouter",
+    AI_DEFAULT_IMAGE_PROVIDER: "fal",
+    N8N_BASE_URL: empty,
+    N8N_WEBHOOK_BASE_URL: empty,
+    N8N_WEBHOOK_SECRET: empty,
+    N8N_API_KEY: empty,
+    N8N_WEBHOOKS: {
+      social_publish: empty,
+      gbp_post: empty,
+      facebook_post: empty,
+      instagram_post: empty,
+      youtube_post: empty,
+      email_send: empty,
+      daily_usage: empty,
+      provider_health: empty,
+      content_reminder: empty,
+      failed_publish_recovery: empty,
+    },
+    DAILY_CAPS: { chat: 0, images: 0, social: 0, email: 0 },
+    SAFETY: {
+      allowLiveSocialPublish: false,
+      allowLiveEmailSend: false,
+      allowPaidImageGeneration: false,
+      allowPaidTextGeneration: false,
+    },
+  };
+  // The real return type is `as const` (readonly literals); cast through unknown
+  // since this is a runtime-only safety net, not a literal-typed value.
+  return fallback as unknown as ReturnType<typeof getServerEnv>;
 }

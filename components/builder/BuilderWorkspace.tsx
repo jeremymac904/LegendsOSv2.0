@@ -716,10 +716,24 @@ function IncubatorTab() {
             placeholder="Audience"
             className="w-full rounded-lg border border-ink-200 bg-white/70 px-3 py-2 text-[13px] text-ink-900 placeholder:text-ink-400 outline-none focus:border-accent-gold/50 dark:border-ink-800 dark:bg-ink-900/70 dark:text-ink-100"
           />
-          <a href="/vibe-coding" className="btn-secondary inline-flex gap-2">
-            <Rocket size={14} />
-            Open vibe-coding
-          </a>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                const topic = siteTopic.trim() || "a marketing website";
+                const audience = siteAudience.trim() || "prospective clients";
+                const brief = `Help me plan and draft ${topic} for ${audience}. Give me a site/blog outline, suggested pages or post sections, a hero headline, and a clear call to action. Keep it on-brand for The Legends Mortgage Team and mortgage-compliance aware.`;
+                window.location.href = `/atlas?prompt=${encodeURIComponent(brief)}`;
+              }}
+              className="btn-primary inline-flex gap-2"
+            >
+              <Rocket size={14} />
+              Draft in Atlas
+            </button>
+            <a href="/vibe-coding" className="btn-secondary inline-flex gap-2">
+              Open Vibe Coding
+            </a>
+          </div>
         </div>
       </div>
     </div>
