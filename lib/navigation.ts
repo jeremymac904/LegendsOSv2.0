@@ -1,10 +1,13 @@
 import {
   Bell,
   BookOpen,
+  Briefcase,
   Calendar,
   ChartLine,
+  ClipboardList,
   Factory,
   FileStack,
+  FolderTree,
   GraduationCap,
   ImageIcon,
   LayoutDashboard,
@@ -14,6 +17,7 @@ import {
   ShieldCheck,
   Share2,
   Sparkles,
+  UserCheck,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -26,7 +30,7 @@ export interface NavItem {
   description?: string;
   icon: LucideIcon;
   gate?: NavGate;
-  section: "core" | "studios" | "team" | "owner";
+  section: "core" | "mortgage" | "studios" | "team" | "owner";
 }
 
 export const NAV_ITEMS: NavItem[] = [
@@ -50,6 +54,38 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Knowledge Sources",
     description: "Collections and retrieval",
     icon: BookOpen,
+  },
+  {
+    section: "mortgage",
+    href: "/loan-brain",
+    label: "Loan Brain",
+    description: "Read-only Drive borrower file browser",
+    icon: FolderTree,
+    gate: { ownerOnly: true },
+  },
+  {
+    section: "mortgage",
+    href: "/processing",
+    label: "Processing (FLO)",
+    description: "Ashley's processor cockpit",
+    icon: ClipboardList,
+    gate: { roles: ["processor"] },
+  },
+  {
+    section: "mortgage",
+    href: "/coordinator",
+    label: "Coordinator",
+    description: "Geraldine's follow-up board",
+    icon: UserCheck,
+    gate: { roles: ["coordinator"] },
+  },
+  {
+    section: "mortgage",
+    href: "/my-loans",
+    label: "My Loans",
+    description: "Your assigned loan files",
+    icon: Briefcase,
+    gate: { roles: ["loan_officer"] },
   },
   {
     section: "studios",
@@ -84,6 +120,13 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/training",
     label: "Training",
     description: "Team training and tutorials",
+    icon: GraduationCap,
+  },
+  {
+    section: "team",
+    href: "/training/academy",
+    label: "Legends Academy",
+    description: "Sales · Marketing · AI · Mastery tracks",
     icon: GraduationCap,
   },
   {
@@ -150,6 +193,7 @@ export const NAV_ITEMS: NavItem[] = [
 
 export const NAV_SECTIONS: { key: NavItem["section"]; label: string }[] = [
   { key: "core", label: "Core" },
+  { key: "mortgage", label: "Mortgage" },
   { key: "studios", label: "Studios" },
   { key: "team", label: "Team" },
   { key: "owner", label: "Owner only" },

@@ -8,6 +8,7 @@ export type UserRole =
   | "admin"
   | "loan_officer"
   | "processor"
+  | "coordinator"
   | "marketing"
   | "viewer";
 export type AssistantVisibility = "owner_only" | "assigned_user" | "team_shared";
@@ -46,6 +47,26 @@ export type CalendarItemType =
   | "email_campaign"
   | "team_event"
   | "reminder";
+
+// ---------------------------------------------------------------------------
+// Mortgage Loan Brain status vocabularies (Phase 1).
+// ---------------------------------------------------------------------------
+export type LoanStageStatus = "blocked" | "working" | "done" | "seen";
+export type LoanStage =
+  | "lead"
+  | "prospect"
+  | "application"
+  | "processing"
+  | "underwriting"
+  | "approved"
+  | "clear_to_close"
+  | "funded"
+  | "closed"
+  | "past_client"
+  | "withdrawn";
+export type LoanDocStatus = "received" | "missing" | "pending" | "waived";
+export type LoanTaskStatus = "todo" | "doing" | "blocked" | "done";
+export type LoanApprovalStatus = "pending" | "approved" | "rejected" | "cancelled";
 
 export interface Profile {
   id: string;
@@ -292,6 +313,155 @@ export interface ProviderCredentialPublic {
   env_var_name: string | null;
   metadata: Record<string, unknown>;
   is_enabled: boolean;
+  updated_at: string;
+}
+
+// ---------------------------------------------------------------------------
+// Mortgage Loan Brain tables (Phase 1) — feature/loan-brain-drive-browser
+// ---------------------------------------------------------------------------
+
+export interface Loan {
+  id: string;
+  owner_id: string;
+  assigned_processor_id: string | null;
+  assigned_coordinator_id: string | null;
+  loan_number: string | null;
+  loan_program: string | null;
+  loan_purpose: string | null;
+  property_address: string | null;
+  lender: string | null;
+  stage: LoanStage;
+  stage_status: LoanStageStatus;
+  priority: string;
+  drive_folder_id: string | null;
+  drive_url: string | null;
+  notes: string | null;
+  is_sample: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Borrower {
+  id: string;
+  loan_id: string;
+  owner_id: string;
+  full_name: string;
+  email: string | null;
+  phone: string | null;
+  is_primary: boolean;
+  is_sample: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LoanDocument {
+  id: string;
+  loan_id: string;
+  owner_id: string;
+  category: string;
+  name: string;
+  drive_file_id: string | null;
+  drive_url: string | null;
+  status: LoanDocStatus;
+  received_at: string | null;
+  notes: string | null;
+  is_sample: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LoanCondition {
+  id: string;
+  loan_id: string;
+  owner_id: string;
+  source: string;
+  description: string;
+  status: string;
+  response_plan: string | null;
+  citation_source: string | null;
+  is_sample: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LoanContact {
+  id: string;
+  loan_id: string;
+  owner_id: string;
+  contact_type: string;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  company: string | null;
+  notes: string | null;
+  is_sample: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LoanStatusEvent {
+  id: string;
+  loan_id: string;
+  from_stage: string | null;
+  to_stage: string | null;
+  from_status: string | null;
+  to_status: string | null;
+  note: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface LoanTask {
+  id: string;
+  loan_id: string;
+  owner_id: string;
+  title: string;
+  detail: string | null;
+  assignee_role: string;
+  assignee_id: string | null;
+  status: LoanTaskStatus;
+  priority: string;
+  due_at: string | null;
+  is_sample: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LoanApproval {
+  id: string;
+  loan_id: string;
+  owner_id: string;
+  action_type: string;
+  title: string;
+  payload: Record<string, unknown>;
+  status: LoanApprovalStatus;
+  requested_by: string | null;
+  decided_by: string | null;
+  decided_at: string | null;
+  is_sample: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LoanActivityLog {
+  id: string;
+  loan_id: string;
+  actor_id: string | null;
+  action: string;
+  detail: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface DriveFolderLink {
+  id: string;
+  owner_id: string;
+  loan_id: string | null;
+  folder_kind: string;
+  label: string;
+  drive_folder_id: string | null;
+  drive_url: string | null;
+  is_sample: boolean;
+  created_at: string;
   updated_at: string;
 }
 

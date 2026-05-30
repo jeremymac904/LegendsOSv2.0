@@ -1,0 +1,128 @@
+# Desktop build (Electron) for LegendsOS
+#
+# Builds the macOS DMG and the Windows NSIS installer using the repo's own
+# npm scripts (which drive electron-builder via the "build" config embedded in
+# package.json). The Electron shell is a thin remote wrapper around the hosted
+# Next.js app, so the produced installers do NOT bundle the web build — they
+# load the live origin at runtime. `npm run build` is still run here to verify
+# the web app compiles before packaging.
+#
+# Triggers (intentionally conservative — no build on every push/PR):
+#   - workflow_dispatch : run manually from the Actions tab
+#   - push of tags matching 'v*' (e.g. v2.0.0)
+#
+# ---------------------------------------------------------------------------
+# Code signing / notarization (OPTIONAL — unset by default)
+# ---------------------------------------------------------------------------
+# Out of the box this produces UNSIGNED builds. electron-builder will sign /
+# notarize automatically only if the corresponding secrets are present in the
+# repo (Settings > Secrets and variables > Actions). None are hardcoded here;
+# they are referenced by name only and resolve to empty when not configured:
+#
+#   macOS:
+#     CSC_LINK              base64-encoded .p12 (Developer ID Application cert)
+#     CSC_KEY_PASSWORD      password for that .p12
+#     APPLE_ID              Apple ID used for notarization
+#     APPLE_APP_SPECIFIC_PASSWORD   app-specific password for that Apple ID
+#     APPLE_TEAM_ID         Apple Developer Team ID
+#
+#   Windows:
+#     WIN_CSC_LINK          base64-encoded code-signing cert (.pfx)
+#     WIN_CSC_KEY_PASSWORD  password for that cert
+#
+# Leave them unset to ship unsigned test builds.
+# ---------------------------------------------------------------------------
+
+name: Desktop Build
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+# Allow only one concurrent desktop build per ref; cancel older in-progress runs.
+concurrency:
+  group: desktop-build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-mac:
+    name: Build macOS DMG
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web app
+        run: npm run build
+
+      - name: Build macOS DMG
+        run: npm run desktop:build:mac
+        env:
+          # electron-builder picks these up automatically when present.
+          # Unset by default -> unsigned, un-notarized build.
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: legendsos-macos-dmg
+          path: |
+            dist-desktop/*.dmg
+            dist-desktop/*.dmg.blockmap
+          if-no-files-found: error
+          retention-days: 14
+
+  build-windows:
+    name: Build Windows NSIS installer
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web app
+        run: npm run build
+
+      - name: Build Windows installer
+        run: npm run desktop:build:windows
+        env:
+          # electron-builder picks these up automatically when present.
+          # Unset by default -> unsigned installer.
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: legendsos-windows-nsis
+          path: |
+            dist-desktop/*.exe
+            dist-desktop/*.exe.blockmap
+          if-no-files-found: error
+          retention-days: 14

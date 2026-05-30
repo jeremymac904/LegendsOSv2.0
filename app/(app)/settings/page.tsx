@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Video } from "lucide-react";
 
 import { LegendsOSHelpCoaches } from "@/components/help/LegendsOSHelpCoaches";
+import { DriveLoanBrainSetup } from "@/components/settings/DriveLoanBrainSetup";
 import { ProviderToggle } from "@/components/settings/ProviderToggle";
 import { MCPConnections } from "@/components/settings/MCPConnections";
 import {
@@ -375,6 +376,8 @@ export default async function SettingsPage() {
       </div>
 
       <SettingsConnectionSetup guides={connectionGuides} />
+
+      <DriveLoanBrainSetup />
 
       <section className="card-padded">
         <div className="section-title">
