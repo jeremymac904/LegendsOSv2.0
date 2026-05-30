@@ -298,3 +298,55 @@ First local execution of Q-003 from the master workspace queue. Three tracks shi
 ## Last updated
 
 2026-05-22
+
+## Builder Workspace Sprint (2026-05-30)
+
+This sprint added Jeremy's owner-only build cockpit, the team Vibe-Coding hub, Atlas
+builder-prompt cards, and a set of compact-UX primitives. **No Supabase migrations were
+applied** — persistence is deferred to Jeremy (see below).
+
+### Routes added
+
+- **`/builder` (owner-only).** Jeremy's personal build cockpit. Gated with `isOwner(profile)`
+  (non-owners redirected to `/dashboard`). Sections: Projects, Capture, Plan, Handoffs, QA
+  checklists, Incubator, and a Website/Blog starter. Includes Claude Code + Codex prompt
+  builders (deterministic prompt assemblers, copy-to-clipboard, no model calls). Live UI runs on
+  client/in-memory state; persistence is pending Jeremy's migration approval. Documented in
+  `docs/JEREMY_BUILDER_WORKSPACE.md`.
+- **`/vibe-coding` (team).** Team-facing creative hub for LOs to build realtor landing pages,
+  blog posts, simple sites, content, and marketing ideas with AI. Ships a prompt-template
+  library, compliance-safe copy guidance, and the Jeremy review workflow
+  (draft → self-check → submit → publish). Not owner-gated — available to the team. Documented in
+  `docs/TEAM_LO_VIBE_CODING.md`.
+
+### Atlas builder prompt cards
+
+- Added builder prompt cards that assemble agent-ready prompts (LegendsOS conventions + file
+  list + acceptance criteria + guardrails) for Claude Code and Codex. The Atlas-connected
+  implementation-plan generator is scaffolded but the live Atlas wiring is a next-action (the
+  generator currently uses a local template). No live/paid model calls were fired from the app.
+
+### Compact-UX primitives
+
+- Introduced compact-UX primitives (denser list/row layouts, tighter spacing, consistent chip
+  usage) used by the new Builder/Vibe-Coding surfaces. A follow-up pass to apply them across the
+  Loan Brain, Processing, and Coordinator cockpits is tracked in
+  `docs/LEGENDSOS_NEXT_ACTIONS.md`.
+
+### Persistence — deferred to Jeremy
+
+- **Supabase migrations were NOT applied this sprint.** Builder projects and Vibe-Coding
+  submissions remain in client/in-memory state. The corresponding migrations are to be drafted
+  and held for Jeremy's explicit approval before being applied. No live Supabase writes occur
+  from app code in `/builder` or `/vibe-coding`.
+
+### Docs added/updated
+
+- New: `docs/JEREMY_BUILDER_WORKSPACE.md`, `docs/TEAM_LO_VIBE_CODING.md`,
+  `docs/LEGENDSOS_NEXT_ACTIONS.md`.
+- Updated: this `docs/STATUS.md` (this section appended).
+
+### Production safety
+
+- No migrations applied, no live Supabase writes, no live/paid model calls, no commits/push/PR,
+  no `.env` writes. `/builder` stays owner-only; `/vibe-coding` stays team-accessible.

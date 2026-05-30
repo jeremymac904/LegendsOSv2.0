@@ -64,30 +64,33 @@ export default async function MyLoansPage() {
           description="When Jeremy assigns you a loan, it shows up here."
         />
       ) : (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <div className="card divide-y divide-ink-200/60 dark:divide-ink-800/60">
           {rows.map((r) => (
-            <div key={r.folderId} className="card-padded">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-ink-100">
-                    {r.borrowerName}
-                  </p>
-                  <p className="text-xs text-ink-300">
-                    {r.loanProgram ?? "Program TBD"}
-                    {r.loanNumber ? ` · #${r.loanNumber}` : ""}
-                  </p>
-                </div>
+            <div
+              key={r.folderId}
+              className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-ink-900 dark:text-ink-100">
+                  {r.borrowerName}
+                </p>
+                <p className="truncate text-xs text-ink-500 dark:text-ink-300">
+                  {r.loanProgram ?? "Program TBD"}
+                  {r.loanNumber ? ` · #${r.loanNumber}` : ""}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                <span className="chip capitalize">{r.stage}</span>
+                {r.missingCount > 0 && (
+                  <span className="chip-warn">{r.missingCount} missing</span>
+                )}
+                <PriorityPill priority={r.priority} />
+                {r.driveUrl && <span className="chip">Drive</span>}
                 <StageStatusPill status={r.stageStatus} />
               </div>
-              <div className="mt-3 flex flex-wrap items-center gap-1.5 text-[11px] text-ink-300">
-                <span className="chip capitalize">{r.stage}</span>
-                {r.missingCount > 0 && <span className="chip-warn">{r.missingCount} missing docs</span>}
-                <PriorityPill priority={r.priority} />
-                {r.driveUrl && <span className="chip">Drive folder</span>}
-              </div>
               {r.nextStep && (
-                <p className="mt-3 border-t border-ink-200/60 pt-2 text-[11px] text-ink-600 dark:border-ink-800/60 dark:text-ink-300">
-                  <span className="font-medium text-ink-700 dark:text-ink-200">Next step:</span>{" "}
+                <p className="w-full text-[11px] text-ink-600 dark:text-ink-300">
+                  <span className="font-medium text-ink-700 dark:text-ink-200">Next:</span>{" "}
                   {r.nextStep}
                 </p>
               )}

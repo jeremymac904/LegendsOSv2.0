@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { RolePreviewPanel } from "@/components/admin/RolePreviewPanel";
 import { UserManager } from "@/components/admin/UserManager";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { getEffectiveProfile } from "@/lib/impersonation";
@@ -27,6 +28,7 @@ export default async function AdminUsersPage() {
         title="Team and roles"
         description="Add users via Supabase Auth Admin API, change roles, send password resets, and preview the app as any user. All writes are server-side; the service role key stays out of the browser."
       />
+      <RolePreviewPanel ownerProfileId={profile.id} users={users} />
       <UserManager ownerProfileId={profile.id} users={users} />
     </div>
   );

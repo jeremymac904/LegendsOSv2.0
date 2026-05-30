@@ -41,6 +41,7 @@ import {
   type AtlasProjectSummary,
   type AtlasThreadSummary,
 } from "./AtlasProjectsPanel";
+import { BuilderPromptCards } from "./BuilderPromptCards";
 import { LOWorkspace } from "./LOWorkspace";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -229,6 +230,10 @@ function EmptyChat({ provider, configured, onPick }: {
               {p}
             </button>
           ))}
+        </div>
+        <div className="mt-4 border-t border-accent-champagne/10 pt-4">
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-600 dark:text-ink-300">Builder templates</p>
+          <BuilderPromptCards onPick={onPick} compact />
         </div>
       </div>
     </div>
