@@ -19,6 +19,7 @@ import {
   Sparkles,
   UserCheck,
   Users,
+  Wrench,
   type LucideIcon,
 } from "lucide-react";
 
@@ -149,6 +150,21 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Shared Resources",
     description: "Owner-curated assets",
     icon: Sparkles,
+  },
+  {
+    section: "team",
+    href: "/vibe-coding",
+    label: "Vibe Coding",
+    description: "Build pages & posts safely with AI",
+    icon: Sparkles,
+  },
+  {
+    section: "owner",
+    href: "/builder",
+    label: "Builder",
+    description: "Jeremy's personal build cockpit — projects, capture, plans, QA",
+    icon: Wrench,
+    gate: { ownerOnly: true },
   },
   {
     section: "owner",
