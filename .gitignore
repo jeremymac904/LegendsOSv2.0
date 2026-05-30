@@ -88,3 +88,6 @@ Thumbs.db
 /public/downloads/*.exe
 /public/downloads/*.msi
 /public/downloads/*.AppImage
+
+# merge / editor leftovers
+*.orig

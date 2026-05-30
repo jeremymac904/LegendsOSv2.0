@@ -121,13 +121,13 @@ function SectionHeader({
       onClick={onToggle}
       className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left"
     >
-      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-300">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-600 dark:text-ink-300">
         {title}
       </p>
       {open ? (
-        <ChevronUp size={11} className="text-ink-500" />
+        <ChevronUp size={11} className="text-ink-500 dark:text-ink-500" />
       ) : (
-        <ChevronDown size={11} className="text-ink-500" />
+        <ChevronDown size={11} className="text-ink-500 dark:text-ink-500" />
       )}
     </button>
   );
@@ -137,13 +137,13 @@ function PipelineCard() {
   const total = MOCK_PIPELINE.reduce((s, p) => s + p.count, 0);
   return (
     <div className="px-3 pb-3">
-      <div className="rounded-lg border border-ink-800/70 bg-ink-900/50 p-2.5">
+      <div className="rounded-lg border border-ink-200/70 dark:border-ink-800/70 bg-white/50 dark:bg-ink-900/50 p-2.5">
         <div className="flex items-center justify-between gap-2 mb-2">
           <div className="flex items-center gap-1.5">
             <Users size={12} className="text-accent-gold" />
-            <p className="text-[11px] font-semibold text-ink-100">{total} in pipeline</p>
+            <p className="text-[11px] font-semibold text-ink-900 dark:text-ink-100">{total} in pipeline</p>
           </div>
-          <span className="text-[9px] uppercase tracking-[0.14em] text-ink-500">
+          <span className="text-[9px] uppercase tracking-[0.14em] text-ink-500 dark:text-ink-500">
             Mock data
           </span>
         </div>
@@ -161,8 +161,8 @@ function PipelineCard() {
           {MOCK_PIPELINE.map((s) => (
             <div key={s.label} className="flex items-center gap-1">
               <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", s.color)} />
-              <span className="truncate text-[10px] text-ink-400">{s.label}</span>
-              <span className="ml-auto text-[10px] font-medium text-ink-200">{s.count}</span>
+              <span className="truncate text-[10px] text-ink-500 dark:text-ink-400">{s.label}</span>
+              <span className="ml-auto text-[10px] font-medium text-ink-800 dark:text-ink-200">{s.count}</span>
             </div>
           ))}
         </div>
@@ -174,11 +174,11 @@ function PipelineCard() {
 function RateSheetWidget() {
   return (
     <div className="px-3 pb-3">
-      <div className="rounded-lg border border-ink-800/70 bg-ink-900/50 p-2.5">
+      <div className="rounded-lg border border-ink-200/70 dark:border-ink-800/70 bg-white/50 dark:bg-ink-900/50 p-2.5">
         <div className="flex items-center gap-1.5 mb-2">
           <DollarSign size={12} className="text-accent-gold" />
-          <p className="text-[11px] font-semibold text-ink-100">Rate Snapshot</p>
-          <span className="ml-auto text-[9px] uppercase tracking-[0.14em] text-ink-500">
+          <p className="text-[11px] font-semibold text-ink-900 dark:text-ink-100">Rate Snapshot</p>
+          <span className="ml-auto text-[9px] uppercase tracking-[0.14em] text-ink-500 dark:text-ink-500">
             Indicative
           </span>
         </div>
@@ -187,14 +187,14 @@ function RateSheetWidget() {
             key={r.label}
             className="flex items-center justify-between gap-2 py-0.5"
           >
-            <span className="text-[10px] text-ink-400">{r.label}</span>
+            <span className="text-[10px] text-ink-500 dark:text-ink-400">{r.label}</span>
             <div className="flex items-center gap-1.5">
               {r.change < 0 ? (
                 <TrendingDown size={10} className="text-status-ok" />
               ) : r.change > 0 ? (
                 <TrendingUp size={10} className="text-status-err" />
               ) : null}
-              <span className="text-[11px] font-medium text-ink-100">{r.rate}</span>
+              <span className="text-[11px] font-medium text-ink-900 dark:text-ink-100">{r.rate}</span>
               {r.change !== 0 && (
                 <span
                   className={cn(
@@ -209,7 +209,7 @@ function RateSheetWidget() {
             </div>
           </div>
         ))}
-        <p className="mt-1.5 text-[9px] italic text-ink-600">
+        <p className="mt-1.5 text-[9px] italic text-ink-700 dark:text-ink-600">
           Indicative only. Always confirm with live lock desk.
         </p>
       </div>
@@ -228,11 +228,11 @@ function QuickActions({ onPrompt }: { onPrompt: (p: string) => void }) {
               key={a.id}
               type="button"
               onClick={() => onPrompt(a.prompt)}
-              className="flex items-center gap-1.5 rounded-lg border border-ink-800/80 bg-ink-900/60 px-2 py-1.5 text-left text-[10px] text-ink-200 transition hover:border-accent-gold/30 hover:bg-accent-gold/5 hover:text-ink-100 active:scale-[0.98]"
+              className="flex items-center gap-1.5 rounded-lg border border-ink-200/80 dark:border-ink-800/80 bg-white/60 dark:bg-ink-900/60 px-2 py-1.5 text-left text-[10px] text-ink-800 dark:text-ink-200 transition hover:border-accent-gold/30 hover:bg-accent-gold/5 hover:text-ink-900 dark:hover:text-ink-100 active:scale-[0.98]"
             >
               <Icon
                 size={11}
-                className={cn("shrink-0", a.color ?? "text-ink-400")}
+                className={cn("shrink-0", a.color ?? "text-ink-500 dark:text-ink-400")}
               />
               <span className="truncate">{a.label}</span>
             </button>
@@ -259,40 +259,40 @@ function CalculatorShortcut({ onPrompt }: { onPrompt: (p: string) => void }) {
 
   return (
     <div className="px-3 pb-3">
-      <div className="rounded-lg border border-ink-800/70 bg-ink-900/50 p-2.5">
+      <div className="rounded-lg border border-ink-200/70 dark:border-ink-800/70 bg-white/50 dark:bg-ink-900/50 p-2.5">
         <div className="flex items-center gap-1.5 mb-2">
           <Calculator size={12} className="text-accent-gold" />
-          <p className="text-[11px] font-semibold text-ink-100">Quick Calculator</p>
+          <p className="text-[11px] font-semibold text-ink-900 dark:text-ink-100">Quick Calculator</p>
         </div>
         <div className="space-y-1.5 mb-2">
           <div className="flex items-center gap-1.5">
-            <label className="w-14 shrink-0 text-[10px] text-ink-400">Price</label>
+            <label className="w-14 shrink-0 text-[10px] text-ink-500 dark:text-ink-400">Price</label>
             <input
               type="text"
               placeholder="400,000"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
-              className="flex-1 rounded border border-ink-700 bg-ink-800/50 px-1.5 py-1 text-[10px] text-ink-100 placeholder:text-ink-600 outline-none focus:border-accent-gold/40"
+              className="flex-1 rounded border border-ink-200 dark:border-ink-700 bg-ink-100/50 dark:bg-ink-800/50 px-1.5 py-1 text-[10px] text-ink-900 dark:text-ink-100 placeholder:text-ink-700 dark:placeholder:text-ink-600 outline-none focus:border-accent-gold/40"
             />
           </div>
           <div className="flex items-center gap-1.5">
-            <label className="w-14 shrink-0 text-[10px] text-ink-400">Down %</label>
+            <label className="w-14 shrink-0 text-[10px] text-ink-500 dark:text-ink-400">Down %</label>
             <input
               type="text"
               placeholder="20"
               value={down}
               onChange={(e) => setDown(e.target.value)}
-              className="flex-1 rounded border border-ink-700 bg-ink-800/50 px-1.5 py-1 text-[10px] text-ink-100 placeholder:text-ink-600 outline-none focus:border-accent-gold/40"
+              className="flex-1 rounded border border-ink-200 dark:border-ink-700 bg-ink-100/50 dark:bg-ink-800/50 px-1.5 py-1 text-[10px] text-ink-900 dark:text-ink-100 placeholder:text-ink-700 dark:placeholder:text-ink-600 outline-none focus:border-accent-gold/40"
             />
           </div>
           <div className="flex items-center gap-1.5">
-            <label className="w-14 shrink-0 text-[10px] text-ink-400">Rate %</label>
+            <label className="w-14 shrink-0 text-[10px] text-ink-500 dark:text-ink-400">Rate %</label>
             <input
               type="text"
               placeholder="6.875"
               value={rate}
               onChange={(e) => setRate(e.target.value)}
-              className="flex-1 rounded border border-ink-700 bg-ink-800/50 px-1.5 py-1 text-[10px] text-ink-100 placeholder:text-ink-600 outline-none focus:border-accent-gold/40"
+              className="flex-1 rounded border border-ink-200 dark:border-ink-700 bg-ink-100/50 dark:bg-ink-800/50 px-1.5 py-1 text-[10px] text-ink-900 dark:text-ink-100 placeholder:text-ink-700 dark:placeholder:text-ink-600 outline-none focus:border-accent-gold/40"
             />
           </div>
         </div>
@@ -323,7 +323,7 @@ export function LOWorkspace({ onPrompt }: { onPrompt: (prompt: string) => void }
   return (
     <div className="flex h-full flex-col overflow-y-auto scrollbar-thin">
       {/* Quick Actions */}
-      <div className="border-b border-ink-800">
+      <div className="border-b border-ink-200 dark:border-ink-800">
         <SectionHeader
           title="Quick Actions"
           open={actionsOpen}
@@ -333,7 +333,7 @@ export function LOWorkspace({ onPrompt }: { onPrompt: (prompt: string) => void }
       </div>
 
       {/* Pipeline */}
-      <div className="border-b border-ink-800">
+      <div className="border-b border-ink-200 dark:border-ink-800">
         <SectionHeader
           title="My Pipeline"
           open={pipelineOpen}
@@ -343,7 +343,7 @@ export function LOWorkspace({ onPrompt }: { onPrompt: (prompt: string) => void }
       </div>
 
       {/* Rate Sheet */}
-      <div className="border-b border-ink-800">
+      <div className="border-b border-ink-200 dark:border-ink-800">
         <SectionHeader
           title="Rate Snapshot"
           open={ratesOpen}
@@ -353,7 +353,7 @@ export function LOWorkspace({ onPrompt }: { onPrompt: (prompt: string) => void }
       </div>
 
       {/* Calculator */}
-      <div className="border-b border-ink-800">
+      <div className="border-b border-ink-200 dark:border-ink-800">
         <SectionHeader
           title="Calculator"
           open={calcOpen}

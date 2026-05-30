@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Briefcase, MessageCircle } from "lucide-react";
 
 import { PriorityPill, StageStatusPill } from "@/components/loanbrain/statusPill";
+import { SampleModeBanner } from "@/components/loanbrain/SampleModeBanner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { listLoansForProfile, sampleBoardRows } from "@/lib/loanbrain/store";
@@ -36,6 +37,7 @@ export default async function MyLoansPage() {
         conditionCount: 0,
         driveUrl: l.drive_url,
         rootKind: "active_loans",
+        nextStep: null,
       }));
 
   return (
@@ -52,10 +54,7 @@ export default async function MyLoansPage() {
       />
 
       {usingSample && (
-        <p className="rounded-xl border border-status-warn/30 bg-status-warn/10 px-4 py-2.5 text-xs text-status-warn">
-          Showing sample loans. Your real files appear here once the mortgage data
-          model is live and loans are assigned to you.
-        </p>
+        <SampleModeBanner note="Demo loans until your real files are assigned · no borrower data · nothing here is sent or written to Drive." />
       )}
 
       {rows.length === 0 ? (
@@ -82,9 +81,16 @@ export default async function MyLoansPage() {
               </div>
               <div className="mt-3 flex flex-wrap items-center gap-1.5 text-[11px] text-ink-300">
                 <span className="chip capitalize">{r.stage}</span>
-                {r.missingCount > 0 && <span className="chip-warn">{r.missingCount} missing</span>}
+                {r.missingCount > 0 && <span className="chip-warn">{r.missingCount} missing docs</span>}
                 <PriorityPill priority={r.priority} />
+                {r.driveUrl && <span className="chip">Drive folder</span>}
               </div>
+              {r.nextStep && (
+                <p className="mt-3 border-t border-ink-200/60 pt-2 text-[11px] text-ink-600 dark:border-ink-800/60 dark:text-ink-300">
+                  <span className="font-medium text-ink-700 dark:text-ink-200">Next step:</span>{" "}
+                  {r.nextStep}
+                </p>
+              )}
             </div>
           ))}
         </div>

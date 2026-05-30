@@ -352,14 +352,14 @@ export function AtlasShell({
   }
 
   return (
-    <div className="flex h-[calc(100vh-3.25rem)] w-full flex-col">
+    <div className="flex h-full min-h-0 w-full flex-col">
       {/* Branded title strip — gold rune mark + thread title on the left,
           provider/model selector + assistant settings on the right. */}
-      <div className="flex items-center justify-between gap-3 border-b border-ink-800 bg-ink-950/70 px-4 py-2 backdrop-blur sm:px-6">
+      <div className="flex items-center justify-between gap-3 border-b border-ink-200 dark:border-ink-800 bg-white/70 dark:bg-ink-950/70 px-4 py-2 backdrop-blur sm:px-6">
         <div className="flex min-w-0 items-center gap-2.5">
           <span
             aria-hidden
-            className="flex h-7 w-20 shrink-0 items-center rounded-md border border-accent-gold/25 bg-ink-950/50 px-1.5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15)]"
+            className="flex h-7 w-20 shrink-0 items-center rounded-md border border-accent-gold/25 bg-white/50 dark:bg-ink-950/50 px-1.5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15)]"
             title="LegendsOS · Atlas"
           >
             <img
@@ -372,8 +372,8 @@ export function AtlasShell({
             <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-gold-gradient">
               Atlas
             </span>
-            <span className="text-ink-700">·</span>
-            <p className="truncate text-xs font-medium text-ink-100">
+            <span className="text-ink-900 dark:text-ink-700">·</span>
+            <p className="truncate text-xs font-medium text-ink-900 dark:text-ink-100">
               {currentThread?.title ?? "New conversation"}
             </p>
           </div>
@@ -419,7 +419,7 @@ export function AtlasShell({
             <MessageRow key={m.id} message={m} />
           ))}
           {isPending && (
-            <div className="flex items-center gap-2 text-xs text-ink-300">
+            <div className="flex items-center gap-2 text-xs text-ink-600 dark:text-ink-300">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent-gold" />
               Atlas is thinking…
             </div>
@@ -428,7 +428,7 @@ export function AtlasShell({
       </div>
 
       {/* Pinned composer */}
-      <div className="border-t border-ink-800 bg-ink-950/80 px-3 pb-4 pt-3 backdrop-blur sm:px-6">
+      <div className="border-t border-ink-200 dark:border-ink-800 bg-white/80 dark:bg-ink-950/80 px-3 pb-4 pt-3 backdrop-blur sm:px-6">
         <div className="mx-auto w-full max-w-5xl">
           {error && (
             <p className="mb-2 rounded-lg border border-status-err/30 bg-status-err/10 px-3 py-2 text-xs text-status-err">
@@ -442,7 +442,7 @@ export function AtlasShell({
                   {truncate(file.name, 28)}
                   <button
                     type="button"
-                    className="text-ink-300 hover:text-status-err"
+                    className="text-ink-600 dark:text-ink-300 hover:text-status-err"
                     onClick={() =>
                       setAttachments((prev) =>
                         prev.filter((_, idx) => idx !== i)
@@ -455,9 +455,9 @@ export function AtlasShell({
               ))}
             </div>
           )}
-          <div className="flex items-end gap-2 rounded-2xl border border-ink-700 bg-ink-900/80 px-2 py-1.5 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.7)] focus-within:border-accent-gold/40">
+          <div className="flex items-end gap-2 rounded-2xl border border-ink-200 dark:border-ink-700 bg-white/80 dark:bg-ink-900/80 px-2 py-1.5 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.7)] focus-within:border-accent-gold/40">
             <label
-              className="grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-xl text-ink-300 hover:bg-ink-800 hover:text-ink-100"
+              className="grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-xl text-ink-600 dark:text-ink-300 hover:bg-ink-100 dark:hover:bg-ink-800 hover:text-ink-900 dark:hover:text-ink-100"
               title="Attach file (uploads stored privately under your user folder)"
             >
               <Paperclip size={15} />
@@ -470,7 +470,7 @@ export function AtlasShell({
             </label>
             <textarea
               ref={composerRef}
-              className="max-h-[40vh] min-h-[40px] flex-1 resize-none bg-transparent px-1 py-2 text-sm text-ink-100 outline-none placeholder:text-ink-400"
+              className="max-h-[40vh] min-h-[40px] flex-1 resize-none bg-transparent px-1 py-2 text-sm text-ink-900 dark:text-ink-100 outline-none placeholder:text-ink-500 dark:placeholder:text-ink-400"
               placeholder="Ask Atlas. Enter to send, Shift+Enter for a new line."
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -493,12 +493,12 @@ export function AtlasShell({
               <span className="hidden sm:inline">Send</span>
             </button>
           </div>
-          <p className="mt-1.5 text-center text-[10px] text-ink-400">
-            via <span className="text-ink-300">{provider}</span>
+          <p className="mt-1.5 text-center text-[10px] text-ink-500 dark:text-ink-400">
+            via <span className="text-ink-600 dark:text-ink-300">{provider}</span>
             {model && (
               <>
                 {" · "}
-                <span className="text-ink-300">{truncate(model.split("/").slice(-1)[0], 40)}</span>
+                <span className="text-ink-600 dark:text-ink-300">{truncate(model.split("/").slice(-1)[0], 40)}</span>
               </>
             )}
           </p>
@@ -526,15 +526,15 @@ function EmptyChat({
 }) {
   return (
     <div className="grid place-items-center py-16">
-      <div className="w-full max-w-xl rounded-2xl border border-ink-800 bg-ink-900/40 p-6">
+      <div className="w-full max-w-xl rounded-2xl border border-ink-200 dark:border-ink-800 bg-white/40 dark:bg-ink-900/40 p-6">
         <div className="flex flex-col items-center text-center">
-          <div className="grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-accent-gold via-accent-gold to-accent-orange text-ink-950">
+          <div className="grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-accent-gold via-accent-gold to-accent-orange text-ink-950 dark:text-ink-950">
             <Sparkles size={16} />
           </div>
-          <h2 className="mt-3 text-base font-semibold text-ink-100">
+          <h2 className="mt-3 text-base font-semibold text-ink-900 dark:text-ink-100">
             Start a conversation
           </h2>
-          <p className="mt-1 text-xs text-ink-300">
+          <p className="mt-1 text-xs text-ink-600 dark:text-ink-300">
             Ask Atlas for marketing copy, mortgage explainers, or anything in
             your daily workflow.
           </p>
@@ -551,7 +551,7 @@ function EmptyChat({
               key={p}
               type="button"
               onClick={() => onPick(p)}
-              className="rounded-xl border border-ink-700 bg-ink-950/50 px-3 py-2 text-left text-[12px] text-ink-200 transition hover:border-accent-gold/40 hover:bg-accent-gold/5 hover:text-ink-100"
+              className="rounded-xl border border-ink-200 dark:border-ink-700 bg-white/50 dark:bg-ink-950/50 px-3 py-2 text-left text-[12px] text-ink-800 dark:text-ink-200 transition hover:border-accent-gold/40 hover:bg-accent-gold/5 hover:text-ink-900 dark:hover:text-ink-100"
             >
               {p}
             </button>
@@ -671,13 +671,13 @@ function ToolResultCard({
         <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent-gold">
           {config.label}
           {timeLabel ? (
-            <span className="ml-1.5 font-normal text-ink-300">
+            <span className="ml-1.5 font-normal text-ink-600 dark:text-ink-300">
               · {result.kind === "explain_capabilities" ? "Snapshot" : "Created"}{" "}
               {timeLabel}
             </span>
           ) : null}
         </p>
-        <p className="truncate text-[12px] font-medium text-ink-100">
+        <p className="truncate text-[12px] font-medium text-ink-900 dark:text-ink-100">
           {title}
         </p>
         {providerDots.length > 0 && (
@@ -688,7 +688,7 @@ function ToolResultCard({
                 title={
                   p.next_action ?? `${p.label} is ${p.status}`
                 }
-                className="inline-flex items-center gap-1 rounded-full border border-ink-700/80 bg-ink-900/60 px-1.5 py-[1px] text-[9.5px] uppercase tracking-[0.14em] text-ink-300"
+                className="inline-flex items-center gap-1 rounded-full border border-ink-200/80 dark:border-ink-700/80 bg-white/60 dark:bg-ink-900/60 px-1.5 py-[1px] text-[9.5px] uppercase tracking-[0.14em] text-ink-600 dark:text-ink-300"
               >
                 <span
                   className={[
@@ -760,7 +760,7 @@ function MessageRow({ message }: { message: ChatMessage }) {
               <span
                 key={`${idx}-${s.title}`}
                 title={tip}
-                className="inline-flex max-w-[18rem] items-center gap-1 truncate rounded-full border border-ink-700/70 bg-ink-900/70 px-2 py-0.5 text-[10px] text-ink-200"
+                className="inline-flex max-w-[18rem] items-center gap-1 truncate rounded-full border border-ink-200/70 dark:border-ink-700/70 bg-white/70 dark:bg-ink-900/70 px-2 py-0.5 text-[10px] text-ink-800 dark:text-ink-200"
               >
                 <span aria-hidden className="text-accent-gold/70">·</span>
                 <span className="truncate">{label}</span>
@@ -769,7 +769,7 @@ function MessageRow({ message }: { message: ChatMessage }) {
           })}
           {knowledgeSources.length > 3 && (
             <span
-              className="inline-flex items-center rounded-full border border-ink-700/70 bg-ink-900/70 px-2 py-0.5 text-[10px] text-ink-300"
+              className="inline-flex items-center rounded-full border border-ink-200/70 dark:border-ink-700/70 bg-white/70 dark:bg-ink-900/70 px-2 py-0.5 text-[10px] text-ink-600 dark:text-ink-300"
               title={knowledgeSources
                 .slice(3)
                 .map(
@@ -786,10 +786,10 @@ function MessageRow({ message }: { message: ChatMessage }) {
         className={cn(
           "max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap shadow-sm",
           isUser
-            ? "bg-gradient-to-br from-accent-orange/80 to-accent-gold/80 text-ink-950"
+            ? "bg-gradient-to-br from-accent-orange/80 to-accent-gold/80 text-ink-950 dark:text-ink-950"
             : isSystem
             ? "border border-status-warn/30 bg-status-warn/10 text-status-warn"
-            : "border border-ink-800 bg-ink-900/70 text-ink-100"
+            : "border border-ink-200 dark:border-ink-800 bg-white/70 dark:bg-ink-900/70 text-ink-900 dark:text-ink-100"
         )}
       >
         {message.content}
@@ -802,7 +802,7 @@ function MessageRow({ message }: { message: ChatMessage }) {
         <p
           className={cn(
             "mt-1.5 text-[10px] uppercase tracking-[0.18em]",
-            isUser ? "text-ink-950/60" : "text-ink-300"
+            isUser ? "text-ink-950/60 dark:text-ink-950/60" : "text-ink-600 dark:text-ink-300"
           )}
         >
           {message.role} · {formatRelative(message.created_at)}
@@ -869,7 +869,7 @@ function ProviderModelChip(props: {
         type="button"
         onClick={() => setOpen(!open)}
         className={cn(
-          "inline-flex h-7 items-center gap-1.5 rounded-full border border-ink-700/80 bg-ink-900/70 px-3 text-[11px] font-medium text-ink-100 backdrop-blur-sm transition hover:border-accent-gold/60 hover:text-ink-100",
+          "inline-flex h-7 items-center gap-1.5 rounded-full border border-ink-200/80 dark:border-ink-700/80 bg-white/70 dark:bg-ink-900/70 px-3 text-[11px] font-medium text-ink-900 dark:text-ink-100 backdrop-blur-sm transition hover:border-accent-gold/60 hover:text-ink-900 dark:hover:text-ink-100",
           open && "border-accent-gold/60 bg-accent-gold/5 text-accent-gold",
           providerEntry && !providerEntry.configured && "text-status-warn"
         )}
@@ -889,24 +889,24 @@ function ProviderModelChip(props: {
         />
         <span className="truncate">
           {providerLabel}
-          <span className="mx-1 text-ink-500">·</span>
-          <span className="text-ink-300">{truncate(modelShort, 22)}</span>
+          <span className="mx-1 text-ink-500 dark:text-ink-500">·</span>
+          <span className="text-ink-600 dark:text-ink-300">{truncate(modelShort, 22)}</span>
         </span>
         <ChevronDown size={11} className="shrink-0 opacity-70" />
       </button>
       {open && (
         <div
-          className="absolute right-0 top-full z-40 mt-1.5 w-80 overflow-hidden rounded-xl border border-ink-700 bg-ink-900/95 shadow-card backdrop-blur"
+          className="absolute right-0 top-full z-40 mt-1.5 w-80 overflow-hidden rounded-xl border border-ink-200 dark:border-ink-700 bg-white/95 dark:bg-ink-900/95 shadow-card backdrop-blur"
           role="listbox"
         >
-          <div className="flex items-center justify-between gap-2 border-b border-ink-800 px-3 py-2">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-300">
+          <div className="flex items-center justify-between gap-2 border-b border-ink-200 dark:border-ink-800 px-3 py-2">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-600 dark:text-ink-300">
               Model selector
             </p>
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="text-ink-400 transition hover:text-ink-100"
+              className="text-ink-500 dark:text-ink-400 transition hover:text-ink-900 dark:hover:text-ink-100"
               aria-label="Close model selector"
             >
               <X size={11} />
@@ -919,7 +919,7 @@ function ProviderModelChip(props: {
               return (
                 <div key={p.id} className="mb-2 last:mb-0">
                   <p
-                    className="flex items-center gap-2 px-2 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-400"
+                    className="flex items-center gap-2 px-2 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-500 dark:text-ink-400"
                     title={
                       p.configured
                         ? p.enabled
@@ -938,7 +938,7 @@ function ProviderModelChip(props: {
                           : "bg-status-warn"
                       )}
                     />
-                    <span className={cn(isDisabled && "text-ink-500")}>
+                    <span className={cn(isDisabled && "text-ink-500 dark:text-ink-500")}>
                       {p.label}
                     </span>
                     {!p.configured && (
@@ -969,10 +969,10 @@ function ProviderModelChip(props: {
                       className={cn(
                         "flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left text-[11px] transition",
                         isDisabled
-                          ? "cursor-not-allowed text-ink-500"
+                          ? "cursor-not-allowed text-ink-500 dark:text-ink-500"
                           : provider === p.id && model === ""
                           ? "bg-accent-gold/10 text-accent-gold"
-                          : "text-ink-200 hover:bg-ink-800/70"
+                          : "text-ink-800 dark:text-ink-200 hover:bg-ink-100/70 dark:hover:bg-ink-800/70"
                       )}
                     >
                       <span>provider default</span>
@@ -1001,10 +1001,10 @@ function ProviderModelChip(props: {
                           className={cn(
                             "flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left text-[11px] transition",
                             isDisabled
-                              ? "cursor-not-allowed text-ink-500"
+                              ? "cursor-not-allowed text-ink-500 dark:text-ink-500"
                               : isSelected
                               ? "bg-accent-gold/10 text-accent-gold"
-                              : "text-ink-200 hover:bg-ink-800/70"
+                              : "text-ink-800 dark:text-ink-200 hover:bg-ink-100/70 dark:hover:bg-ink-800/70"
                           )}
                         >
                           <span className="truncate">{m.label}</span>
@@ -1019,7 +1019,7 @@ function ProviderModelChip(props: {
               );
             })}
           </div>
-          <div className="border-t border-ink-800 px-3 py-1.5 text-[9px] uppercase tracking-[0.18em] text-ink-500">
+          <div className="border-t border-ink-200 dark:border-ink-800 px-3 py-1.5 text-[9px] uppercase tracking-[0.18em] text-ink-500 dark:text-ink-500">
             Saved locally · changes persist
           </div>
         </div>
@@ -1064,7 +1064,7 @@ function AssistantSettingsButton(props: {
         type="button"
         onClick={() => setOpen(!open)}
         className={cn(
-          "inline-flex h-7 w-7 items-center justify-center rounded-full border border-ink-700/80 bg-ink-900/70 text-ink-300 backdrop-blur-sm transition hover:border-accent-gold/60 hover:text-ink-100",
+          "inline-flex h-7 w-7 items-center justify-center rounded-full border border-ink-200/80 dark:border-ink-700/80 bg-white/70 dark:bg-ink-900/70 text-ink-600 dark:text-ink-300 backdrop-blur-sm transition hover:border-accent-gold/60 hover:text-ink-900 dark:hover:text-ink-100",
           open && "border-accent-gold/60 text-accent-gold"
         )}
         title="Assistant profile"
@@ -1075,19 +1075,19 @@ function AssistantSettingsButton(props: {
         <SettingsIcon size={12} />
       </button>
       {open && (
-        <div className="absolute right-0 top-full z-40 mt-1.5 w-72 rounded-xl border border-ink-700 bg-ink-900/95 p-3 shadow-card backdrop-blur">
+        <div className="absolute right-0 top-full z-40 mt-1.5 w-72 rounded-xl border border-ink-200 dark:border-ink-700 bg-white/95 dark:bg-ink-900/95 p-3 shadow-card backdrop-blur">
           <div className="mb-3 flex items-center justify-between gap-2">
-            <p className="text-xs font-medium text-ink-100">Assistant</p>
+            <p className="text-xs font-medium text-ink-900 dark:text-ink-100">Assistant</p>
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="text-ink-300 hover:text-ink-100"
+              className="text-ink-600 dark:text-ink-300 hover:text-ink-900 dark:hover:text-ink-100"
               aria-label="Close"
             >
               <X size={12} />
             </button>
           </div>
-          <p className="text-[10px] uppercase tracking-[0.18em] text-ink-300">
+          <p className="text-[10px] uppercase tracking-[0.18em] text-ink-600 dark:text-ink-300">
             Profile
           </p>
           <select
@@ -1102,7 +1102,7 @@ function AssistantSettingsButton(props: {
               </option>
             ))}
           </select>
-          <p className="mt-2 text-[10px] text-ink-400">
+          <p className="mt-2 text-[10px] text-ink-500 dark:text-ink-400">
             Pick a profile to attach its knowledge collections.
           </p>
         </div>

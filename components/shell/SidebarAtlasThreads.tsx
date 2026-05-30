@@ -70,14 +70,14 @@ export function SidebarAtlasThreads() {
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="flex items-center gap-1 text-[10px] uppercase tracking-[0.18em] text-ink-400 hover:text-ink-200"
+          className="flex items-center gap-1 text-[10px] uppercase tracking-[0.18em] text-ink-500 dark:text-ink-400 hover:text-ink-800 dark:hover:text-ink-200"
         >
           {open ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
           Recent
         </button>
         <Link
           href="/atlas"
-          className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] text-ink-300 hover:bg-ink-800/70 hover:text-ink-100"
+          className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] text-ink-600 dark:text-ink-300 hover:bg-ink-100/70 dark:hover:bg-ink-800/70 hover:text-ink-900 dark:hover:text-ink-100"
           title="Start a new conversation"
         >
           <MessageCirclePlus size={11} />
@@ -87,10 +87,10 @@ export function SidebarAtlasThreads() {
       {open && (
         <ul className="space-y-0.5">
           {loading && threads.length === 0 && (
-            <li className="px-2 py-1 text-[11px] text-ink-400">Loading…</li>
+            <li className="px-2 py-1 text-[11px] text-ink-500 dark:text-ink-400">Loading…</li>
           )}
           {!loading && threads.length === 0 && (
-            <li className="px-2 py-1 text-[11px] text-ink-400">
+            <li className="px-2 py-1 text-[11px] text-ink-500 dark:text-ink-400">
               No conversations yet.
             </li>
           )}
@@ -114,7 +114,7 @@ export function SidebarAtlasThreads() {
                     "block truncate rounded-md px-2 py-1 text-[11px] transition",
                     active
                       ? "bg-accent-gold/15 pl-2.5 font-medium text-accent-gold"
-                      : "text-ink-200 hover:bg-ink-800/60 hover:text-ink-100"
+                      : "text-ink-800 dark:text-ink-200 hover:bg-ink-100/60 dark:hover:bg-ink-800/60 hover:text-ink-900 dark:hover:text-ink-100"
                   )}
                   title={`${t.title || "Untitled chat"}\n${formatRelative(
                     t.last_message_at ?? t.updated_at
@@ -130,7 +130,7 @@ export function SidebarAtlasThreads() {
               <button
                 type="button"
                 onClick={() => setExpanded(true)}
-                className="w-full rounded-md px-2 py-1 text-left text-[11px] text-ink-300 transition hover:bg-ink-800/60 hover:text-ink-100"
+                className="w-full rounded-md px-2 py-1 text-left text-[11px] text-ink-600 dark:text-ink-300 transition hover:bg-ink-100/60 dark:hover:bg-ink-800/60 hover:text-ink-900 dark:hover:text-ink-100"
               >
                 Show {hiddenCount} more
               </button>
@@ -141,7 +141,7 @@ export function SidebarAtlasThreads() {
               <button
                 type="button"
                 onClick={() => setExpanded(false)}
-                className="w-full rounded-md px-2 py-1 text-left text-[11px] text-ink-400 transition hover:bg-ink-800/60 hover:text-ink-200"
+                className="w-full rounded-md px-2 py-1 text-left text-[11px] text-ink-500 dark:text-ink-400 transition hover:bg-ink-100/60 dark:hover:bg-ink-800/60 hover:text-ink-800 dark:hover:text-ink-200"
               >
                 Show less
               </button>

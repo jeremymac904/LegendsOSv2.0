@@ -92,6 +92,8 @@ export type BoardRow = {
   conditionCount: number;
   driveUrl: string | null;
   rootKind: string;
+  // First priority next step from the sample summary, surfaced on the LO card.
+  nextStep?: string | null;
 };
 
 // Build board rows from the sample summaries. Used by the Ashley / Geraldine /
@@ -116,6 +118,7 @@ export function sampleBoardRows(): BoardRow[] {
         conditionCount: s.conditions.length,
         driveUrl: s.driveFolderUrl,
         rootKind,
+        nextStep: s.nextSteps[0] ?? null,
       });
     }
   }

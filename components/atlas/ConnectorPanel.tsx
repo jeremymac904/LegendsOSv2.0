@@ -37,7 +37,7 @@ function statusColor(status: string): string {
   if (status === "active") return "bg-status-ok";
   if (status === "error") return "bg-status-err";
   if (status === "coming_soon") return "bg-accent-gold/60";
-  return "bg-ink-500";
+  return "bg-ink-400 dark:bg-ink-500";
 }
 
 function statusLabel(status: string): string {
@@ -52,7 +52,7 @@ function statusIcon(status: string) {
   if (status === "active") return <CheckCircle size={11} className="text-status-ok" />;
   if (status === "error") return <XCircle size={11} className="text-status-err" />;
   if (status === "coming_soon") return <Clock size={11} className="text-accent-gold/70" />;
-  return <AlertCircle size={11} className="text-ink-500" />;
+  return <AlertCircle size={11} className="text-ink-500 dark:text-ink-500" />;
 }
 
 export function ConnectorPanel() {
@@ -90,15 +90,15 @@ export function ConnectorPanel() {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between gap-2 border-b border-ink-800 px-3 py-2">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-300">
+      <div className="flex items-center justify-between gap-2 border-b border-ink-200 dark:border-ink-800 px-3 py-2">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-600 dark:text-ink-300">
           Connectors
         </p>
         <button
           type="button"
           onClick={() => fetchConnectors(true)}
           disabled={refreshing}
-          className="text-ink-400 transition hover:text-ink-100 disabled:opacity-40"
+          className="text-ink-500 dark:text-ink-400 transition hover:text-ink-900 dark:hover:text-ink-100 disabled:opacity-40"
           title="Refresh connector status"
         >
           <RefreshCw size={11} className={cn(refreshing && "animate-spin")} />
@@ -108,7 +108,7 @@ export function ConnectorPanel() {
       {/* Body */}
       <div className="flex-1 overflow-y-auto px-3 py-2 scrollbar-thin">
         {loading && (
-          <div className="flex items-center gap-2 py-4 text-[11px] text-ink-400">
+          <div className="flex items-center gap-2 py-4 text-[11px] text-ink-500 dark:text-ink-400">
             <Loader2 size={12} className="animate-spin" />
             Loading…
           </div>
@@ -119,23 +119,23 @@ export function ConnectorPanel() {
         )}
 
         {!loading && !error && ownerGlobal.length === 0 && (
-          <p className="py-3 text-[10px] text-ink-500">No connectors found.</p>
+          <p className="py-3 text-[10px] text-ink-500 dark:text-ink-500">No connectors found.</p>
         )}
 
         {!loading && ownerGlobal.map((c) => (
           <div
             key={c.id}
-            className="mb-2 last:mb-0 rounded-lg border border-ink-800/70 bg-ink-900/50 px-2.5 py-2"
+            className="mb-2 last:mb-0 rounded-lg border border-ink-200/70 dark:border-ink-800/70 bg-white/50 dark:bg-ink-900/50 px-2.5 py-2"
           >
             <div className="flex items-center gap-2">
               <span
-                className="grid h-6 w-6 shrink-0 place-items-center rounded-md border border-ink-700 bg-ink-800/80 text-ink-300"
+                className="grid h-6 w-6 shrink-0 place-items-center rounded-md border border-ink-200 dark:border-ink-700 bg-ink-100/80 dark:bg-ink-800/80 text-ink-600 dark:text-ink-300"
                 style={c.metadata?.color ? { borderColor: `${c.metadata.color}40`, color: c.metadata.color } : {}}
               >
                 {providerIcon(c.provider)}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[11px] font-medium text-ink-100">
+                <p className="truncate text-[11px] font-medium text-ink-900 dark:text-ink-100">
                   {c.display_name}
                 </p>
                 <div className="flex items-center gap-1 mt-0.5">
@@ -149,7 +149,7 @@ export function ConnectorPanel() {
                         ? "text-accent-gold/70"
                         : c.status === "error"
                         ? "text-status-err"
-                        : "text-ink-500"
+                        : "text-ink-500 dark:text-ink-500"
                     )}
                   >
                     {statusLabel(c.status)}
@@ -165,7 +165,7 @@ export function ConnectorPanel() {
             </div>
 
             {c.description && (
-              <p className="mt-1.5 text-[10px] leading-relaxed text-ink-500 line-clamp-2">
+              <p className="mt-1.5 text-[10px] leading-relaxed text-ink-500 dark:text-ink-500 line-clamp-2">
                 {c.description}
               </p>
             )}
@@ -181,10 +181,10 @@ export function ConnectorPanel() {
 
       {/* Footer summary */}
       {!loading && connectors.length > 0 && (
-        <div className="border-t border-ink-800 px-3 py-2">
+        <div className="border-t border-ink-200 dark:border-ink-800 px-3 py-2">
           <div className="flex items-center gap-2">
             <span className="h-1.5 w-1.5 rounded-full bg-status-ok" />
-            <p className="text-[10px] text-ink-400">
+            <p className="text-[10px] text-ink-500 dark:text-ink-400">
               {connectors.filter((c) => c.status === "active").length} of{" "}
               {connectors.length} active
             </p>

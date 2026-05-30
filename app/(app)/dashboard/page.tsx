@@ -381,11 +381,11 @@ export default async function DashboardPage() {
                 </div>
                 <ArrowRight
                   size={14}
-                  className="text-ink-300 transition-transform group-hover:translate-x-1 group-hover:text-accent-gold"
+                  className="text-ink-600 dark:text-ink-300 transition-transform group-hover:translate-x-1 group-hover:text-accent-gold"
                 />
               </div>
-              <p className="mt-3 font-medium text-ink-100">{label}</p>
-              <p className="text-xs text-ink-300">{description}</p>
+              <p className="mt-3 font-medium text-ink-900 dark:text-ink-100">{label}</p>
+              <p className="text-xs text-ink-600 dark:text-ink-300">{description}</p>
             </Link>
           ))}
         </div>
@@ -412,13 +412,13 @@ export default async function DashboardPage() {
                   <Link
                     key={d.id}
                     href={`/social/${d.id}`}
-                  className="flex items-start justify-between gap-3 rounded-xl border border-accent-champagne/10 bg-ink-950/30 p-3 backdrop-blur-sm"
+                  className="flex items-start justify-between gap-3 rounded-xl border border-accent-champagne/10 bg-white/30 dark:bg-ink-950/30 p-3 backdrop-blur-sm"
                   >
                     <div>
-                      <p className="text-sm font-medium text-ink-100">
+                      <p className="text-sm font-medium text-ink-900 dark:text-ink-100">
                         {d.title || "Untitled social draft"}
                       </p>
-                      <p className="line-clamp-1 text-xs text-ink-300">
+                      <p className="line-clamp-1 text-xs text-ink-600 dark:text-ink-300">
                         {d.body}
                       </p>
                       <div className="mt-1 flex flex-wrap gap-1">
@@ -436,13 +436,13 @@ export default async function DashboardPage() {
                   <Link
                     key={e.id}
                     href={`/email/${e.id}`}
-                    className="flex items-start justify-between gap-3 rounded-xl border border-accent-champagne/10 bg-ink-950/30 p-3 backdrop-blur-sm"
+                    className="flex items-start justify-between gap-3 rounded-xl border border-accent-champagne/10 bg-white/30 dark:bg-ink-950/30 p-3 backdrop-blur-sm"
                   >
                     <div>
-                      <p className="text-sm font-medium text-ink-100">
+                      <p className="text-sm font-medium text-ink-900 dark:text-ink-100">
                         {e.subject || "Untitled email draft"}
                       </p>
-                      <p className="text-xs text-ink-300">
+                      <p className="text-xs text-ink-600 dark:text-ink-300">
                         Updated {formatRelative(e.updated_at)}
                       </p>
                     </div>
@@ -473,7 +473,7 @@ export default async function DashboardPage() {
               ? images.map((img) => (
                   <div
                     key={img.id}
-                    className="aspect-square overflow-hidden rounded-xl border border-ink-800 bg-checker"
+                    className="aspect-square overflow-hidden rounded-xl border border-ink-200 dark:border-ink-800 bg-checker"
                     title={img.prompt}
                   >
                     {img.preview_url ? (
@@ -483,7 +483,7 @@ export default async function DashboardPage() {
                         className="h-full w-full object-cover"
                       />
                     ) : (
-                      <div className="grid h-full w-full place-items-center text-[10px] text-ink-300">
+                      <div className="grid h-full w-full place-items-center text-[10px] text-ink-600 dark:text-ink-300">
                         {img.status}
                       </div>
                     )}
@@ -493,7 +493,7 @@ export default async function DashboardPage() {
               ? brandStarters.map((a) => (
                   <div
                     key={a.id}
-                    className="group relative aspect-square overflow-hidden rounded-xl border border-ink-800 bg-checker"
+                    className="group relative aspect-square overflow-hidden rounded-xl border border-ink-200 dark:border-ink-800 bg-checker"
                     title={a.label}
                   >
                     {a.public_path && (
@@ -504,7 +504,7 @@ export default async function DashboardPage() {
                         loading="lazy"
                       />
                     )}
-                    <span className="absolute bottom-1 left-1 right-1 rounded-md bg-ink-950/70 px-1.5 py-0.5 text-[9px] text-ink-100 line-clamp-1">
+                    <span className="absolute bottom-1 left-1 right-1 rounded-md bg-white/70 dark:bg-ink-950/70 px-1.5 py-0.5 text-[9px] text-ink-900 dark:text-ink-100 line-clamp-1">
                       {a.label}
                     </span>
                   </div>
@@ -541,12 +541,12 @@ export default async function DashboardPage() {
               Continue editing
             </Link>
           </div>
-          <div className="mt-4 overflow-hidden rounded-xl border border-ink-800 bg-ink-950">
-            <div className="flex items-center justify-between gap-2 border-b border-ink-800 px-3 py-1.5">
-              <p className="text-[10px] uppercase tracking-[0.18em] text-ink-300">
+          <div className="mt-4 overflow-hidden rounded-xl border border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-950">
+            <div className="flex items-center justify-between gap-2 border-b border-ink-200 dark:border-ink-800 px-3 py-1.5">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-ink-600 dark:text-ink-300">
                 Inbox preview
               </p>
-              <p className="text-[10px] text-ink-400">
+              <p className="text-[10px] text-ink-500 dark:text-ink-400">
                 Same shell ships when n8n relays
               </p>
             </div>
@@ -554,7 +554,7 @@ export default async function DashboardPage() {
               title="Latest newsletter preview"
               srcDoc={latestNewsletterHtml}
               sandbox=""
-              className="block h-[320px] w-full bg-ink-950"
+              className="block h-[320px] w-full bg-white dark:bg-ink-950"
             />
           </div>
         </section>
@@ -584,13 +584,13 @@ export default async function DashboardPage() {
                 <Link
                   key={`${u.kind}-${u.id}`}
                   href={u.href}
-                  className="flex items-start justify-between gap-3 rounded-xl border border-accent-champagne/10 bg-ink-950/30 p-3 backdrop-blur-sm transition hover:border-accent-champagne/30"
+                  className="flex items-start justify-between gap-3 rounded-xl border border-accent-champagne/10 bg-white/30 dark:bg-ink-950/30 p-3 backdrop-blur-sm transition hover:border-accent-champagne/30"
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-ink-100">
+                    <p className="truncate text-sm font-medium text-ink-900 dark:text-ink-100">
                       {u.title}
                     </p>
-                    <p className="text-xs text-ink-300">
+                    <p className="text-xs text-ink-600 dark:text-ink-300">
                       {formatRelative(u.whenIso)}
                       {u.badge ? <> · <span className="capitalize">{u.badge}</span></> : null}
                     </p>
@@ -636,16 +636,16 @@ export default async function DashboardPage() {
               activityRows.map((ev, i) => (
                 <div
                   key={`${ev.created_at}-${i}`}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-accent-champagne/10 bg-ink-950/30 p-3 backdrop-blur-sm"
+                  className="flex items-center justify-between gap-3 rounded-xl border border-accent-champagne/10 bg-white/30 dark:bg-ink-950/30 p-3 backdrop-blur-sm"
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm text-ink-100">
-                      <span className="text-ink-300">
+                    <p className="truncate text-sm text-ink-900 dark:text-ink-100">
+                      <span className="text-ink-600 dark:text-ink-300">
                         {moduleLabel[ev.module] ?? ev.module}
                       </span>{" "}
                       {eventLabel[ev.event_type] ?? ev.event_type.replace(/_/g, " ")}
                     </p>
-                    <p className="text-xs text-ink-300">
+                    <p className="text-xs text-ink-600 dark:text-ink-300">
                       {formatRelative(ev.created_at)}
                     </p>
                   </div>
@@ -669,9 +669,9 @@ export default async function DashboardPage() {
               Open admin
             </Link>
           </div>
-          <div className="mt-4 overflow-hidden rounded-xl border border-ink-800">
+          <div className="mt-4 overflow-hidden rounded-xl border border-ink-200 dark:border-ink-800">
             <table className="w-full text-left text-xs">
-              <thead className="bg-ink-900/70 text-[10px] uppercase tracking-[0.18em] text-ink-300">
+              <thead className="bg-white/70 dark:bg-ink-900/70 text-[10px] uppercase tracking-[0.18em] text-ink-600 dark:text-ink-300">
                 <tr>
                   <th className="px-3 py-2">Job</th>
                   <th className="px-3 py-2">Status</th>
@@ -682,22 +682,22 @@ export default async function DashboardPage() {
               <tbody>
                 {jobs.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-3 py-6 text-center text-ink-300">
+                    <td colSpan={4} className="px-3 py-6 text-center text-ink-600 dark:text-ink-300">
                       No automation jobs yet — they appear here when modules
                       enqueue work.
                     </td>
                   </tr>
                 ) : (
                   jobs.map((j) => (
-                    <tr key={j.id} className="border-t border-ink-800">
-                      <td className="px-3 py-2 text-ink-100">{j.job_type}</td>
+                    <tr key={j.id} className="border-t border-ink-200 dark:border-ink-800">
+                      <td className="px-3 py-2 text-ink-900 dark:text-ink-100">{j.job_type}</td>
                       <td className="px-3 py-2">
                         <StatusPill status={j.status as never} />
                       </td>
-                      <td className="px-3 py-2 text-ink-300">
+                      <td className="px-3 py-2 text-ink-600 dark:text-ink-300">
                         {formatRelative(j.updated_at)}
                       </td>
-                      <td className="px-3 py-2 text-ink-300">
+                      <td className="px-3 py-2 text-ink-600 dark:text-ink-300">
                         {j.last_error ?? "—"}
                       </td>
                     </tr>
@@ -741,13 +741,13 @@ function UsageCard({
     <div className="card-padded space-y-2">
       <div className="flex items-center justify-between">
         <p className="label">{label}</p>
-        <span className="text-ink-300">
+        <span className="text-ink-600 dark:text-ink-300">
           <Icon size={14} />
         </span>
       </div>
-      <p className="text-base font-semibold text-ink-100">{headline}</p>
-      <p className="text-[11px] text-ink-300">{sub}</p>
-        <div className="h-1 w-full overflow-hidden rounded-full bg-ink-800/70">
+      <p className="text-base font-semibold text-ink-900 dark:text-ink-100">{headline}</p>
+      <p className="text-[11px] text-ink-600 dark:text-ink-300">{sub}</p>
+        <div className="h-1 w-full overflow-hidden rounded-full bg-ink-100/70 dark:bg-ink-800/70">
         <div
           className="h-full rounded-full bg-gradient-to-r from-accent-champagne via-accent-gold to-accent-orange"
           style={{ width: `${pct}%` }}
