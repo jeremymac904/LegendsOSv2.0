@@ -226,6 +226,75 @@ build config in `package.json` `"build"`. See `docs/DESKTOP_APPS.md`.
   `/downloads/*` fallback → "test build pending"). Version chip + "Web app
   also available" copy. Replaces the previous "Coming soon" placeholders.
 
+## Legends Growth Academy + light mode sprint — 2026-05-22
+
+First local execution of Q-003 from the master workspace queue. Three tracks shipped on branch `feat/legends-growth-academy-and-light-mode-phase-1`. Local only — no commits, no push, no PR, no deploy.
+
+### Track A — Legends Growth Academy scaffold (shipped)
+
+- New static data: `lib/legends/curriculum.ts` (4 tracks, 22 module entries in Legends voice).
+- New routes:
+  - `/training/academy` — Academy landing.
+  - `/training/academy/[track]` — Sales, Marketing, AI, Mastery tracks (SSG via `generateStaticParams`).
+  - `/training/academy/[track]/[module]` — module detail (SSG; 22 prerendered paths).
+  - `/training/scripts`, `/training/roleplay`, `/training/audio` — catalog-only preview pages.
+- New components:
+  - `components/training/AcademyTrackCard.tsx`
+  - `components/training/ModuleListItem.tsx`
+  - `components/training/LegendsAssistantsCatalog.tsx`
+- Nav: single `Legends Academy` row added under the Team section. Sub-routes are reached from the Academy landing, not the sidebar — keeps nav simple.
+- Existing `/training` page is unchanged.
+
+### Track B — Light mode tokens + toggle (shipped)
+
+- `app/globals.css` extended with a `.light` token block (atmospheric values flip; brand accents stay constant) and component-level `.light` overrides for `.card`, `.btn-*`, `.input`, `.textarea`, `.chip*`, `.nav-item*`, `.divider`, `.section-title`.
+- `app/layout.tsx`: removed the hardcoded `bg-ink-950 text-ink-100` on `<body>` (replaced with `dark:` variants so dark mode is bit-identical). Added FOUC-safe boot script in `<head>` that applies `light` or `dark` to `<html>` before paint.
+- New `lib/theme.ts` exports `THEME_STORAGE_KEY`, `THEME_BOOT_SCRIPT`, `resolveInitialTheme`, `isLegendsTheme`.
+- New `components/ui/ThemeProvider.tsx` (client context, keeps `<html>` class in sync, persists to localStorage).
+- New `components/ui/ThemeToggle.tsx` — Sun/Moon icon button.
+- `components/shell/TopBar.tsx` mounts `<ThemeToggle />` left of the bell.
+
+### Track C — Three Legends Atlas assistants (catalog only)
+
+- New `lib/legends/assistants.ts` — typed catalog of:
+  - `legends-coach` (default)
+  - `legends-lo-support`
+  - `legends-marketing`
+  Each entry carries display copy, scope, refuses list, grounding-source list, and a draft system prompt with the standard Legends compliance footer baked in.
+- New `supabase/seeds/legends_assistants.sql` — manual seed for the day Jeremy approves wiring. Intentionally NOT referenced by `supabase/migrations/`. Inserts `is_active = false` rows.
+- `LegendsAssistantsCatalog` card surfaces the three on `/training/academy` with a clear "Not yet wired" badge. No edits to `AtlasWorkspace`, no live model calls, no Supabase writes from app code.
+
+### Validation
+
+- `npm install`     ✓ 744 packages
+- `npm run lint`    ✓ no warnings or errors
+- `npm run typecheck` ✓ exit 0
+- `npm run build`   ✓ all routes built; new SSG prerendered 4 track pages + 22 module pages
+- HTTP probe with `curl` (dev server on `:3030`):
+  - `/api/health` 200 ✓
+  - `/login`, `/setup` 200 ✓
+  - `/training/academy`, `/training/academy/sales`, `/training/academy/sales/sales-101`, `/training/scripts`, `/training/roleplay`, `/training/audio`, `/atlas`, `/dashboard` all 307 → `/setup` (Supabase not configured in this clean clone) ✓
+- Browser screenshots in `.playwright-mcp/legends-sprint-2026-05-22/`:
+  - `login-dark.png`, `login-light.png`
+  - `setup-dark.png`, `setup-light.png`
+- Theme runtime check: `localStorage.legendsTheme` persists across reloads; `<html>` class switches between `dark` and `light`; `getComputedStyle(body).backgroundColor` returns `rgb(5, 6, 10)` in dark and `rgb(248, 249, 252)` in light.
+- Smoke tests extended (`tests/e2e/smoke.spec.ts`) — 9 new academy route checks + 2 theme checks added. Existing 5 tests untouched. Playwright browsers not installed in this clean clone, so Playwright suite not executed in this pass; existing 5 + new 11 tests are static-analyzed (lint + typecheck) only.
+
+### Known issues / acceptable visual debt
+
+- `/login` hero card has its own bg-image styling that still leans dark in light mode. Not a blocker — the body, surrounding cards, and login form all render correctly in both themes.
+- Pages outside the Academy still use raw `text-ink-XXX` / `bg-ink-XXX` Tailwind classes inline. Components inside `.card`, `.btn-*`, `.chip*`, `.nav-item*` flip cleanly; pages with raw ink classes may look dark-leaning in light mode. Per the Phase 1 plan, this is acceptable visual debt for the toggle landing — Phase 2 will rewrite those route-by-route.
+- Full Academy UI cannot be visually verified inside this clean clone without a Supabase env. Build, types, lint, route resolution, and theme infrastructure are all verified. Live Academy UI walkthrough requires Jeremy to supply `NEXT_PUBLIC_SUPABASE_URL` and a test user; this is intentional — no `.env` files were created.
+
+### Production safety
+
+- No commits, no push, no PR, no Netlify trigger.
+- No `.env` writes; the new clone has no `.env.local`.
+- No live AI calls (provider gate `ALLOW_PAID_TEXT_GENERATION` still false).
+- No n8n triggers.
+- No live email, social, or calendar sends.
+- No live Supabase writes — `legends_assistants.sql` is a manual seed only.
+
 ## Last updated
 
-2026-05-20
+2026-05-22
