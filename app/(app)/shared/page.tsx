@@ -1,6 +1,7 @@
 import { Sparkles } from "lucide-react";
 
 import { CreateSharedResourceForm } from "@/components/shared/CreateSharedResourceForm";
+import { ResourceIntake } from "@/components/shared/ResourceIntake";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatusPill } from "@/components/ui/StatusPill";
@@ -79,12 +80,19 @@ export default async function SharedResourcesPage() {
         </section>
         <aside className="space-y-4">
           {owner ? (
-            <CreateSharedResourceForm
-              organizationId={profile.organization_id}
-              userId={profile.id}
-            />
+            <>
+              <ResourceIntake
+                userId={profile.id}
+                organizationId={profile.organization_id}
+                canManage={owner}
+              />
+              <CreateSharedResourceForm
+                organizationId={profile.organization_id}
+                userId={profile.id}
+              />
+            </>
           ) : (
-            <div className="card-padded text-xs text-ink-300">
+            <div className="card-padded text-xs text-ink-600 dark:text-ink-300">
               <p className="label">Adding resources</p>
               <p className="mt-2">
                 Only the owner can add or remove shared resources. Suggest
