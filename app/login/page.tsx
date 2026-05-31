@@ -62,6 +62,8 @@ export default function LoginPage({
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-ink-950">
+      {/* Desktop shell: draggable window strip at the very top (no-op in browser). */}
+      <div aria-hidden className="drag-region absolute inset-x-0 top-0 z-30 h-9" />
       <img
         src="/assets/backgrounds/command-center-futuristic.jpg"
         alt=""
@@ -120,11 +122,14 @@ export default function LoginPage({
                 </div>
               )}
             </div>
-            <DesktopDownloadCard
-              macUrl={macDownloadUrl}
-              winUrl={winDownloadUrl}
-              shellVersion={DESKTOP_SHELL_VERSION}
-            />
+            {/* Web-only: hidden inside the desktop shell (you're already in it). */}
+            <div className="web-only w-full">
+              <DesktopDownloadCard
+                macUrl={macDownloadUrl}
+                winUrl={winDownloadUrl}
+                shellVersion={DESKTOP_SHELL_VERSION}
+              />
+            </div>
           </div>
         </section>
 

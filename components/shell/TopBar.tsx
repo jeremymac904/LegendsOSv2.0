@@ -29,7 +29,7 @@ export function TopBar({ profile }: { profile: Profile }) {
   }
 
   return (
-    <header className="sticky top-0 z-20 flex items-center justify-between gap-4 border-b border-ink-900/10 bg-white/75 px-5 py-3 backdrop-blur-md relative dark:border-accent-champagne/10 dark:bg-ink-950/65">
+    <header className="drag-region sticky top-0 z-20 flex items-center justify-between gap-4 border-b border-ink-900/10 bg-white/75 px-5 py-3 backdrop-blur-md relative dark:border-accent-champagne/10 dark:bg-ink-950/65">
       <span
         aria-hidden
         className="pointer-events-none absolute inset-x-6 bottom-[-1px] h-px bg-gradient-to-r from-transparent via-accent-champagne/30 to-transparent dark:via-accent-champagne/20"

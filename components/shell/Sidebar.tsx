@@ -26,7 +26,7 @@ export function Sidebar({ profile }: { profile: Profile }) {
         className="pointer-events-none absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-accent-champagne/30 to-transparent dark:via-accent-champagne/20"
       />
 
-      <div className="px-2">
+      <div className="drag-region desktop-traffic-inset px-2">
         <Link href="/dashboard" className="group flex items-center gap-3">
           <div className="flex h-11 w-36 shrink-0 items-center rounded-xl border border-accent-gold/35 bg-white/65 px-2 shadow-glass dark:border-accent-gold/20 dark:bg-ink-950/40">
             <img
