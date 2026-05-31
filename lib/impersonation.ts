@@ -47,17 +47,25 @@ export async function getEffectiveProfile(): Promise<{
   // Use service-role to fetch the target profile — RLS would block the
   // owner from reading other org members via standard policies in some
   // configurations.
-  const service = getSupabaseServiceClient();
-  const { data } = await service
-    .from("profiles")
-    .select("*")
-    .eq("id", targetId)
-    .maybeSingle();
+  let data: Profile | null = null;
+  try {
+    const service = getSupabaseServiceClient();
+    const result = await service
+      .from("profiles")
+      .select("*")
+      .eq("id", targetId)
+      .maybeSingle();
+    data = (result.data ?? null) as Profile | null;
+  } catch {
+    // If service-role env or the profiles table is not available, the safe
+    // behavior is to stop impersonating and keep rendering as the real owner.
+    return { profile: real, realProfile: real, impersonating: false };
+  }
   if (!data) {
     return { profile: real, realProfile: real, impersonating: false };
   }
   return {
-    profile: data as Profile,
+    profile: data,
     realProfile: real,
     impersonating: true,
   };
