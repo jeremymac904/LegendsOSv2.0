@@ -9,12 +9,14 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import {
+  Archive,
   BookOpen,
   Calendar as CalendarIcon,
   Check,
   ChevronDown,
   ChevronsLeft,
   ChevronsRight,
+  Database,
   Info,
   Layers3,
   Mail,
@@ -22,14 +24,17 @@ import {
   PanelLeft,
   PanelRight,
   Paperclip,
+  Pin,
   Search,
   Send,
+  Save,
   Share2,
   Sparkles,
   Trash2,
   X,
 } from "lucide-react";
 
+import type { AtlasRuntimeContext } from "@/lib/atlas/runtimeContext";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn, formatRelative, truncate } from "@/lib/utils";
 import type { AtlasAssistant, ChatMessage, ChatThread } from "@/types/database";
@@ -74,6 +79,7 @@ export interface AtlasWorkspaceProps {
   providerCatalog: ProviderEntry[];
   modelCatalog: Record<ProviderId, ModelEntry[]>;
   defaultProvider: ProviderId;
+  initialRuntimeContext: AtlasRuntimeContext;
   organizationId: string | null;
   projects: AtlasProjectSummary[];
   knowledgeCollections: AtlasKnowledgeCollectionOption[];
@@ -160,196 +166,8 @@ function ToolResultCard({ result, createdAt }: { result: AtlasToolResultMeta; cr
   );
 }
 
-// ─── Minimal markdown renderer ───────────────────────────────────────────────
-// Dependency-free. Renders a SAFE subset of markdown for assistant/system
-// messages only. It builds React nodes (never dangerouslySetInnerHTML), so all
-// text is escaped by React automatically — model output cannot inject HTML.
-// Supported: fenced code blocks (```), inline code (`), bold (**), hash
-// headings (#..######), and unordered (-, *, +) / ordered (1.) lists.
-
-// Parse a single line of text into inline React nodes: inline code spans and
-// bold runs. Everything else is plain (auto-escaped) text. A running key
-// counter keeps React keys stable within one line.
-function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
-  const nodes: React.ReactNode[] = [];
-  // Split on `code` first so ** inside code is left literal.
-  const codeParts = text.split(/(`[^`]+`)/g);
-  let k = 0;
-  for (const part of codeParts) {
-    if (!part) continue;
-    if (part.length >= 2 && part.startsWith("`") && part.endsWith("`")) {
-      nodes.push(
-        <code
-          key={`${keyPrefix}-c${k++}`}
-          className="rounded bg-ink-100/80 dark:bg-ink-800/80 px-1 py-0.5 font-mono text-[0.85em] text-accent-gold"
-        >
-          {part.slice(1, -1)}
-        </code>
-      );
-      continue;
-    }
-    // Bold runs: **text**
-    const boldParts = part.split(/(\*\*[^*]+\*\*)/g);
-    for (const bp of boldParts) {
-      if (!bp) continue;
-      if (bp.length >= 4 && bp.startsWith("**") && bp.endsWith("**")) {
-        nodes.push(
-          <strong key={`${keyPrefix}-b${k++}`} className="font-semibold">
-            {bp.slice(2, -2)}
-          </strong>
-        );
-      } else {
-        nodes.push(<span key={`${keyPrefix}-t${k++}`}>{bp}</span>);
-      }
-    }
-  }
-  return nodes;
-}
-
-type MdBlock =
-  | { type: "code"; content: string }
-  | { type: "heading"; level: number; text: string }
-  | { type: "ul"; items: string[] }
-  | { type: "ol"; items: string[] }
-  | { type: "p"; lines: string[] };
-
-// Group raw markdown text into blocks. Fenced code blocks are split out first so
-// their contents are rendered verbatim and never parsed for inline markup.
-function parseMarkdownBlocks(src: string): MdBlock[] {
-  const blocks: MdBlock[] = [];
-  const segments = src.split(/```/g);
-  segments.forEach((segment, i) => {
-    // Odd segments are inside a pair of fences → code blocks.
-    if (i % 2 === 1) {
-      // Drop an optional language hint on the first line (e.g. ```ts).
-      const withoutLang = segment.replace(/^[^\n]*\n/, (m) =>
-        /^[A-Za-z0-9_+-]*\n$/.test(m) ? "" : m
-      );
-      blocks.push({ type: "code", content: withoutLang.replace(/\n$/, "") });
-      return;
-    }
-    // Even segments are normal markdown text.
-    const lines = segment.split("\n");
-    let paragraph: string[] = [];
-    let ul: string[] = [];
-    let ol: string[] = [];
-    const flushParagraph = () => {
-      if (paragraph.length) {
-        blocks.push({ type: "p", lines: paragraph });
-        paragraph = [];
-      }
-    };
-    const flushUl = () => {
-      if (ul.length) {
-        blocks.push({ type: "ul", items: ul });
-        ul = [];
-      }
-    };
-    const flushOl = () => {
-      if (ol.length) {
-        blocks.push({ type: "ol", items: ol });
-        ol = [];
-      }
-    };
-    const flushAll = () => {
-      flushParagraph();
-      flushUl();
-      flushOl();
-    };
-    for (const line of lines) {
-      const heading = /^(#{1,6})\s+(.*)$/.exec(line);
-      const bullet = /^\s*[-*+]\s+(.*)$/.exec(line);
-      const ordered = /^\s*\d+[.)]\s+(.*)$/.exec(line);
-      if (heading) {
-        flushAll();
-        blocks.push({ type: "heading", level: heading[1].length, text: heading[2] });
-      } else if (bullet) {
-        flushParagraph();
-        flushOl();
-        ul.push(bullet[1]);
-      } else if (ordered) {
-        flushParagraph();
-        flushUl();
-        ol.push(ordered[1]);
-      } else if (line.trim() === "") {
-        flushAll();
-      } else {
-        flushUl();
-        flushOl();
-        paragraph.push(line);
-      }
-    }
-    flushAll();
-  });
-  return blocks;
-}
-
 function Markdown({ content }: { content: string }) {
-  const blocks = useMemo(() => parseMarkdownBlocks(content), [content]);
-  return (
-    <div className="space-y-2">
-      {blocks.map((block, i) => {
-        const key = `md-${i}`;
-        if (block.type === "code") {
-          return (
-            <pre
-              key={key}
-              className="overflow-x-auto rounded-lg border border-ink-200 dark:border-ink-800 bg-ink-100/70 dark:bg-ink-950/70 p-3 text-[12.5px] leading-relaxed scrollbar-thin"
-            >
-              <code className="font-mono text-ink-900 dark:text-ink-100">{block.content}</code>
-            </pre>
-          );
-        }
-        if (block.type === "heading") {
-          const sizes: Record<number, string> = {
-            1: "text-[15px]",
-            2: "text-[14px]",
-            3: "text-[13px]",
-          };
-          return (
-            <p
-              key={key}
-              className={cn(
-                "font-semibold text-ink-900 dark:text-ink-100",
-                sizes[block.level] ?? "text-[12.5px]"
-              )}
-            >
-              {renderInline(block.text, key)}
-            </p>
-          );
-        }
-        if (block.type === "ul") {
-          return (
-            <ul key={key} className="list-disc space-y-1 pl-5">
-              {block.items.map((item, j) => (
-                <li key={`${key}-${j}`}>{renderInline(item, `${key}-${j}`)}</li>
-              ))}
-            </ul>
-          );
-        }
-        if (block.type === "ol") {
-          return (
-            <ol key={key} className="list-decimal space-y-1 pl-5">
-              {block.items.map((item, j) => (
-                <li key={`${key}-${j}`}>{renderInline(item, `${key}-${j}`)}</li>
-              ))}
-            </ol>
-          );
-        }
-        // paragraph — preserve intra-paragraph line breaks
-        return (
-          <p key={key} className="whitespace-pre-wrap">
-            {block.lines.map((line, j) => (
-              <span key={`${key}-${j}`}>
-                {renderInline(line, `${key}-${j}`)}
-                {j < block.lines.length - 1 ? "\n" : null}
-              </span>
-            ))}
-          </p>
-        );
-      })}
-    </div>
-  );
+  return <div className="whitespace-pre-wrap">{content}</div>;
 }
 
 function MessageRow({ message }: { message: ChatMessage }) {
@@ -499,16 +317,172 @@ function buildResources(messages: ChatMessage[]): WorkspaceResource[] {
   return out.slice(-10).reverse();
 }
 
+function statusLabel(status: string): string {
+  return status.replace(/_/g, " ");
+}
+
+function ContextCountRow({
+  label,
+  status,
+  count,
+}: {
+  label: string;
+  status: string;
+  count: number;
+}) {
+  const good = status === "loaded" || status === "matched";
+  return (
+    <div className="flex items-center justify-between gap-2 rounded-lg border border-ink-200/80 bg-white/40 px-2 py-1.5 text-[10.5px] dark:border-ink-800/80 dark:bg-ink-900/30">
+      <span className="text-ink-700 dark:text-ink-200">{label}</span>
+      <span
+        className={cn(
+          "rounded-full px-1.5 py-px text-[9.5px] uppercase tracking-[0.12em]",
+          good
+            ? "bg-status-ok/10 text-status-ok"
+            : status === "setup_needed" || status === "error"
+            ? "bg-status-warn/10 text-status-warn"
+            : "bg-ink-100 text-ink-500 dark:bg-ink-800 dark:text-ink-400"
+        )}
+      >
+        {count > 0 ? count : statusLabel(status)}
+      </span>
+    </div>
+  );
+}
+
+function AssistantRuntimeContextPanel({
+  context,
+  actionMessage,
+  onRuntimeAction,
+}: {
+  context: AtlasRuntimeContext;
+  actionMessage: string | null;
+  onRuntimeAction: (action: "save_memory" | "save_skill" | "promote_skill" | "share_skill") => void;
+}) {
+  const modelLabel = [
+    context.model.provider ?? "default provider",
+    context.model.model ? context.model.model.split("/").slice(-1)[0] : "default model",
+  ].join(" / ");
+
+  return (
+    <div className="border-b border-ink-200 p-3 dark:border-ink-800">
+      <div className="rounded-xl border border-accent-champagne/20 bg-white/40 p-3 dark:bg-ink-900/35">
+        <div className="flex items-start gap-2">
+          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-accent-gold/25 bg-accent-gold/10 text-accent-gold">
+            <Database size={13} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent-gold">
+              Current assistant
+            </p>
+            <p className="truncate text-[12px] font-semibold text-ink-900 dark:text-ink-100">
+              {context.current_assistant.name}
+            </p>
+            <p className="mt-0.5 truncate text-[10.5px] text-ink-500 dark:text-ink-400">
+              {modelLabel}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-3 grid gap-1.5">
+          <ContextCountRow label="Loaded memory" status={context.memory.status} count={context.memory.items.length} />
+          <ContextCountRow label="Loaded skills" status={context.skills.status} count={context.skills.items.length} />
+          <ContextCountRow label="Loan context" status={context.loan.status} count={context.loan.status === "matched" ? 1 : 0} />
+          <ContextCountRow label="Browser context" status={context.browser.status} count={context.browser.captures.length} />
+          <ContextCountRow label="Knowledge sources" status={context.knowledge.status} count={context.knowledge.attached_sources.length} />
+          <ContextCountRow label="Loaded tools" status="loaded" count={context.tools.items.length} />
+        </div>
+
+        {context.memory.items.length > 0 && (
+          <div className="mt-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500 dark:text-ink-400">
+              Memory
+            </p>
+            <ul className="mt-1 space-y-1">
+              {context.memory.items.slice(0, 3).map((item) => (
+                <li key={item.id} className="text-[10.5px] leading-snug text-ink-600 dark:text-ink-300">
+                  <span className="font-medium text-ink-900 dark:text-ink-100">{item.title}</span>
+                  {item.body ? ` — ${truncate(item.body, 90)}` : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {context.skills.items.length > 0 && (
+          <div className="mt-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500 dark:text-ink-400">
+              Skills
+            </p>
+            <ul className="mt-1 space-y-1">
+              {context.skills.items.slice(0, 3).map((skill) => (
+                <li key={skill.id} className="text-[10.5px] leading-snug text-ink-600 dark:text-ink-300">
+                  <span className="font-medium text-ink-900 dark:text-ink-100">{skill.skill_name}</span>
+                  {skill.is_shared_with_team ? " · team shared" : ""}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {context.browser.captures.length > 0 && (
+          <div className="mt-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500 dark:text-ink-400">
+              Browser
+            </p>
+            <ul className="mt-1 space-y-1">
+              {context.browser.captures.slice(0, 2).map((capture) => (
+                <li key={capture.id} className="text-[10.5px] leading-snug text-ink-600 dark:text-ink-300">
+                  <span className="font-medium text-ink-900 dark:text-ink-100">
+                    {capture.source_title ?? "Captured page"}
+                  </span>
+                  {capture.source_url ? ` — ${truncate(capture.source_url, 80)}` : ""}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <div className="mt-3 grid grid-cols-2 gap-1.5">
+          <button type="button" onClick={() => onRuntimeAction("save_memory")} className="btn-secondary h-8 px-2 text-[10.5px]">
+            Save as memory
+          </button>
+          <button type="button" onClick={() => onRuntimeAction("save_skill")} className="btn-secondary h-8 px-2 text-[10.5px]">
+            Save as skill
+          </button>
+          <button type="button" onClick={() => onRuntimeAction("promote_skill")} className="btn-secondary h-8 px-2 text-[10.5px]">
+            Promote skill
+          </button>
+          <button type="button" onClick={() => onRuntimeAction("share_skill")} className="btn-secondary h-8 px-2 text-[10.5px]">
+            Share skill
+          </button>
+        </div>
+        {actionMessage && (
+          <p className="mt-2 rounded-lg border border-accent-gold/25 bg-accent-gold/10 px-2 py-1.5 text-[10.5px] text-ink-700 dark:text-ink-200">
+            {actionMessage}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function WorkspaceResourcePanel({
   messages,
   currentProject,
   loanContext,
+  runtimeContext,
+  actionMessage,
   onPrompt,
+  onRuntimeAction,
 }: {
   messages: ChatMessage[];
   currentProject: AtlasProjectSummary | null;
   loanContext: AtlasLoanContext | null;
+  runtimeContext: AtlasRuntimeContext;
+  actionMessage: string | null;
   onPrompt: (prompt: string) => void;
+  onRuntimeAction: (action: "save_memory" | "save_skill" | "promote_skill" | "share_skill") => void;
 }) {
   const resources = buildResources(messages);
   const tasks = taskList(currentProject?.metadata);
@@ -516,12 +490,17 @@ function WorkspaceResourcePanel({
     <div className="flex h-full flex-col overflow-y-auto scrollbar-thin">
       <div className="border-b border-ink-200 dark:border-ink-800 px-3 py-2">
         <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-600 dark:text-ink-300">
-          Sources & resources
+          Assistant context
         </p>
         <p className="mt-1 text-[10.5px] leading-snug text-ink-500 dark:text-ink-500">
-          Knowledge hits, tool outputs, and project work stay visible here.
+          What Atlas loaded before the current response.
         </p>
       </div>
+      <AssistantRuntimeContextPanel
+        context={runtimeContext}
+        actionMessage={actionMessage}
+        onRuntimeAction={onRuntimeAction}
+      />
       {/* Loan memory context — additive, only shown when Atlas loaded a loan. */}
       {loanContext && <LoanContextPanel context={loanContext} />}
       <div className="space-y-2 p-3">
@@ -617,6 +596,39 @@ function taskList(metadata: Record<string, unknown> | null | undefined): string[
   return raw.filter((v): v is string => typeof v === "string" && v.trim().length > 0);
 }
 
+function ThreadControlButton({
+  icon: Icon,
+  label,
+  active,
+  disabled,
+  onClick,
+}: {
+  icon: React.ComponentType<{ size?: number | string; className?: string }>;
+  label: string;
+  active?: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        "hidden h-7 items-center gap-1.5 rounded-full border px-2.5 text-[10.5px] font-medium transition sm:inline-flex",
+        active
+          ? "border-accent-gold/40 bg-accent-gold/10 text-accent-gold"
+          : "border-ink-200/80 bg-white/50 text-ink-600 hover:border-accent-champagne/50 hover:text-ink-900 dark:border-ink-700/80 dark:bg-ink-950/50 dark:text-ink-300 dark:hover:text-ink-100",
+        disabled && "cursor-not-allowed opacity-45"
+      )}
+      title={disabled ? "Available after the first message is sent" : label}
+    >
+      <Icon size={11} />
+      {label}
+    </button>
+  );
+}
+
 // ─── ProviderModelChip ───────────────────────────────────────────────────────
 
 function ProviderModelChip(props: {
@@ -692,6 +704,7 @@ function ProviderModelChip(props: {
 export function AtlasWorkspace({
   ownerId, currentThread, initialInput = "", initialMessages = [],
   assistants: _assistants, providerCatalog, modelCatalog, defaultProvider,
+  initialRuntimeContext,
   organizationId, projects, knowledgeCollections, projectAccess, recentThreads,
 }: AtlasWorkspaceProps) {
   const router = useRouter();
@@ -709,6 +722,13 @@ export function AtlasWorkspace({
   // Loan memory context returned by the chat route when a message resolves to a
   // loan. Null until/unless a loan-related question is answered. Additive only.
   const [loanContext, setLoanContext] = useState<AtlasLoanContext | null>(null);
+  const [runtimeContext, setRuntimeContext] =
+    useState<AtlasRuntimeContext>(initialRuntimeContext);
+  const [contextAction, setContextAction] = useState<string | null>(null);
+  const [threadFlags, setThreadFlags] = useState({
+    is_pinned: Boolean((currentThread as (ChatThread & { is_pinned?: boolean }) | null)?.is_pinned),
+    is_saved: Boolean((currentThread as (ChatThread & { is_saved?: boolean }) | null)?.is_saved),
+  });
   const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(false);
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -742,6 +762,11 @@ export function AtlasWorkspace({
     setMessages(initialMessages);
     setSelectedProjectId(currentThread?.assistant_id ?? null);
     setLoanContext(null);
+    setRuntimeContext(initialRuntimeContext);
+    setThreadFlags({
+      is_pinned: Boolean((currentThread as (ChatThread & { is_pinned?: boolean }) | null)?.is_pinned),
+      is_saved: Boolean((currentThread as (ChatThread & { is_saved?: boolean }) | null)?.is_saved),
+    });
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [currentThread?.id]);
 
@@ -888,6 +913,9 @@ export function AtlasWorkspace({
         if (data.loan_context && typeof data.loan_context === "object") {
           setLoanContext(data.loan_context as AtlasLoanContext);
         }
+        if (data.runtime_context && typeof data.runtime_context === "object") {
+          setRuntimeContext(data.runtime_context as AtlasRuntimeContext);
+        }
         if (!threadId) { setThreadId(newTid); router.replace(`/atlas/${newTid}`); }
         setMessages((m) => [...m, { id: data.message_id ?? `asst-${Date.now()}`, thread_id: newTid, user_id: ownerId, role: "assistant", content: data.content, metadata: { provider: data.provider, model: data.model, knowledge_hits: data.knowledge?.count ?? 0, knowledge_sources: data.knowledge?.sources ?? [], ...(data.tool_result ? { tool_result: data.tool_result } : {}) }, token_count: null, created_at: new Date().toISOString() }]);
         router.refresh();
@@ -896,6 +924,79 @@ export function AtlasWorkspace({
   }
 
   function handleKey(e: React.KeyboardEvent<HTMLTextAreaElement>) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }
+
+  function recentConversationText(): string {
+    const source = messages.length ? messages : initialMessages;
+    return source
+      .slice(-8)
+      .map((message) => `${message.role}: ${message.content}`)
+      .join("\n\n")
+      .slice(0, 6000);
+  }
+
+  async function runRuntimeAction(
+    action: "save_memory" | "save_skill" | "promote_skill" | "share_skill"
+  ) {
+    setContextAction(null);
+    try {
+      const res = await fetch("/api/atlas/runtime", {
+        method: "POST",
+        headers: { "content-type": "application/json", accept: "application/json" },
+        body: JSON.stringify({
+          action,
+          thread_id: threadId,
+          assistant_id: selectedProjectId,
+          content: recentConversationText() || input,
+        }),
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        setContextAction(data.message ?? data.error ?? "Runtime action failed.");
+        return;
+      }
+      setContextAction(data.message ?? "Saved.");
+      if (data.runtime_context && typeof data.runtime_context === "object") {
+        setRuntimeContext(data.runtime_context as AtlasRuntimeContext);
+      }
+      router.refresh();
+    } catch (e) {
+      setContextAction(e instanceof Error ? e.message : "Runtime action failed.");
+    }
+  }
+
+  async function updateThreadFlag(
+    patch: Partial<{ is_pinned: boolean; is_saved: boolean; is_archived: boolean }>
+  ) {
+    if (!threadId) {
+      setError("Start the conversation before changing thread status.");
+      return;
+    }
+    setError(null);
+    try {
+      const res = await fetch("/api/atlas/thread", {
+        method: "PATCH",
+        headers: { "content-type": "application/json", accept: "application/json" },
+        body: JSON.stringify({ thread_id: threadId, ...patch }),
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        setError(data.message ?? data.error ?? "Thread update failed.");
+        return;
+      }
+      if (typeof patch.is_pinned === "boolean") {
+        setThreadFlags((prev) => ({ ...prev, is_pinned: patch.is_pinned! }));
+      }
+      if (typeof patch.is_saved === "boolean") {
+        setThreadFlags((prev) => ({ ...prev, is_saved: patch.is_saved! }));
+      }
+      if (patch.is_archived) {
+        router.replace("/atlas");
+      }
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Thread update failed.");
+    }
+  }
 
   return (
     <div className="flex h-full min-h-0 w-full overflow-hidden">
@@ -950,6 +1051,26 @@ export function AtlasWorkspace({
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            <ThreadControlButton
+              icon={Pin}
+              label={threadFlags.is_pinned ? "Pinned" : "Pin"}
+              active={threadFlags.is_pinned}
+              disabled={!threadId}
+              onClick={() => updateThreadFlag({ is_pinned: !threadFlags.is_pinned })}
+            />
+            <ThreadControlButton
+              icon={Save}
+              label={threadFlags.is_saved ? "Saved" : "Save"}
+              active={threadFlags.is_saved}
+              disabled={!threadId}
+              onClick={() => updateThreadFlag({ is_saved: !threadFlags.is_saved })}
+            />
+            <ThreadControlButton
+              icon={Archive}
+              label="Archive"
+              disabled={!threadId}
+              onClick={() => updateThreadFlag({ is_archived: true })}
+            />
             <ProviderModelChip provider={provider} setProvider={setProvider} model={model} setModel={setModel} providerCatalog={providerCatalog} modelCatalog={modelCatalog} />
             <button type="button" onClick={() => setRightOpen((o) => !o)} title={rightOpen ? "Close resources" : "Open resources"}
               className={cn("grid h-7 w-7 place-items-center rounded-full border border-ink-200/80 dark:border-ink-700/80 bg-white/50 dark:bg-ink-950/50 text-ink-600 dark:text-ink-300 backdrop-blur-sm transition hover:border-accent-champagne/60 hover:text-accent-champagne", rightOpen && "border-accent-champagne/40 text-accent-champagne")}>
@@ -1010,7 +1131,10 @@ export function AtlasWorkspace({
           messages={messages}
           currentProject={currentProject}
           loanContext={loanContext}
+          runtimeContext={runtimeContext}
+          actionMessage={contextAction}
           onPrompt={injectPrompt}
+          onRuntimeAction={runRuntimeAction}
         />
       </div>
     </div>

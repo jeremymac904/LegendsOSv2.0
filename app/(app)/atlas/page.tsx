@@ -5,6 +5,7 @@ import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { AtlasAssistant, KnowledgeCollection } from "@/types/database";
 
 import { buildAtlasModelCatalog } from "./model-catalog";
+import { loadAtlasRuntimeContext } from "@/lib/atlas/runtimeContext";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +35,7 @@ export default async function AtlasIndexPage({
       .order("name", { ascending: true }),
     supabase
       .from("chat_threads")
-      .select("id,title,assistant_id,last_message_at,is_archived")
+      .select("*")
       .eq("user_id", profile.id)
       .eq("is_archived", false)
       .order("last_message_at", { ascending: false })
@@ -87,6 +88,13 @@ export default async function AtlasIndexPage({
       ? envDefault
       : (fallback?.id as "openrouter" | "deepseek" | "nvidia" | "minimax" | undefined)) ??
     "openrouter";
+  const initialRuntimeContext = await loadAtlasRuntimeContext({
+    client: supabase,
+    profile,
+    assistantId: null,
+    provider: defaultProvider,
+    model: null,
+  });
 
   return (
     <AtlasWorkspace
@@ -102,6 +110,7 @@ export default async function AtlasIndexPage({
       }))}
       modelCatalog={models}
       defaultProvider={defaultProvider}
+      initialRuntimeContext={initialRuntimeContext}
       organizationId={profile.organization_id}
       projects={assistantList}
       knowledgeCollections={((collections ?? []) as Pick<

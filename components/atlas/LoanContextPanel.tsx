@@ -18,6 +18,8 @@ export interface AtlasLoanContext {
   current_stage?: string | null;
   last_update?: string | null;
   main_blocker?: string | null;
+  next_action?: string | null;
+  confidence?: string | null;
   sources_checked?: string[] | null;
   match_status?: string | null;
   is_sample?: boolean | null;
@@ -77,6 +79,9 @@ export function LoanContextPanel({ context }: { context: AtlasLoanContext | null
           <Row icon={Sparkles} label="Stage" value={fmt(context.current_stage)} />
           {context.main_blocker && (
             <Row icon={ShieldAlert} label="Blocker" value={context.main_blocker} tone="warn" />
+          )}
+          {context.next_action && (
+            <Row icon={Sparkles} label="Next" value={context.next_action} />
           )}
           <Row icon={MapPin} label="Last update" value={fmtWhen(context.last_update)} />
         </dl>

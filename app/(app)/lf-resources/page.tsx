@@ -52,95 +52,58 @@ export default async function LFResourcesPage() {
   const items = [...sharedItems, ...DEFAULT_LF_RESOURCES];
 
   return (
-    <div className="space-y-6">
-      <SectionHeader
-        eyebrow="LF Resources"
-        title="Loan Factory resource directory"
-        description="A clean operating directory for Loan Factory training, support, departments, systems, setup resources, and important resource folders."
-        action={
-          <Link
-            href="/lf-resources/lf-training-folder"
-            className="btn-primary"
-          >
-            <ExternalLink size={14} />
-            Open LF guide
-          </Link>
-        }
-      />
-
-      <section className="card-padded">
-        <div className="grid gap-5 lg:grid-cols-[1fr_0.85fr] lg:items-center">
-          <div>
-            <p className="label flex items-center gap-2">
-              <Building2 size={13} />
-              Loan Factory source map
-            </p>
-            <h2 className="mt-2 text-2xl font-semibold text-ink-100">
-              Keep official LF links easy to find.
-            </h2>
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-300">
-              Use this page for Loan Factory training, LO support, development,
-              coaching, department links, system links, important forms, setup
-              references, lender escalation resources, feedback, and AI
-              training.
-            </p>
-            <p className="mt-3 text-xs text-ink-400">
-              Source folder retained:{" "}
-              <a
-                href={LF_TRAINING_FOLDER_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-accent-champagne hover:text-ink-100"
-              >
-                Loan Factory Training Folder
-              </a>
-              .
-            </p>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
-            <HeroStat icon={FolderOpen} label="Source" value="Google Drive" />
-            <HeroStat icon={LifeBuoy} label="Support" value="LO-ready" />
-            <HeroStat icon={ExternalLink} label="Links" value="New tab safe" />
-          </div>
+    <div className="flex h-[calc(100vh-140px)] min-h-[650px] flex-col gap-4 overflow-hidden">
+      <div className="flex items-center justify-between gap-4">
+        <SectionHeader
+          eyebrow="LF Resources"
+          title="Loan Factory Directory"
+          description="Official training, support, and system links."
+        />
+        <div className="flex items-center gap-2">
+           <a href={LF_TRAINING_FOLDER_URL} target="_blank" rel="noopener noreferrer" className="btn py-1 text-xs"><ExternalLink size={14} /> Source Folder</a>
+           <Link href="/lf-resources/lf-training-folder" className="btn-primary py-1 text-xs">Open Guide</Link>
         </div>
-      </section>
+      </div>
 
-      <section className="card-padded">
-        <div className="section-title">
-          <div>
-            <h2>Coverage map</h2>
-            <p>Every required Loan Factory area has a place to land.</p>
-          </div>
+      <div className="grid flex-1 grid-cols-1 gap-4 overflow-hidden lg:grid-cols-[280px_1fr]">
+        {/* Sidebar: Stats & About */}
+        <div className="flex flex-col gap-4 overflow-y-auto pr-1 scrollbar-thin">
+           <div className="card-padded py-3 space-y-3">
+              <h3 className="text-[10px] font-bold uppercase tracking-wider text-ink-500">Overview</h3>
+              <p className="text-xs text-ink-300 leading-relaxed">A clean operating directory for Loan Factory training, support, and systems.</p>
+              <div className="grid grid-cols-1 gap-2">
+                 <HeroStat icon={FolderOpen} label="Source" value="Google Drive" />
+                 <HeroStat icon={LifeBuoy} label="Support" value="LO-ready" />
+              </div>
+           </div>
+
+           <div className="card-padded py-3">
+              <h3 className="text-[10px] font-bold uppercase tracking-wider text-ink-500 mb-3">Coverage</h3>
+              <div className="flex flex-wrap gap-1">
+                 {REQUIRED_AREAS.map(area => <span key={area} className="text-[9px] chip-off px-1.5 py-0">{area}</span>)}
+              </div>
+           </div>
+
+           <LegendsOSHelpCoaches coaches={["setup"]} />
         </div>
-        <div className="mt-4 flex flex-wrap gap-2">
-          {REQUIRED_AREAS.map((area) => (
-            <span key={area} className="chip">
-              {area}
-            </span>
-          ))}
+
+        {/* Main: Library */}
+        <div className="flex flex-col overflow-hidden rounded-2xl border border-ink-200 bg-white/40 dark:border-ink-800 dark:bg-ink-950/20">
+           <div className="flex-1 overflow-y-auto p-4 scrollbar-thin">
+              <ResourceLibrary
+                mode="lf"
+                resourceType={LF_RESOURCE_TYPE}
+                items={items}
+                categories={LF_RESOURCE_CATEGORIES}
+                owner={owner}
+                organizationId={profile.organization_id}
+                userId={profile.id}
+                emptyTitle="No LF resources yet"
+                emptyDescription="Jeremy has not published additional resources yet."
+              />
+           </div>
         </div>
-      </section>
-
-      <LegendsOSHelpCoaches
-        coaches={["setup"]}
-        intro="Use the Setup Coach when an LF resource depends on LegendsOS, n8n, Google Workspace, approved social accounts, MCP, or AI provider setup."
-      />
-
-      <ResourceLibrary
-        mode="lf"
-        resourceType={LF_RESOURCE_TYPE}
-        items={items}
-        categories={LF_RESOURCE_CATEGORIES}
-        owner={owner}
-        organizationId={profile.organization_id}
-        userId={profile.id}
-        emptyTitle="No LF resources yet"
-        emptyDescription={
-          owner
-            ? "Add official Loan Factory folders, docs, forms, and department links as team-shared resources."
-            : "Jeremy has not published additional LF resources yet. Use the top-level training folder for now."
-        }
-      />
+      </div>
     </div>
   );
 }

@@ -25,6 +25,8 @@ import {
   normalizeAssistant,
   preflight,
 } from "@/lib/browserCompanion/store";
+import { writeMemoryEvent } from "@/lib/loanMemory/events";
+import { resolveLoanContext } from "@/lib/loanMemory/resolve";
 import { getCurrentProfile, getSupabaseServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -44,6 +46,11 @@ const captureSchema = z.object({
     .enum(["owner", "loan_officer", "processor", "coordinator"])
     .optional(),
 });
+
+function isLoanFactoryContext(sourceUrl: string | null, sourceTitle: string | null): boolean {
+  const value = `${sourceUrl ?? ""} ${sourceTitle ?? ""}`.toLowerCase();
+  return value.includes("loanfactory") || value.includes("loan factory");
+}
 
 export async function POST(req: Request) {
   const profile = await getCurrentProfile();
@@ -138,11 +145,69 @@ export async function POST(req: Request) {
     capture_id: stored.data.id,
   });
 
+  let loanBrain:
+    | {
+        attempted: boolean;
+        match_status?: string;
+        loan_memory_id?: string | null;
+        review_event_id?: string | null;
+        event_written?: boolean;
+      }
+    | null = null;
+
+  if (isLoanFactoryContext(sourceUrl, sourceTitle)) {
+    loanBrain = { attempted: true };
+    try {
+      const resolved = await resolveLoanContext(userClient, {
+        query_text: [
+          sourceTitle,
+          sourceUrl,
+          selectedText,
+          structuredContext ? JSON.stringify(structuredContext) : null,
+        ]
+          .filter(Boolean)
+          .join("\n"),
+        user_id: profile.id,
+        browser_capture_id: stored.data.id,
+        source_url: sourceUrl ?? undefined,
+        source_title: sourceTitle ?? undefined,
+        selected_text: selectedText ?? undefined,
+        structured_context: structuredContext ?? undefined,
+      });
+
+      loanBrain.match_status = resolved.match_status;
+      loanBrain.loan_memory_id = resolved.match?.loan_memory_id ?? null;
+
+      if (resolved.match_status === "matched" && resolved.match) {
+        const written = await writeMemoryEvent(userClient, {
+          loan_memory_id: resolved.match.loan_memory_id,
+          event_type: "ai_note",
+          event_title: "Browser companion capture for review",
+          event_summary: `Captured Loan Factory portal context for review from ${
+            sourceTitle || sourceUrl || "browser companion"
+          }.`,
+          source_type: "browser_companion",
+          source_name: sourceTitle || "Loan Factory portal",
+          source_url_or_path: sourceUrl ?? undefined,
+          source_timestamp: new Date().toISOString(),
+          created_by: profile.id,
+          confidence: "low",
+        });
+        loanBrain.event_written = written.ok;
+        loanBrain.review_event_id = written.event_id ?? null;
+      }
+    } catch {
+      loanBrain.match_status = "unavailable";
+      loanBrain.event_written = false;
+    }
+  }
+
   return corsJson(req, {
     ok: true,
     provisioned: true,
     capture_id: stored.data.id,
     audit_recorded: audit.ok,
+    loan_brain: loanBrain,
     routing: {
       href,
       assistant,

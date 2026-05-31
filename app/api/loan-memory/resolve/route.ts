@@ -40,10 +40,20 @@ export async function POST(req: Request) {
     user_id: body.user_id ?? profile.id,
     thread_id: body.thread_id,
     borrower_hint: body.borrower_hint,
+    co_borrower_hint: body.co_borrower_hint,
     loan_id: body.loan_id,
+    loan_number: body.loan_number,
     property_address: body.property_address,
     email_thread_id: body.email_thread_id,
+    gmail_subject: body.gmail_subject,
+    gmail_sender: body.gmail_sender,
     document_id: body.document_id,
+    document_name: body.document_name,
+    browser_capture_id: body.browser_capture_id,
+    source_url: body.source_url,
+    source_title: body.source_title,
+    selected_text: body.selected_text,
+    structured_context: body.structured_context,
   };
 
   try {

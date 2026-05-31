@@ -137,6 +137,15 @@ export function buildSampleLoanMemoryBundle(label?: string): LoanMemoryTabBundle
         submitted_date: null,
       },
     ],
+    conditions: [
+      {
+        id: "c1",
+        description: "Provide updated homeowners insurance quote.",
+        source: "uw",
+        status: "open",
+        response_plan: "Request updated quote from borrower and submit with cover note.",
+      },
+    ],
     email_intake: [
       { id: "e1", subject: "Re: Insurance quote for 123 Demo Street", from_address: "borrower@example.com", received_at: iso(1) },
     ],

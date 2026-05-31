@@ -55,6 +55,29 @@ export default async function AudioLibraryPage() {
 
       <section className="space-y-3">
         <div className="section-title">
+          <h2>External Training Resources</h2>
+          <p>Real-world audio and video resources from our team drive.</p>
+        </div>
+        <div className="glass-card-padded">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-ink-900 dark:text-ink-100">Loan Factory Training Drive</h3>
+              <p className="mt-1 text-[12px] text-ink-600 dark:text-ink-300">Jeremy and Andre shared operating resources and AI training.</p>
+            </div>
+            <a 
+              href="https://drive.google.com/drive/folders/164oRV4Vn1XRh6UTySL52USyXDugfQp6a?usp=sharing" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="btn-secondary py-1.5 text-[12px]"
+            >
+              Open Drive
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <div className="section-title">
           <h2>Topics planned for first ship</h2>
           <p>Each entry is internal-only and owner-reviewed.</p>
         </div>

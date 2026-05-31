@@ -28,6 +28,7 @@ export interface CurriculumModule {
   durationMinutes: number;
   status: AcademyStatus;
   learningOutcomes: string[];
+  body?: string;
   internalNotes?: string;
 }
 
@@ -57,12 +58,13 @@ export const ACADEMY_TRACKS: CurriculumTrack[] = [
         summary:
           "The shape of a Legends first-call. What we say, what we never say, and how to leave a buyer wanting the next step instead of feeling sold.",
         durationMinutes: 25,
-        status: "draft",
+        status: "available",
         learningOutcomes: [
           "Open a conversation without quoting a rate, fee, or approval.",
           "Identify the buyer's real next step instead of pitching a product.",
           "End every call with one specific commitment from the buyer.",
         ],
+        body: "### The Legends Conversation\n\nAt Legends, we don't sell loans; we guide buyers. The first call is about **Discovery**, not **Quoting**.\n\n**The 'No-Rate' Opener:**\nWhen a buyer asks 'What's your rate?', your response should be: 'I'd love to give you an accurate answer, but a rate without a strategy is just a number. Before we talk about interest, can we talk about your goals?'\n\n**Three Pillars of a Legends Call:**\n1. **Empathy:** Understand the 'why' behind the move.\n2. **Authority:** Show you know the process, not just the products.\n3. **Commitment:** Never end a call without a clear next step (e.g., 'I'll send you the document list, and you'll have it back to me by Tuesday').",
       },
       {
         id: "sales-201",
@@ -157,12 +159,13 @@ export const ACADEMY_TRACKS: CurriculumTrack[] = [
         summary:
           "The Legends marketing voice in plain terms — what to say, what to avoid, and how to keep a post feeling like a teammate instead of a billboard.",
         durationMinutes: 20,
-        status: "draft",
+        status: "available",
         learningOutcomes: [
           "Recognize three patterns that read as 'mortgage spam'.",
           "Rewrite a generic mortgage tip in Legends voice.",
           "Decide when a draft is internal-only vs. partner-safe vs. borrower-safe.",
         ],
+        body: "### The Legends Voice\n\nMarketing at Legends should feel like a conversation with a trusted advisor, not a sales pitch from a billboard.\n\n**Spam Patterns to Avoid:**\n- **ALL CAPS:** 'LOWEST RATES EVER!!!'\n- **Fake Urgency:** 'ACT NOW OR LOSE YOUR CHANCE!'\n- **Generic Stock Photos:** Use authentic, brand-consistent visuals from Image Studio instead.\n\n**The 'Teammate' Test:**\nRead your draft out loud. Would you say this to a friend over coffee? If it sounds too formal or too 'salesy', rewrite it in plain English.",
       },
       {
         id: "marketing-201",
@@ -257,12 +260,13 @@ export const ACADEMY_TRACKS: CurriculumTrack[] = [
         summary:
           "How Atlas is wired, what it can and cannot do, and how to ask for help that the team can actually use. Covers threads, knowledge sources, and when to start a new thread.",
         durationMinutes: 20,
-        status: "draft",
+        status: "available",
         learningOutcomes: [
           "Start a focused Atlas thread instead of an open-ended chat.",
           "Recognize when Atlas is confident vs. guessing.",
           "Keep borrower PII out of every Atlas message.",
         ],
+        body: "### Atlas Basics\n\nAtlas is your AI command center inside LegendsOS. It's grounded in our team's knowledge sources, process docs, and compliance rules.\n\n**The Golden Rule:** Never put borrower PII (Social Security Numbers, full birthdays, specific loan numbers) into Atlas. AI threads are processed through secure gateways, but we maintain strict data hygiene.\n\n**Focused Threads:** Instead of one long chat, start a new thread for every new topic (e.g., 'VA Jumbo Scenario', 'Realtor Outreach Email'). This keeps Atlas's 'context window' clean and helps it give better answers.",
       },
       {
         id: "ai-201",
