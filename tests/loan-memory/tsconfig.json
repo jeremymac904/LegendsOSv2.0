@@ -1,0 +1,10 @@
+{
+  "//": "Loan Memory unit tests are excluded from the root tsconfig (which excludes tests/). This config lets you typecheck them on demand: npx tsc --noEmit -p tests/loan-memory/tsconfig.json",
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["**/*.ts"],
+  "exclude": []
+}

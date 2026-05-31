@@ -2,7 +2,7 @@
   "name": "legendsos-v2",
   "version": "2.0.0",
   "private": true,
-  "description": "LegendsOS 2.0 — internal AI operating system for The Legends Mortgage Team powered by Loan Factory.",
+  "description": "LegendsOS 2.0 \u2014 internal AI operating system for The Legends Mortgage Team powered by Loan Factory.",
   "main": "electron/main.cjs",
   "scripts": {
     "dev": "next dev",
@@ -11,6 +11,7 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test:e2e": "playwright test",
+    "test:loan-memory": "tsx tests/loan-memory/run.ts",
     "test:e2e:install": "playwright install --with-deps chromium",
     "index-assets": "tsx scripts/index-local-assets.ts",
     "seed-assistants": "tsx scripts/seed-atlas-assistants-from-local.ts",
@@ -56,7 +57,7 @@
   "build": {
     "appId": "com.legendsmortgage.legendsos",
     "productName": "LegendsOS",
-    "copyright": "Copyright © 2026 The Legends Mortgage Team powered by Loan Factory",
+    "copyright": "Copyright \u00a9 2026 The Legends Mortgage Team powered by Loan Factory",
     "asar": true,
     "files": [
       "**/*",
@@ -74,7 +75,10 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["arm64", "x64"]
+          "arch": [
+            "arm64",
+            "x64"
+          ]
         }
       ],
       "hardenedRuntime": true,
@@ -88,8 +92,17 @@
       "icon": "electron/icon.png",
       "background": null,
       "contents": [
-        { "x": 130, "y": 220, "type": "file" },
-        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+        {
+          "x": 130,
+          "y": 220,
+          "type": "file"
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
       ]
     },
     "win": {
@@ -97,7 +110,9 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "publisherName": "The Legends Mortgage Team"
@@ -111,7 +126,9 @@
     },
     "linux": {
       "icon": "electron/icon.png",
-      "target": ["AppImage"]
+      "target": [
+        "AppImage"
+      ]
     }
   }
 }
