@@ -10,6 +10,10 @@ const PUBLIC_PATHS = [
   "/auth",
   "/api/health",
   "/api/auth",
+  // Inbound automation webhooks (n8n) authenticate via the shared-secret
+  // header, not a Supabase session — exempt them from session auth so they
+  // can be reached. Each handler still fails closed without a valid secret.
+  "/api/webhooks",
   "/_next",
   "/favicon.ico",
   "/icon.svg",
