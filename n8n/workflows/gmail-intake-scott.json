@@ -1,0 +1,316 @@
+{
+  "name": "LegendsOS Intake \u2014 Scott Mason",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "LegendsOS Gmail AI Intake \u2014 Scott Mason\n\nSAFETY (Phase 1): READ-ONLY. This workflow NEVER replies, deletes, archives, or marks messages as read. It only forwards metadata to LegendsOS for human review.\n\nSETUP:\n1. Gmail credential: connect the mailbox for Scott Mason (address: scott.mason@loanfactory.com).\n2. Set env var LEGENDSOS_WEBHOOK_BASE_URL (e.g. https://legendsos.app).\n3. Create an n8n 'Header Auth' credential named 'LegendsOS Webhook Secret' with name=x-legendsos-webhook-secret and value=<LEGENDSOS_WEBHOOK_SECRET>. Attach it to the HTTP Request nodes.\n\nShips INACTIVE (active:false). Enable only after review.",
+        "height": 420,
+        "width": 460,
+        "color": 4
+      },
+      "id": "note-scott",
+      "name": "Setup & Safety",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -160,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {},
+        "options": {}
+      },
+      "id": "gmail-trigger-scott",
+      "name": "Gmail Trigger (read-only)",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        360,
+        180
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "SET_IN_N8N",
+          "name": "Gmail \u2014 Scott Mason (intake, read-only)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "source_account",
+              "type": "string",
+              "value": "scott.mason@loanfactory.com"
+            },
+            {
+              "id": "a2",
+              "name": "team_member",
+              "type": "string",
+              "value": "Scott Mason"
+            },
+            {
+              "id": "a3",
+              "name": "gmail_message_id",
+              "type": "string",
+              "value": "={{ $json.id }}"
+            },
+            {
+              "id": "a4",
+              "name": "gmail_thread_id",
+              "type": "string",
+              "value": "={{ $json.threadId }}"
+            },
+            {
+              "id": "a5",
+              "name": "from_address",
+              "type": "string",
+              "value": "={{ $json.from && $json.from.value && $json.from.value[0] ? $json.from.value[0].address : ($json.From || '') }}"
+            },
+            {
+              "id": "a6",
+              "name": "from_name",
+              "type": "string",
+              "value": "={{ $json.from && $json.from.value && $json.from.value[0] ? ($json.from.value[0].name || '') : '' }}"
+            },
+            {
+              "id": "a7",
+              "name": "to_address",
+              "type": "string",
+              "value": "={{ $json.to && $json.to.value && $json.to.value[0] ? $json.to.value[0].address : ($json.To || '') }}"
+            },
+            {
+              "id": "a8",
+              "name": "subject",
+              "type": "string",
+              "value": "={{ $json.subject || $json.Subject || '' }}"
+            },
+            {
+              "id": "a9",
+              "name": "snippet",
+              "type": "string",
+              "value": "={{ $json.snippet || '' }}"
+            },
+            {
+              "id": "a10",
+              "name": "received_at",
+              "type": "string",
+              "value": "={{ $json.date || $json.internalDate || '' }}"
+            },
+            {
+              "id": "a11",
+              "name": "has_attachments",
+              "type": "boolean",
+              "value": "={{ Array.isArray($json.attachments) ? $json.attachments.length > 0 : (($json.attachments_count || 0) > 0) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-payload-scott",
+      "name": "Build Intake Payload",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        620,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LEGENDSOS_WEBHOOK_BASE_URL }}/api/webhooks/email-intake",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "http-intake-scott",
+      "name": "POST email-intake",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        120
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "SET_IN_N8N",
+          "name": "LegendsOS Webhook Secret"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "cond1",
+              "leftValue": "={{ $json.has_attachments }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-attach-scott",
+      "name": "Has Attachments?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LEGENDSOS_WEBHOOK_BASE_URL }}/api/webhooks/document-intake",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ source_account: $json.source_account, gmail_message_id: $json.gmail_message_id, gmail_thread_id: $json.gmail_thread_id, subject: $json.subject, from_address: $json.from_address, has_attachments: $json.has_attachments, note: 'attachment metadata only \u2014 files queued for Needs Review, never written to a borrower folder' }) }}",
+        "options": {}
+      },
+      "id": "http-doc-scott",
+      "name": "POST document-intake",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1140,
+        240
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "SET_IN_N8N",
+          "name": "LegendsOS Webhook Secret"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "noop-scott",
+      "name": "No Attachments (done)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1140,
+        420
+      ]
+    }
+  ],
+  "connections": {
+    "Gmail Trigger (read-only)": {
+      "main": [
+        [
+          {
+            "node": "Build Intake Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Intake Payload": {
+      "main": [
+        [
+          {
+            "node": "POST email-intake",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Has Attachments?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Attachments?": {
+      "main": [
+        [
+          {
+            "node": "POST document-intake",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Attachments (done)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "legendsos-intake"
+    }
+  ],
+  "meta": {
+    "legendsos": {
+      "phase": 1,
+      "readOnly": true,
+      "neverSendsReplies": true,
+      "neverDeletes": true,
+      "neverMarksRead": true,
+      "teamMember": "Scott Mason",
+      "gmailConfirmed": true,
+      "sourceAccount": "scott.mason@loanfactory.com"
+    }
+  }
+}

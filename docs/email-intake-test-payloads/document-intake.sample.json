@@ -1,0 +1,15 @@
+{
+  "_comment": "SAMPLE — obviously fake test data. POST to /api/webhooks/document-intake with header x-legendsos-webhook-secret. Phase 1 routes to needs_review_folder only. is_sample=true.",
+  "source_account": "sample.mailbox@example.test",
+  "gmail_message_id": "MSG-SAMPLE-0001-DO-NOT-USE",
+  "file_name": "SAMPLE_paystub_testerton.pdf",
+  "mime_type": "application/pdf",
+  "size_bytes": 482311,
+  "gmail_attachment_id": "ATT-SAMPLE-0001-DO-NOT-USE",
+  "drive_location": "needs_review_folder",
+  "drive_file_id": "DRIVE-SAMPLE-FILE-0001-DO-NOT-USE",
+  "drive_url": "https://drive.google.com/file/d/DRIVE-SAMPLE-FILE-0001-DO-NOT-USE/view",
+  "status": "needs_review",
+  "suspicious_reason": null,
+  "is_sample": true
+}

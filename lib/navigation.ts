@@ -10,6 +10,7 @@ import {
   FolderTree,
   GraduationCap,
   ImageIcon,
+  Inbox,
   LayoutDashboard,
   Mail,
   MessageCircle,
@@ -165,6 +166,14 @@ export const NAV_ITEMS: NavItem[] = [
     description: "Jeremy's personal build cockpit — projects, capture, plans, QA",
     icon: Wrench,
     gate: { ownerOnly: true },
+  },
+  {
+    section: "owner",
+    href: "/email-intake",
+    label: "Email Intake",
+    description: "Gmail AI intake — review queue, attachments, routing (Phase 1)",
+    icon: Inbox,
+    gate: { adminOrOwner: true },
   },
   {
     section: "owner",
