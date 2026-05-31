@@ -30,6 +30,7 @@ const VALID_ROLES: UserRole[] = [
   "admin",
   "loan_officer",
   "processor",
+  "coordinator",
   "marketing",
   "viewer",
 ];
@@ -43,6 +44,7 @@ const addUserSchema = z.object({
     "admin",
     "loan_officer",
     "processor",
+    "coordinator",
     "marketing",
     "viewer",
   ]),
@@ -60,6 +62,7 @@ const updateRoleSchema = z.object({
     "admin",
     "loan_officer",
     "processor",
+    "coordinator",
     "marketing",
     "viewer",
   ]),

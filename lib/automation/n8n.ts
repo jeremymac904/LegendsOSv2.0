@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 
 import { getServerEnv } from "@/lib/env";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
@@ -174,15 +174,41 @@ export async function enqueueAutomationJob(args: EnqueueArgs): Promise<EnqueueRe
 }
 
 /**
- * Inbound n8n callback verification. The simplified n8n workflows no longer
- * sign callbacks. We still accept an HMAC signature if N8N_WEBHOOK_SECRET is
- * configured (forward-compat), but if no secret is set, we accept the
- * callback as-is. Production-side trust is provided by the path being
- * server-only + the job_id being a UUID we issued.
+ * Header carrying the hex HMAC-SHA256 of the raw callback body. n8n must send
+ * `x-legendsos-signature: <hmac>` keyed by N8N_WEBHOOK_SECRET.
  */
-export function verifyN8nSignature(_body: string, _signature: string): boolean {
-  // Sandbox mode — no HMAC required. Kept as a function so route handlers
-  // don't have to change, and so we can re-enable signing later by simply
-  // restoring the comparison logic.
-  return true;
+export const N8N_SIGNATURE_HEADER = "x-legendsos-signature";
+
+function n8nCallbackSecret(): string {
+  // Server-only. Read directly; the value is never logged or returned.
+  return process.env.N8N_WEBHOOK_SECRET ?? "";
+}
+
+/** True only when the n8n callback secret is configured (status/UI checks). */
+export function isN8nCallbackSecretConfigured(): boolean {
+  return Boolean(n8nCallbackSecret());
+}
+
+/**
+ * Inbound n8n callback verification. FAIL CLOSED: rejects when no secret is
+ * configured, when the signature header is missing, or when the HMAC-SHA256 of
+ * the raw body (keyed by N8N_WEBHOOK_SECRET) does not match. Constant-time
+ * compare. The secret is never logged or returned. This only prevents a forged
+ * callback from flipping job/social/email status — it does NOT activate any
+ * automation (nothing dispatches jobs).
+ */
+export function verifyN8nSignature(rawBody: string, signature: string): boolean {
+  const secret = n8nCallbackSecret();
+  if (!secret || !signature) return false;
+  const expected = createHmac("sha256", secret)
+    .update(rawBody, "utf8")
+    .digest("hex");
+  const a = Buffer.from(expected, "utf8");
+  const b = Buffer.from(signature, "utf8");
+  if (a.length !== b.length) return false;
+  try {
+    return timingSafeEqual(a, b);
+  } catch {
+    return false;
+  }
 }
