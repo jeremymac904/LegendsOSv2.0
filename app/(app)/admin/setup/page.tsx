@@ -1,0 +1,335 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import {
+  CalendarDays,
+  HardDrive,
+  KeyRound,
+  Mail,
+  Megaphone,
+  MonitorSmartphone,
+  PlugZap,
+  Share2,
+  Workflow,
+} from "lucide-react";
+
+import {
+  TeamSetupClient,
+  type ProvisionedUser,
+} from "@/components/admin/TeamSetupClient";
+import type {
+  RosterRow,
+  RosterRowStatus,
+} from "@/components/admin/RosterStatusTable";
+import { SectionHeader } from "@/components/ui/SectionHeader";
+import { StatusPill } from "@/components/ui/StatusPill";
+import { isZapierMcpConfigured } from "@/lib/automation/zapier-mcp";
+import { getN8nConfigState } from "@/lib/automation/n8n";
+import { isWebhookSecretConfigured } from "@/lib/emailIntake/webhook";
+import { PUBLIC_ENV } from "@/lib/env";
+import { getEffectiveProfile } from "@/lib/impersonation";
+import { detectMetaConfig } from "@/lib/integrations/meta";
+import { getDriveConnectionStatus } from "@/lib/loanbrain/driveStatus";
+import { isOwner } from "@/lib/permissions";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  ROSTER_COUNT,
+  ROSTER_EXCLUDED,
+  TEAM_ROSTER,
+  rosterEmails,
+} from "@/lib/team/roster";
+import type { Profile, UserRole } from "@/types/database";
+
+export const dynamic = "force-dynamic";
+
+// ---------------------------------------------------------------------------
+// Allowed honest status labels only. Never "ready" on env presence alone.
+//   "connected/verified" | "key present (not verified)" | "setup needed"
+//   | "disabled" | "unknown" | "not connected"
+// ---------------------------------------------------------------------------
+type HonestLabel =
+  | "connected/verified"
+  | "key present (not verified)"
+  | "setup needed"
+  | "disabled"
+  | "unknown"
+  | "not connected";
+
+function pillFor(label: HonestLabel): "ok" | "warn" | "off" | "info" {
+  switch (label) {
+    case "connected/verified":
+      return "ok";
+    case "key present (not verified)":
+      return "info";
+    case "disabled":
+      return "off";
+    case "not connected":
+    case "setup needed":
+    case "unknown":
+    default:
+      return "warn";
+  }
+}
+
+export default async function TeamSetupPage() {
+  // Owner gate — mirrors app/(app)/admin/page.tsx exactly.
+  const { profile } = await getEffectiveProfile();
+  if (!profile || !isOwner(profile)) redirect("/dashboard");
+
+  const supabase = getSupabaseServerClient();
+  const { data: profileRows } = await supabase
+    .from("profiles")
+    .select("id,email,full_name,role,is_active")
+    .order("role", { ascending: true })
+    .order("email", { ascending: true });
+
+  const profiles = (profileRows ?? []) as Pick<
+    Profile,
+    "id" | "email" | "full_name" | "role" | "is_active"
+  >[];
+
+  // Index profiles by lowercased email for case-insensitive roster matching.
+  const profilesByEmail = new Map<
+    string,
+    Pick<Profile, "id" | "email" | "full_name" | "role" | "is_active">
+  >();
+  for (const p of profiles) {
+    if (p.email) profilesByEmail.set(p.email.trim().toLowerCase(), p);
+  }
+
+  // Build one serializable RosterRow per verified member.
+  const rosterRows: RosterRow[] = TEAM_ROSTER.map((member) => {
+    const emails = rosterEmails(member); // already lowercased
+    const matched =
+      emails.map((e) => profilesByEmail.get(e)).find(Boolean) ?? null;
+
+    const liveRole = (matched?.role as UserRole | undefined) ?? null;
+    const isActive = matched ? matched.is_active : null;
+    const roleMatches = Boolean(matched && liveRole === member.role);
+    const profileComplete = Boolean(
+      matched?.full_name && matched.full_name.trim() !== ""
+    );
+
+    let status: RosterRowStatus;
+    if (!matched) status = "not_created";
+    else if (!roleMatches) status = "wrong_role";
+    else if (isActive) status = "provisioned_active";
+    else status = "provisioned_inactive";
+
+    return {
+      name: member.name,
+      email: member.email,
+      expectedRole: member.role,
+      title: member.title,
+      phone: member.phone,
+      states: member.states,
+      profileId: matched?.id ?? null,
+      profileEmail: matched?.email ?? null,
+      profileFullName: matched?.full_name ?? null,
+      liveRole,
+      isActive,
+      status,
+      roleMatches,
+      profileComplete,
+    };
+  });
+
+  // Provisioned users for role/active/preview controls (every live profile).
+  const provisionedUsers: ProvisionedUser[] = profiles.map((p) => ({
+    id: p.id,
+    email: p.email,
+    full_name: p.full_name,
+    role: p.role,
+    is_active: p.is_active,
+  }));
+
+  // ---------------------------------------------------------------------
+  // Integration status (honest, presence-not-values).
+  // ---------------------------------------------------------------------
+  const drive = getDriveConnectionStatus();
+  const n8n = getN8nConfigState();
+  const zapier = isZapierMcpConfigured();
+  const gmailSecret = isWebhookSecretConfigured();
+  const meta = detectMetaConfig();
+  const googleOAuthPresent = Boolean(
+    process.env.GOOGLE_OAUTH_CLIENT_ID && process.env.GOOGLE_OAUTH_CLIENT_SECRET
+  );
+  const netlifyUrl = "https://legndsosv20.netlify.app";
+
+  const integrations: {
+    title: string;
+    detail: string;
+    label: HonestLabel;
+    icon: typeof Mail;
+    href?: string;
+  }[] = [
+    {
+      title: "Gmail AI intake",
+      detail: gmailSecret
+        ? "Webhook secret present — intake endpoint can authenticate inbound n8n calls. Not verified end-to-end."
+        : "No webhook secret set (LEGENDSOS_WEBHOOK_SECRET). Intake is not provisioned.",
+      label: gmailSecret ? "key present (not verified)" : "setup needed",
+      icon: Mail,
+      href: "/settings",
+    },
+    {
+      title: "Google Drive (Loan Brain)",
+      detail: drive.reason,
+      label: drive.connected
+        ? "connected/verified"
+        : googleOAuthPresent
+        ? "key present (not verified)"
+        : "setup needed",
+      icon: HardDrive,
+      href: "/loanbrain",
+    },
+    {
+      title: "Google login / OAuth",
+      detail: googleOAuthPresent
+        ? "GOOGLE_OAUTH_CLIENT_ID / _SECRET present (names detected). Sign-in flow not verified here."
+        : "Google OAuth client not configured (GOOGLE_OAUTH_CLIENT_ID / _SECRET missing).",
+      label: googleOAuthPresent ? "key present (not verified)" : "setup needed",
+      icon: KeyRound,
+      href: "/settings",
+    },
+    {
+      title: "Google Calendar",
+      detail: googleOAuthPresent
+        ? "Depends on the Google OAuth client (present). Per-user calendar connection is not wired yet."
+        : "Needs the Google OAuth client first, then per-user calendar consent.",
+      // Per-user calendar connection is never wired yet — honestly setup needed
+      // even when the underlying Google OAuth client is present.
+      label: "setup needed",
+      icon: CalendarDays,
+      href: "/calendar",
+    },
+    {
+      title: "n8n automations",
+      detail: n8n.configured
+        ? "Base URL + at least one webhook configured. Dispatch stays off until the owner enables live sends."
+        : n8n.base_url_present
+        ? "Base URL present but no webhooks configured yet."
+        : "No n8n base URL or webhooks configured.",
+      label: n8n.configured
+        ? "key present (not verified)"
+        : "setup needed",
+      icon: Workflow,
+      href: "/settings",
+    },
+    {
+      title: "Zapier MCP",
+      detail: zapier
+        ? "ZAP_MCP_KEY present (not verified). Connector is still a stub — no Zaps are triggered."
+        : "Zapier MCP key not set. Connector returns not_configured.",
+      label: zapier ? "key present (not verified)" : "not connected",
+      icon: PlugZap,
+      href: "/settings",
+    },
+    {
+      title: "Meta / HeroPost (social)",
+      detail: meta.configured
+        ? meta.paid_enabled
+          ? "Configured and live publishing is allowed — but the publisher is still a stub (no posts sent)."
+          : "Configured, but live publishing is off (ALLOW_LIVE_SOCIAL_PUBLISH=false). Nothing is published."
+        : "Meta app/token/identity not fully configured. No social publishing.",
+      label: meta.configured
+        ? meta.paid_enabled
+          ? "key present (not verified)"
+          : "disabled"
+        : "setup needed",
+      icon: Megaphone,
+      href: "/social",
+    },
+    {
+      title: "Desktop app",
+      detail:
+        "Desktop shell loads the hosted site. Status can't be detected from the server — confirm on the machine running the app.",
+      label: "unknown",
+      icon: MonitorSmartphone,
+    },
+    {
+      title: "Netlify production",
+      detail: `${PUBLIC_ENV.APP_NAME} production deploy target: ${netlifyUrl}. Confirm by loading the live site (no GitHub deploy check is posted).`,
+      label: "unknown",
+      icon: Share2,
+      href: netlifyUrl,
+    },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <SectionHeader
+        eyebrow="Team Setup"
+        title="Real team access & onboarding"
+        description={`Provision the ${ROSTER_COUNT} verified roster members, manage roles, and preview each persona — without sending a single email. Every integration status below is honest: nothing is marked connected unless it actually is.`}
+        action={<StatusPill status="ok" label="owner" />}
+      />
+
+      {/* Integration status — honest, presence-not-values */}
+      <section className="card-padded space-y-4">
+        <div className="section-title">
+          <div>
+            <h2>Integration status</h2>
+            <p>
+              Presence-only detection (env var names, never values). Labels are
+              honest — &quot;key present (not verified)&quot; means we found
+              config but have not confirmed a live connection.
+            </p>
+          </div>
+          <Link href="/settings" className="btn-ghost text-xs">
+            <PlugZap size={14} />
+            Open Settings
+          </Link>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {integrations.map((item) => {
+            const Icon = item.icon;
+            const card = (
+              <div className="flex h-full flex-col rounded-xl border border-ink-200 bg-white/60 p-3 transition hover:border-accent-gold/30 dark:border-ink-800 dark:bg-ink-900/40">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="grid h-9 w-9 place-items-center rounded-lg border border-accent-gold/20 bg-accent-gold/10 text-accent-gold">
+                    <Icon size={16} />
+                  </div>
+                  <StatusPill status={pillFor(item.label)} label={item.label} />
+                </div>
+                <p className="mt-3 text-sm font-medium text-ink-900 dark:text-ink-100">
+                  {item.title}
+                </p>
+                <p className="mt-1 flex-1 text-[11px] leading-relaxed text-ink-600 dark:text-ink-300">
+                  {item.detail}
+                </p>
+              </div>
+            );
+            if (item.href) {
+              const external = item.href.startsWith("http");
+              return (
+                <Link
+                  key={item.title}
+                  href={item.href}
+                  prefetch={external ? false : undefined}
+                  target={external ? "_blank" : undefined}
+                  rel={external ? "noreferrer" : undefined}
+                  className="block"
+                >
+                  {card}
+                </Link>
+              );
+            }
+            return <div key={item.title}>{card}</div>;
+          })}
+        </div>
+        <p className="text-[11px] text-ink-600 dark:text-ink-300">
+          Excluded from the roster on purpose (never auto-added):{" "}
+          {ROSTER_EXCLUDED.join(", ")}.
+        </p>
+      </section>
+
+      {/* Provisioning + onboarding console + roster checklist */}
+      <TeamSetupClient
+        rosterRows={rosterRows}
+        provisionedUsers={provisionedUsers}
+        ownerProfileId={profile.id}
+        rosterCount={ROSTER_COUNT}
+      />
+    </div>
+  );
+}

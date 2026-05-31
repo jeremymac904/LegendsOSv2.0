@@ -48,9 +48,11 @@ const addUserSchema = z.object({
     "marketing",
     "viewer",
   ]),
-  // If set, the user gets a magic-link email immediately. Otherwise the
-  // owner can deliver the invite link manually (copy from response).
-  send_invite_email: z.boolean().default(true),
+  // Default OFF (non-emailing). When false (the default) the account is
+  // created and a setup link is returned for MANUAL delivery — NO email is
+  // sent. Only when an owner explicitly sets this true does Supabase send the
+  // invite email via inviteUserByEmail.
+  send_invite_email: z.boolean().default(false),
   // Optional owner-set starter password. Never returned to the client.
   temporary_password: z.string().min(8).max(128).optional(),
 });
@@ -183,18 +185,63 @@ export async function POST(req: Request) {
       })
       .eq("id", created.user.id);
 
-    // Optional magic-link delivery. If `send_invite_email` is false the
-    // owner can still grab the action_link from the response and deliver
-    // it however they want (Slack, SMS, etc.).
+    // Invite delivery — two explicit, non-overlapping paths:
+    //
+    //   send_invite_email === false  (DEFAULT, non-emailing):
+    //     generateLink() only MINTS a link and returns it. Supabase does NOT
+    //     send any email for the generateLink call, so the owner can deliver
+    //     the setup link manually (copy from the response). This is the safe
+    //     default for production rollout.
+    //
+    //   send_invite_email === true   (explicit opt-in):
+    //     inviteUserByEmail() sends Supabase's transactional invite email AND
+    //     returns the same action_link for reference. This path only runs when
+    //     the caller explicitly sets the flag true.
+    //
+    // We never fall through to the emailing path by accident: the default is
+    // false at the schema level and the branch below is gated on `=== true`.
     let invite_link: string | null = null;
-    try {
-      const { data: linkData } = await service.auth.admin.generateLink({
-        type: "magiclink",
-        email: data.email,
-      });
-      invite_link = linkData?.properties?.action_link ?? null;
-    } catch (e) {
-      console.warn("generateLink failed", e);
+    let email_sent = false;
+
+    if (data.send_invite_email === true) {
+      try {
+        const { error: inviteErr } =
+          await service.auth.admin.inviteUserByEmail(data.email);
+        if (inviteErr) throw inviteErr;
+        email_sent = true;
+        // inviteUserByEmail confirms the invite was queued; mint a setup link
+        // too so the owner has a copyable fallback if the email bounces.
+        const { data: linkData } = await service.auth.admin.generateLink({
+          type: "magiclink",
+          email: data.email,
+        });
+        invite_link = linkData?.properties?.action_link ?? null;
+      } catch (e) {
+        console.warn("inviteUserByEmail failed", e);
+        // Fall back to a copyable link so the account is still usable even if
+        // the email send failed — but report honestly that no email went out.
+        email_sent = false;
+        try {
+          const { data: linkData } = await service.auth.admin.generateLink({
+            type: "magiclink",
+            email: data.email,
+          });
+          invite_link = linkData?.properties?.action_link ?? null;
+        } catch (e2) {
+          console.warn("generateLink fallback failed", e2);
+        }
+      }
+    } else {
+      // Non-emailing default: mint a setup link only. No email is sent.
+      try {
+        const { data: linkData } = await service.auth.admin.generateLink({
+          type: "magiclink",
+          email: data.email,
+        });
+        invite_link = linkData?.properties?.action_link ?? null;
+      } catch (e) {
+        console.warn("generateLink failed", e);
+      }
     }
 
     await recordAudit({
@@ -206,6 +253,7 @@ export async function POST(req: Request) {
         email: data.email,
         role: data.role,
         temporary_password_set: Boolean(data.temporary_password),
+        invite_email_sent: email_sent,
       },
     });
 
@@ -213,6 +261,7 @@ export async function POST(req: Request) {
       ok: true,
       user: { id: created.user.id, email: data.email, role: data.role },
       invite_link,
+      email_sent,
     });
   }
 

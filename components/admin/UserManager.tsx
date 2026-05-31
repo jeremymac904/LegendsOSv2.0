@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 
 import { StatusPill } from "@/components/ui/StatusPill";
+import { PUBLIC_ENV } from "@/lib/env";
 import { cn } from "@/lib/utils";
 import type { Profile, UserRole } from "@/types/database";
 
@@ -79,6 +80,9 @@ export function UserManager({ ownerProfileId, users }: Props) {
     user_id: string;
     kind: "invite" | "reset";
     url: string;
+    email: string | null;
+    full_name: string | null;
+    emailSent: boolean;
   } | null>(null);
 
   async function post(body: Record<string, unknown>) {
@@ -116,6 +120,9 @@ export function UserManager({ ownerProfileId, users }: Props) {
     const temporary_password = String(
       form.get("temporary_password") ?? ""
     ).trim();
+    // Checkbox is DEFAULT OFF (non-emailing). Only send the invite email when
+    // the owner explicitly ticks the box.
+    const send_invite_email = form.get("send_invite_email") === "on";
     if (!email) {
       setError("Email is required.");
       return;
@@ -126,18 +133,26 @@ export function UserManager({ ownerProfileId, users }: Props) {
         email,
         full_name: full_name || null,
         role,
-        send_invite_email: true,
+        send_invite_email,
         ...(temporary_password ? { temporary_password } : {}),
       });
       if (!data) return;
+      const emailSent = Boolean(data.email_sent);
       if (data.invite_link) {
         setLinkInfo({
           user_id: data.user.id,
           kind: "invite",
           url: data.invite_link,
+          email,
+          full_name: full_name || null,
+          emailSent,
         });
       }
-      setInfo(`Added ${email} as ${role}.`);
+      setInfo(
+        emailSent
+          ? `Added ${email} as ${role}. Invite email sent.`
+          : `Added ${email} as ${role}. No email sent — copy the setup link below to share.`
+      );
       setShowAdd(false);
       router.refresh();
     });
@@ -167,7 +182,15 @@ export function UserManager({ ownerProfileId, users }: Props) {
       const data = await post({ action: "reset_password", user_id });
       if (!data) return;
       if (data.reset_link) {
-        setLinkInfo({ user_id, kind: "reset", url: data.reset_link });
+        const target = users.find((u) => u.id === user_id);
+        setLinkInfo({
+          user_id,
+          kind: "reset",
+          url: data.reset_link,
+          email: target?.email ?? null,
+          full_name: target?.full_name ?? null,
+          emailSent: false,
+        });
       }
       setInfo("Password reset link generated.");
     });
@@ -240,6 +263,23 @@ export function UserManager({ ownerProfileId, users }: Props) {
               />
             </label>
           </div>
+          <label className="flex items-start gap-2 rounded-lg border border-ink-800 bg-ink-950/40 p-3">
+            <input
+              name="send_invite_email"
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 accent-accent-gold"
+            />
+            <span className="text-xs text-ink-200">
+              <span className="font-medium text-ink-100">
+                Send invite email now
+              </span>
+              <span className="mt-0.5 block text-[11px] text-ink-300">
+                Off (default) = creates the account, no email sent; copy the
+                link to share. On = sends Supabase&apos;s invite email to this
+                address.
+              </span>
+            </span>
+          </label>
           <p className="text-[11px] text-ink-300">
             Copy the setup link that appears after creation. If you set a
             starter password, share it outside LegendsOS and ask the user to
@@ -259,6 +299,7 @@ export function UserManager({ ownerProfileId, users }: Props) {
       {linkInfo && (
         <LinkBanner
           info={linkInfo}
+          appName={PUBLIC_ENV.APP_NAME}
           onClose={() => setLinkInfo(null)}
         />
       )}
@@ -415,12 +456,40 @@ export function UserManager({ ownerProfileId, users }: Props) {
 
 function LinkBanner({
   info,
+  appName,
   onClose,
 }: {
-  info: { user_id: string; kind: "invite" | "reset"; url: string };
+  info: {
+    user_id: string;
+    kind: "invite" | "reset";
+    url: string;
+    email: string | null;
+    full_name: string | null;
+    emailSent: boolean;
+  };
+  appName: string;
   onClose: () => void;
 }) {
-  const [copied, setCopied] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedMsg, setCopiedMsg] = useState(false);
+
+  const greeting = info.full_name ? `Hi ${info.full_name},` : "Hi,";
+  const inviteMessage =
+    info.kind === "invite"
+      ? `${greeting}\n\nYou've been added to ${appName}. Use this one-time setup link to sign in and set your password:\n\n${info.url}\n\nThis link is personal to you — please don't forward it.`
+      : `${greeting}\n\nHere's your ${appName} password reset link. It signs you in and lets you set a new password:\n\n${info.url}\n\nThis link is personal to you — please don't forward it.`;
+
+  function copy(text: string, which: "link" | "msg") {
+    void navigator.clipboard.writeText(text);
+    if (which === "link") {
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 1500);
+    } else {
+      setCopiedMsg(true);
+      setTimeout(() => setCopiedMsg(false), 1500);
+    }
+  }
+
   return (
     <div className="rounded-lg border border-accent-gold/40 bg-accent-gold/10 p-3 text-xs">
       <div className="flex items-start justify-between gap-2">
@@ -439,8 +508,9 @@ function LinkBanner({
         </button>
       </div>
       <p className="mt-1 text-ink-200">
-        Copy this link into your invite message. It keeps onboarding usable even
-        before transactional email is fully configured.
+        {info.kind === "invite" && info.emailSent
+          ? "Invite email sent to this address. This copyable link is a fallback if the email bounces."
+          : "Copy this link into your invite message. No email was sent — manual delivery keeps onboarding usable before transactional email is configured."}
       </p>
       <div className="mt-2 flex items-center gap-2">
         <code className="flex-1 truncate rounded bg-ink-950/60 px-2 py-1 text-[10px] text-ink-100">
@@ -449,14 +519,18 @@ function LinkBanner({
         <button
           type="button"
           className="btn"
-          onClick={() => {
-            void navigator.clipboard.writeText(info.url);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 1500);
-          }}
+          onClick={() => copy(info.url, "link")}
         >
-          {copied ? <Check size={12} /> : <Copy size={12} />}
-          {copied ? "Copied" : "Copy"}
+          {copiedLink ? <Check size={12} /> : <Copy size={12} />}
+          {copiedLink ? "Copied" : "Copy setup link"}
+        </button>
+        <button
+          type="button"
+          className="btn"
+          onClick={() => copy(inviteMessage, "msg")}
+        >
+          {copiedMsg ? <Check size={12} /> : <Copy size={12} />}
+          {copiedMsg ? "Copied" : "Copy invite message"}
         </button>
       </div>
     </div>

@@ -11,7 +11,11 @@ import {
   loadOrgUploadedImageAssets,
   loadSocialAssetUsageCounts,
 } from "@/lib/admin/orgAssets";
-import { getServerEnv } from "@/lib/env";
+import { getServerEnv, PUBLIC_ENV } from "@/lib/env";
+import { getN8nConfigState } from "@/lib/automation/n8n";
+import { isZapierMcpConfigured } from "@/lib/automation/zapier-mcp";
+import { detectMetaConfig } from "@/lib/integrations/meta";
+import type { PublishingRoute } from "@/components/social/SocialComposer";
 import {
   getCurrentProfile,
   getSupabaseServerClient,
@@ -193,6 +197,72 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
       env.N8N_WEBHOOKS.youtube_post
   );
 
+  // ---------------------------------------------------------------------------
+  // Publishing routes (Lane D — DRAFT ONLY). We compute the HONEST current
+  // status of each future routing option on the server (these helpers read
+  // process.env and are server-only) and hand booleans/labels to the client
+  // composer. NOTHING here dispatches or publishes — every external route is
+  // "disabled until configured + approved". Only Manual export is usable now.
+  // ---------------------------------------------------------------------------
+  const n8nState = getN8nConfigState();
+  const zapierConfigured = isZapierMcpConfigured();
+  const metaState = detectMetaConfig();
+
+  const publishingRoutes: PublishingRoute[] = [
+    {
+      id: "manual",
+      label: "Manual export",
+      detail:
+        "Copy the caption to your clipboard or download it as a .txt file, then post by hand on each platform. Available now — no configuration required.",
+      // Manual export is the only route that actually does something today.
+      // It never leaves the browser and never dispatches anything externally.
+      status: "available",
+      statusLabel: "available now",
+      external: false,
+    },
+    {
+      id: "zapier",
+      label: "Zapier MCP",
+      detail:
+        "Route approved drafts through a Zapier MCP connection. Disabled until the Zapier MCP key is configured and publishing is approved by the owner.",
+      status: zapierConfigured ? "key_present" : "setup_needed",
+      statusLabel: zapierConfigured
+        ? "key present (not verified)"
+        : "setup needed",
+      external: true,
+    },
+    {
+      id: "n8n",
+      label: "n8n",
+      detail:
+        "Hand approved drafts to an n8n workflow that posts to each channel. Disabled until the n8n base URL and the social-publish webhook are configured and publishing is approved.",
+      status: n8nState.configured
+        ? "key_present"
+        : n8nState.base_url_present || n8nState.webhooks.social_publish
+        ? "setup_needed"
+        : "not_connected",
+      statusLabel: n8nState.configured
+        ? "key present (not verified)"
+        : n8nState.base_url_present || n8nState.webhooks.social_publish
+        ? "setup needed"
+        : "not connected",
+      external: true,
+    },
+    {
+      id: "heropost",
+      label: "HeroPost (Meta)",
+      detail:
+        metaState.configured
+          ? "Meta (Facebook / Instagram) connector env is present, but live publishing stays off until the owner approves it. Disabled until configured + approved."
+          : "Direct Meta (Facebook / Instagram) publishing. Not connected — Meta app credentials and a Page or Instagram account are not configured.",
+      status: metaState.configured ? "key_present" : "not_connected",
+      statusLabel: metaState.configured
+        ? "key present (not verified)"
+        : "not connected",
+      external: true,
+    },
+  ];
+
   const setupItems: AccordionItemData[] = [
     {
       id: "posting-setup",
@@ -294,6 +364,8 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
         initialSelectedMediaId={preselectedMediaId}
         assetUsage={assetUsage}
         atlasPrefill={atlasPrefill}
+        publishingRoutes={publishingRoutes}
+        appName={PUBLIC_ENV.APP_NAME}
       />
 
       <Accordion items={setupItems} />
