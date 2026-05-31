@@ -4,12 +4,17 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   CalendarPlus,
+  Check,
+  ClipboardCopy,
   CloudUpload,
+  Download,
   ImageIcon,
   ImagePlus,
+  Lock,
   PlayCircle,
   Save,
   Send,
+  Share2,
   Sparkles,
   X,
 } from "lucide-react";
@@ -30,6 +35,28 @@ type MediaSummary = Pick<
   GeneratedMedia,
   "id" | "prompt" | "preview_url" | "status" | "created_at" | "provider" | "model"
 >;
+
+/**
+ * One row in the "Publishing route" section. Computed entirely on the SERVER
+ * (page.tsx) from read-only status helpers — this component never inspects env
+ * or dispatches anything. `external` routes are always shown as disabled until
+ * configured + approved; only the `manual` route does real work (and even then
+ * it stays in the browser: copy to clipboard / download a .txt).
+ */
+export interface PublishingRoute {
+  id: "manual" | "zapier" | "n8n" | "heropost";
+  label: string;
+  detail: string;
+  /**
+   * Honest current status. `available` is reserved for Manual export. The
+   * external routes use the allowed honest labels only — never a fake
+   * "connected".
+   */
+  status: "available" | "key_present" | "setup_needed" | "not_connected";
+  statusLabel: string;
+  /** External dispatch route — always disabled until configured + approved. */
+  external: boolean;
+}
 
 interface Props {
   userId: string;
@@ -60,6 +87,15 @@ interface Props {
     body?: string;
     channels?: ChannelId[];
   } | null;
+  /**
+   * Publishing-route options + their HONEST current status, computed
+   * server-side. Render-only — selecting an external route never dispatches.
+   * Defaults to an empty list so the section simply doesn't render if the
+   * parent ever omits it.
+   */
+  publishingRoutes?: PublishingRoute[];
+  /** App name, used in the Manual export filename. */
+  appName?: string;
 }
 
 // Convert a SocialPost.scheduled_at ISO string into the format the native
@@ -145,6 +181,8 @@ export function SocialComposer({
   initialDraft,
   assetUsage,
   atlasPrefill,
+  publishingRoutes = [],
+  appName = "LegendsOS",
 }: Props) {
   const router = useRouter();
   const editing = Boolean(initialDraft?.id);
@@ -185,6 +223,15 @@ export function SocialComposer({
   const aiAbortRef = useRef<AbortController | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  // Publishing-route selection. Defaults to Manual export (the only route that
+  // actually works today). Selecting an external route NEVER dispatches — it
+  // only reveals the "disabled until configured + approved" explanation.
+  const [selectedRoute, setSelectedRoute] = useState<PublishingRoute["id"]>(
+    "manual"
+  );
+  // Transient "copied!" confirmation for the Manual export copy button.
+  const [copied, setCopied] = useState(false);
+
   // Reseed state if the parent passes in a different draft (e.g. routing
   // between /social and /social/[postId]). Re-running setters from props is
   // safe because the composer is the only thing holding this state.
@@ -224,6 +271,91 @@ export function SocialComposer({
     setSelectedMediaIds((prev) =>
       prev.includes(id) ? prev.filter((m) => m !== id) : [...prev, id]
     );
+  }
+
+  // ---------------- Manual export (REAL, browser-only) ----------------
+  // Builds a plain-text bundle of the current draft so the owner can paste it
+  // into each platform by hand. Nothing leaves the browser; nothing publishes.
+  function buildExportText(): string {
+    const channelLabels = selected
+      .map((c) => CHANNELS.find((x) => x.id === c)?.label ?? c)
+      .join(", ");
+    const lines: string[] = [];
+    if (title.trim()) lines.push(`Title: ${title.trim()}`);
+    if (selected.includes("youtube") && youtubeTitle.trim()) {
+      lines.push(`YouTube title: ${youtubeTitle.trim()}`);
+    }
+    lines.push(`Channels: ${channelLabels || "(none selected)"}`);
+    if (scheduledAt) {
+      lines.push(`Planned date: ${scheduledAt.replace("T", " ")}`);
+    }
+    const attached = selectedMediaIds
+      .map((id) => library.find((m) => m.id === id)?.preview_url)
+      .filter((u): u is string => Boolean(u));
+    if (attached.length > 0) {
+      lines.push("", "Attached media:");
+      attached.forEach((u, i) => lines.push(`  ${i + 1}. ${u}`));
+    }
+    lines.push("", "---", "", body.trim());
+    return lines.join("\n");
+  }
+
+  async function copyExport() {
+    setError(null);
+    setInfo(null);
+    if (!body.trim()) {
+      setError("Add some body text before exporting.");
+      return;
+    }
+    const text = buildExportText();
+    try {
+      // navigator.clipboard requires a secure context; fall back to a hidden
+      // textarea + execCommand so the manual route works even on http://local.
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      }
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+      setInfo("Copied the draft to your clipboard. Paste it into each platform.");
+    } catch {
+      setError("Could not copy. Use Download instead, or copy from the body field.");
+    }
+  }
+
+  function downloadExport() {
+    setError(null);
+    setInfo(null);
+    if (!body.trim()) {
+      setError("Add some body text before exporting.");
+      return;
+    }
+    const text = buildExportText();
+    const slug =
+      (title.trim() || "social-draft")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 40) || "social-draft";
+    const appSlug = appName.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${appSlug}-${slug}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setInfo("Downloaded the draft as a .txt file.");
   }
 
   async function uploadLocalFile(file: File) {
@@ -744,6 +876,18 @@ export function SocialComposer({
         />
       </div>
 
+      {publishingRoutes.length > 0 && (
+        <PublishingRouteSection
+          routes={publishingRoutes}
+          selectedRoute={selectedRoute}
+          onSelectRoute={setSelectedRoute}
+          onCopy={copyExport}
+          onDownload={downloadExport}
+          copied={copied}
+          canExport={Boolean(body.trim())}
+        />
+      )}
+
       {error && (
         <p className="rounded-lg border border-status-err/30 bg-status-err/10 px-3 py-2 text-xs text-status-err">
           {error}
@@ -779,5 +923,165 @@ export function SocialComposer({
         </span>
       </div>
     </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Publishing route section — DRAFT ONLY. Shows the FUTURE routing options and
+// their honest current status. Manual export is real and works now; every
+// external route is "disabled until configured + approved" and never
+// dispatches. This component is pure presentation — it holds no env and makes
+// no network calls.
+// ---------------------------------------------------------------------------
+
+function routeStatusTone(
+  status: PublishingRoute["status"]
+): { chip: string; dot: string } {
+  switch (status) {
+    case "available":
+      return { chip: "chip-ok", dot: "bg-status-ok" };
+    case "key_present":
+      // Key present but unverified — honest "warn", not a green "connected".
+      return { chip: "chip-warn", dot: "bg-status-warn" };
+    case "setup_needed":
+      return { chip: "chip-warn", dot: "bg-status-warn" };
+    case "not_connected":
+    default:
+      return { chip: "chip-off", dot: "bg-status-off" };
+  }
+}
+
+function PublishingRouteSection({
+  routes,
+  selectedRoute,
+  onSelectRoute,
+  onCopy,
+  onDownload,
+  copied,
+  canExport,
+}: {
+  routes: PublishingRoute[];
+  selectedRoute: PublishingRoute["id"];
+  onSelectRoute: (id: PublishingRoute["id"]) => void;
+  onCopy: () => void;
+  onDownload: () => void;
+  copied: boolean;
+  canExport: boolean;
+}) {
+  const active = routes.find((r) => r.id === selectedRoute) ?? routes[0];
+
+  return (
+    <div className="rounded-xl border border-ink-200 bg-white/70 p-3 dark:border-ink-800 dark:bg-ink-950/40">
+      <div className="flex items-center gap-2">
+        <span className="grid h-7 w-7 place-items-center rounded-lg border border-accent-gold/20 bg-accent-gold/10 text-accent-gold">
+          <Share2 size={13} />
+        </span>
+        <div>
+          <p className="text-sm font-medium text-ink-900 dark:text-ink-100">
+            Publishing route
+          </p>
+          <p className="text-[11px] text-ink-600 dark:text-ink-400">
+            How an approved draft would reach each platform later. Manual export
+            works now — external routes stay off until configured and approved.
+          </p>
+        </div>
+      </div>
+
+      {/* Route selector — picking a route only reveals its detail; it never
+          dispatches or publishes. */}
+      <div className="mt-3 flex flex-wrap gap-2">
+        {routes.map((r) => {
+          const tone = routeStatusTone(r.status);
+          const isActive = r.id === selectedRoute;
+          return (
+            <button
+              key={r.id}
+              type="button"
+              onClick={() => onSelectRoute(r.id)}
+              className={cn(
+                "flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs transition",
+                isActive
+                  ? "border-accent-gold/40 bg-accent-gold/10 text-accent-gold"
+                  : "border-ink-300 text-ink-700 hover:border-ink-400 dark:border-ink-700 dark:text-ink-200 dark:hover:border-ink-500"
+              )}
+              aria-pressed={isActive}
+            >
+              {r.external ? <Lock size={11} /> : <Download size={11} />}
+              {r.label}
+              <span
+                aria-hidden
+                className={cn(
+                  "inline-block h-1.5 w-1.5 rounded-full",
+                  tone.dot
+                )}
+              />
+            </button>
+          );
+        })}
+      </div>
+
+      {active && (
+        <div className="mt-3 rounded-lg border border-ink-200 bg-white/60 p-3 dark:border-ink-800 dark:bg-ink-900/40">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-medium text-ink-900 dark:text-ink-100">
+              {active.label}
+            </p>
+            <span className={cn(routeStatusTone(active.status).chip)}>
+              <span
+                aria-hidden
+                className={cn(
+                  "inline-block h-1.5 w-1.5 rounded-full",
+                  routeStatusTone(active.status).dot
+                )}
+              />
+              {active.statusLabel}
+            </span>
+          </div>
+          <p className="mt-1 text-[11px] leading-relaxed text-ink-600 dark:text-ink-300">
+            {active.detail}
+          </p>
+
+          {active.id === "manual" ? (
+            // The ONLY route with real actions. Both stay in the browser.
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button type="button" className="btn" onClick={onCopy} disabled={!canExport}>
+                {copied ? <Check size={14} /> : <ClipboardCopy size={14} />}
+                {copied ? "Copied" : "Copy draft"}
+              </button>
+              <button
+                type="button"
+                className="btn"
+                onClick={onDownload}
+                disabled={!canExport}
+              >
+                <Download size={14} />
+                Download .txt
+              </button>
+              <span className="text-[11px] text-ink-600 dark:text-ink-400">
+                Copies title, channels, media links, and body — paste it into
+                each platform by hand.
+              </span>
+            </div>
+          ) : (
+            // External routes: explicitly disabled, no dispatch control at all.
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                className="btn opacity-60"
+                disabled
+                title="Disabled until configured + approved"
+              >
+                <Lock size={14} />
+                Disabled until configured + approved
+              </button>
+              <span className="text-[11px] text-ink-600 dark:text-ink-400">
+                This route will not publish or dispatch anything. It activates
+                only after the owner configures it and approves live publishing.
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
