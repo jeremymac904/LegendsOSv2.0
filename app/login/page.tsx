@@ -61,7 +61,7 @@ export default function LoginPage({
   });
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-ink-950">
+    <main className="desktop-login-shell relative min-h-screen overflow-hidden bg-ink-950">
       <img
         src="/assets/backgrounds/command-center-futuristic.jpg"
         alt=""
@@ -128,7 +128,7 @@ export default function LoginPage({
           </div>
         </section>
 
-      <section className="relative flex items-center justify-center lg:justify-end">
+      <section className="desktop-no-drag relative flex items-center justify-center lg:justify-end">
         <div className="w-full max-w-sm">
           {/* Centered wordmark above the form — small but present. */}
           <div className="mb-7 flex flex-col items-center gap-3 lg:hidden">
@@ -150,6 +150,10 @@ export default function LoginPage({
                 {PUBLIC_ENV.OWNER_EMAIL}
               </span>{" "}
               is provisioned automatically.
+            </p>
+            <p className="desktop-only mt-2 hidden text-[11px] leading-relaxed text-accent-champagne/90">
+              Desktop mode detected. Sign in here to keep the session inside the
+              Mac app; magic links may open your default browser during beta.
             </p>
             {!isSupabaseConfigured() && (
               <div className="mt-4 rounded-xl border border-status-warn/30 bg-status-warn/10 p-3 text-xs text-status-warn">
@@ -214,7 +218,7 @@ function DesktopDownloadCard({
   shellVersion: string;
 }) {
   return (
-    <div className="card command-glow w-full max-w-[580px] p-5">
+    <div className="desktop-hide card command-glow w-full max-w-[580px] p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-accent-champagne/30 bg-accent-gold/10 text-accent-champagne">

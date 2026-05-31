@@ -3,6 +3,7 @@ import {
   Cpu,
   HardDrive,
   Link2,
+  MonitorCheck,
   Plug,
   Route,
   Sparkles,
@@ -351,6 +352,29 @@ export default async function SettingsPage() {
   // Sections are grouped into a collapsible Accordion to cut scrolling. The
   // Profile + External actions row stays pinned above as the primary glance.
   const sections: AccordionItemData[] = [
+    {
+      id: "desktop-app",
+      title: "Desktop app",
+      icon: MonitorCheck,
+      defaultOpen: true,
+      children: (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-ink-200 bg-white/70 p-4 dark:border-ink-800 dark:bg-ink-950/40">
+          <div>
+            <p className="text-sm font-semibold text-ink-900 dark:text-ink-100">
+              Mac desktop setup
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-ink-600 dark:text-ink-300">
+              Install instructions, native shell status, traffic-light spacing,
+              and Windows build path.
+            </p>
+          </div>
+          <Link href="/desktop/setup" className="btn-secondary text-xs">
+            <MonitorCheck size={13} />
+            Open desktop setup
+          </Link>
+        </div>
+      ),
+    },
     {
       id: "connections",
       title: "Connections & setup coaches",

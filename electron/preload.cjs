@@ -13,6 +13,7 @@ const { contextBridge } = require("electron");
 
 contextBridge.exposeInMainWorld("legendsos", {
   desktop: true,
+  platform: process.platform,
   // Bumped manually when the shell changes shape; the web app can compare.
-  shellVersion: "1.0.0",
+  shellVersion: "1.1.0",
 });

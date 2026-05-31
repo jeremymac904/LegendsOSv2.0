@@ -68,6 +68,40 @@ body {
   background-attachment: fixed;
 }
 
+html[data-legendsos-desktop="true"] body {
+  min-width: 360px;
+  overscroll-behavior: none;
+}
+
+html[data-legendsos-desktop="true"] .desktop-hide {
+  display: none !important;
+}
+
+html[data-legendsos-desktop="true"] .desktop-only {
+  display: block !important;
+}
+
+html[data-legendsos-desktop="true"] .desktop-titlebar-drag {
+  -webkit-app-region: drag;
+}
+
+html[data-legendsos-desktop="true"] .desktop-no-drag,
+html[data-legendsos-desktop="true"] a,
+html[data-legendsos-desktop="true"] button,
+html[data-legendsos-desktop="true"] input,
+html[data-legendsos-desktop="true"] textarea,
+html[data-legendsos-desktop="true"] select {
+  -webkit-app-region: no-drag;
+}
+
+html[data-legendsos-desktop="true"][data-legendsos-platform="darwin"] .desktop-mac-traffic-offset {
+  padding-left: 5.25rem;
+}
+
+html[data-legendsos-desktop="true"][data-legendsos-platform="darwin"] .desktop-login-shell {
+  padding-top: 2rem;
+}
+
 /* Light mode body: drop the dark image + heavy overlays in favor of a
  * soft warm gradient. Brand accent radials stay at lower opacity. */
 .light body {
