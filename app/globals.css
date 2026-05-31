@@ -32,21 +32,21 @@
  */
 .light {
   color-scheme: light;
-  /* Pure white, premium — Apple-grade. Page is true white; surfaces are very
-   * light gray; borders are silver; text is black/charcoal at high contrast;
-   * champagne gold appears ONLY as a subtle accent/glow. No beige, no cream. */
-  --bg: 255 255 255;
-  --fg: 9 11 17;
-  --muted: 82 89 105;
+  /* Premium soft white — a crisp, near-white neutral (not beige/cream) with
+   * the faintest cool cast so the gold accents read as luxury rather than
+   * corporate. Text is high-contrast charcoal/black. */
+  --bg: 250 251 253;
+  --fg: 11 14 22;
+  --muted: 60 67 90;
   --accent: 199 150 53;
   --accent-2: 155 104 40;
   --primary-gold: 199 150 53;
   --burnt-gold: 155 104 40;
   --champagne-highlight: 226 201 120;
-  --dark-charcoal: 255 255 255;
+  --dark-charcoal: 252 252 254;
   --black-glass: 255 255 255;
-  --glass-border: 17 20 28;
-  --muted-text: 82 89 105;
+  --glass-border: 199 150 53;
+  --muted-text: 60 67 90;
 }
 
 html,
@@ -71,12 +71,13 @@ body {
 /* Light mode body: drop the dark image + heavy overlays in favor of a
  * soft warm gradient. Brand accent radials stay at lower opacity. */
 .light body {
-  /* Pure white page with a single whisper of gold glow top-right. Reads as
-   * clean Apple-grade white; text stays crisp black/charcoal. */
+  /* Premium white base with whisper-faint champagne radials for depth — no
+   * cream, no muddy beige. The page reads as clean white; gold only hints at
+   * the corners so headings and body text stay crisp and high-contrast. */
   background-image:
-    linear-gradient(180deg, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 1) 60%, rgba(250, 251, 252, 1) 100%),
-    radial-gradient(60% 45% at 92% 4%, rgba(var(--champagne-highlight), 0.05) 0%, rgba(var(--champagne-highlight), 0) 60%),
-    radial-gradient(50% 45% at 90% 16%, rgba(var(--champagne-highlight), 0.04) 0%, rgba(var(--champagne-highlight), 0) 62%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, rgba(250, 251, 253, 0.92) 55%, rgba(247, 248, 251, 0.98) 100%),
+    radial-gradient(65% 50% at 28% 6%, rgba(var(--burnt-gold), 0.06) 0%, rgba(var(--burnt-gold), 0) 60%),
+    radial-gradient(50% 45% at 90% 16%, rgba(var(--champagne-highlight), 0.07) 0%, rgba(var(--champagne-highlight), 0) 62%),
     radial-gradient(55% 55% at 10% 94%, rgba(var(--champagne-highlight), 0.05) 0%, rgba(var(--champagne-highlight), 0) 62%);
 }
 
@@ -251,54 +252,59 @@ body {
  * enough to let the warm body gradient breathe through, contrasted enough
  * to keep text crisp. */
 .light .card {
-  background-color: rgb(255, 255, 255);
-  background-image: none;
-  border-color: rgba(17, 20, 28, 0.1);
-  color: rgb(9, 11, 17);
+  background-color: rgba(255, 255, 255, 0.82);
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.86) 55%, rgba(252, 253, 255, 0.9) 100%);
+  border-color: rgba(17, 22, 36, 0.08);
+  color: rgb(11, 14, 22);
   box-shadow:
-    0 1px 2px -1px rgba(13, 18, 32, 0.08),
-    0 8px 24px -18px rgba(13, 18, 32, 0.18);
+    0 1px 0 0 rgba(255, 255, 255, 0.9) inset,
+    0 10px 30px -22px rgba(13, 18, 32, 0.16),
+    0 0 0 1px rgba(199, 150, 53, 0.04);
 }
 .light .card::before {
-  opacity: 0.4;
+  opacity: 0.6;
 }
 .light .card:hover {
-  border-color: rgba(199, 150, 53, 0.42);
+  border-color: rgba(199, 150, 53, 0.38);
   box-shadow:
-    0 1px 2px -1px rgba(13, 18, 32, 0.1),
-    0 10px 28px -16px rgba(13, 18, 32, 0.16),
-    0 0 0 1px rgba(199, 150, 53, 0.14);
+    0 1px 0 0 rgba(255, 255, 255, 0.8) inset,
+    0 14px 30px -16px rgba(13, 18, 32, 0.14),
+    0 0 0 1px rgba(199, 150, 53, 0.18),
+    0 8px 28px -14px rgba(199, 150, 53, 0.22);
 }
 
-/* `.glass-card` in light — pure white with silver edge + a whisper of gold
- * glow. Used by the Academy hero/track/module/catalog cards. */
+/* `.glass-card` in light — even more pronounced liquid glass. Used by the
+ * Academy hero/track/module/catalog cards for the "premium SaaS" feel. */
 .light .glass-card {
-  background-color: rgb(255, 255, 255);
-  background-image: none;
-  border-color: rgba(17, 20, 28, 0.1);
-  color: rgb(9, 11, 17);
+  background-color: rgba(255, 255, 255, 0.72);
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(255, 255, 255, 0.7) 60%, rgba(252, 253, 255, 0.78) 100%);
+  border-color: rgba(17, 22, 36, 0.08);
+  color: rgb(11, 14, 22);
   box-shadow:
-    0 1px 2px -1px rgba(13, 18, 32, 0.08),
-    0 12px 32px -20px rgba(13, 18, 32, 0.18),
-    0 0 0 1px rgba(199, 150, 53, 0.05);
+    0 1px 0 0 rgba(255, 255, 255, 0.75) inset,
+    0 16px 40px -22px rgba(13, 18, 32, 0.14),
+    0 0 0 1px rgba(199, 150, 53, 0.06),
+    0 4px 18px -10px rgba(199, 150, 53, 0.1);
 }
 .light .glass-card::before {
-  opacity: 0.5;
+  opacity: 0.7;
 }
 .light .glass-card:hover {
   border-color: rgba(199, 150, 53, 0.45);
   box-shadow:
-    0 1px 2px -1px rgba(13, 18, 32, 0.1),
-    0 14px 34px -18px rgba(13, 18, 32, 0.18),
-    0 0 0 1px rgba(199, 150, 53, 0.18),
-    0 6px 24px -14px rgba(199, 150, 53, 0.16);
+    0 1px 0 0 rgba(255, 255, 255, 0.85) inset,
+    0 18px 40px -18px rgba(13, 18, 32, 0.16),
+    0 0 0 1px rgba(199, 150, 53, 0.22),
+    0 8px 32px -12px rgba(199, 150, 53, 0.26);
 }
 
 .light .glass-panel {
-  background-color: rgba(248, 249, 251, 0.9);
-  background-image: none;
-  border-color: rgba(17, 20, 28, 0.08);
-  color: rgb(9, 11, 17);
+  background-color: rgba(255, 255, 255, 0.6);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.85) 0%, rgba(252, 248, 240, 0.62) 100%);
+  border-color: rgba(199, 150, 53, 0.18);
+  color: rgb(14, 17, 25);
 }
 
 .light .btn {
@@ -332,15 +338,15 @@ body {
   color: rgb(51, 58, 78);
 }
 .light .btn-ghost:hover {
-  background-color: rgba(244, 245, 248, 0.9);
-  color: rgb(9, 11, 17);
+  background-color: rgba(244, 240, 230, 0.7);
+  color: rgb(14, 17, 25);
 }
 
 .light .input,
 .light .textarea {
-  background-color: rgb(255, 255, 255);
-  border-color: rgba(17, 20, 28, 0.14);
-  color: rgb(9, 11, 17);
+  background-color: rgba(255, 255, 255, 0.96);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: rgb(14, 17, 25);
 }
 .light .input::placeholder,
 .light .textarea::placeholder {
@@ -386,17 +392,17 @@ body {
   color: rgb(51, 58, 78);
 }
 .light .nav-item:hover {
-  background-color: rgba(244, 245, 248, 0.9);
-  color: rgb(9, 11, 17);
+  background-color: rgba(244, 240, 230, 0.7);
+  color: rgb(14, 17, 25);
 }
 .light .nav-item-active {
-  background-image: linear-gradient(to right, rgba(199, 150, 53, 0.12) 0%, rgba(248, 249, 251, 0.95) 42%);
-  background-color: rgb(248, 249, 251);
-  border-color: rgba(199, 150, 53, 0.3);
-  color: rgb(9, 11, 17);
+  background-image: linear-gradient(to right, rgba(199, 150, 53, 0.2) 0%, rgba(255, 252, 246, 0.9) 50%, rgba(248, 244, 234, 0.78) 100%);
+  background-color: rgba(255, 252, 246, 0.95);
+  border-color: rgba(199, 150, 53, 0.38);
+  color: rgb(14, 17, 25);
   box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.9),
-    0 2px 8px -5px rgba(13, 18, 32, 0.16);
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.8),
+    0 4px 12px -6px rgba(199, 150, 53, 0.18);
 }
 
 .light .scrollbar-thin::-webkit-scrollbar-thumb {
@@ -460,38 +466,6 @@ body {
 .light .hover\:bg-ink-800:hover { background-color: rgba(242, 244, 248, 0.9); }
 .light .hover\:bg-ink-900\/70:hover,
 .light .hover\:bg-ink-900\/60:hover { background-color: rgba(246, 247, 250, 0.92); }
-
-/* ─── Desktop shell (Electron) ───────────────────────────────────────────
- * `is-desktop` / `is-desktop-mac` are added to <html> before paint by an
- * inline script in app/layout.tsx when window.legendsos.desktop is present.
- * These rules give the Mac app a real draggable window region and hide
- * web-only panels (desktop download cards) inside the shell. In a browser
- * the classes are absent, so none of this applies.
- */
-/* Drag handle: the TopBar / sidebar header become a native window-drag strip;
- * interactive children opt back out so clicks/inputs still work. */
-.is-desktop .drag-region {
-  -webkit-app-region: drag;
-}
-.is-desktop .drag-region button,
-.is-desktop .drag-region a,
-.is-desktop .drag-region input,
-.is-desktop .drag-region select,
-.is-desktop .drag-region textarea,
-.is-desktop .drag-region label,
-.is-desktop .drag-region [role="button"],
-.is-desktop .no-drag {
-  -webkit-app-region: no-drag;
-}
-/* macOS traffic lights sit top-left — inset the sidebar header + a login
- * top strip so nothing hides under them. */
-.is-desktop-mac .desktop-traffic-inset {
-  padding-top: 26px;
-}
-/* Hide web-only panels (e.g. "Download LegendsOS Desktop") inside the shell. */
-.is-desktop .web-only {
-  display: none !important;
-}
 
 @layer utilities {
   .text-balance {

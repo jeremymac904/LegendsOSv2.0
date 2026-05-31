@@ -37,17 +37,6 @@ export default function RootLayout({
           // eslint-disable-next-line react/no-danger
           dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }}
         />
-        <script
-          // Desktop shell detection — runs before paint so the draggable
-          // window region is active and web-only panels (desktop download
-          // cards) are hidden with no flash. window.legendsos is injected by
-          // electron/preload.cjs before page scripts run.
-          // eslint-disable-next-line react/no-danger
-          dangerouslySetInnerHTML={{
-            __html:
-              "try{if(window.legendsos&&window.legendsos.desktop){document.documentElement.classList.add('is-desktop');if(window.legendsos.platform==='darwin')document.documentElement.classList.add('is-desktop-mac');}}catch(e){}",
-          }}
-        />
       </head>
       <body className="min-h-screen font-sans antialiased dark:bg-ink-950 dark:text-ink-100">
         <ThemeProvider>{children}</ThemeProvider>

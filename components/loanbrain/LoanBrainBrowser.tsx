@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   ChevronRight,
+  Eye,
+  FileText,
   Folder,
   FolderTree,
   Loader2,
@@ -18,7 +20,7 @@ import type {
 } from "@/lib/loanbrain/types";
 import { cn } from "@/lib/utils";
 
-import { LoanBrainDetail } from "./LoanBrainDetail";
+import { GeneratorPanel } from "./GeneratorPanel";
 import { StageStatusPill } from "./statusPill";
 
 const ALL_KINDS: GeneratorKind[] = [
@@ -83,7 +85,7 @@ export function LoanBrainBrowser({ status }: { status: DriveConnectionStatus }) 
   const [subfolders, setSubfolders] = useState<DriveFolder[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<DriveFolder | null>(null);
   const [files, setFiles] = useState<DriveFile[]>([]);
-  const [filesLoading, setFilesLoading] = useState(false);
+  const [previewFile, setPreviewFile] = useState<DriveFile | null>(null);
   const [search, setSearch] = useState("");
   const [searchResults, setSearchResults] = useState<DriveFolder[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -104,6 +106,7 @@ export function LoanBrainBrowser({ status }: { status: DriveConnectionStatus }) 
     setSelectedRoot(root);
     setSelectedFolder(null);
     setFiles([]);
+    setPreviewFile(null);
     setSearchResults(null);
     setLoading(true);
     try {
@@ -119,8 +122,8 @@ export function LoanBrainBrowser({ status }: { status: DriveConnectionStatus }) 
 
   const openBorrowerFolder = useCallback(async (folder: DriveFolder) => {
     setSelectedFolder(folder);
-    setFiles([]);
-    setFilesLoading(true);
+    setPreviewFile(null);
+    setLoading(true);
     try {
       const res = await fetch(
         `/api/loanbrain/drive?view=folder&id=${encodeURIComponent(folder.id)}`
@@ -128,7 +131,7 @@ export function LoanBrainBrowser({ status }: { status: DriveConnectionStatus }) 
       const data = await res.json();
       if (data.ok) setFiles((data.files as DriveFile[]) ?? []);
     } finally {
-      setFilesLoading(false);
+      setLoading(false);
     }
   }, []);
 
@@ -161,14 +164,9 @@ export function LoanBrainBrowser({ status }: { status: DriveConnectionStatus }) 
       >
         <span className="flex items-center gap-2">
           <ShieldCheck size={14} />
-          <span className="font-semibold uppercase tracking-[0.14em]">
-            {status.connected ? "Live" : "Sample mode"}
-          </span>
-          <span className="opacity-90">
-            {status.connected
-              ? "Read-only Drive connection active."
-              : "Read-only Drive not connected — showing safe demo data."}
-          </span>
+          {status.connected
+            ? "Read-only Drive connection active."
+            : "Sample mode — read-only Drive not connected. Showing safe demo data."}
         </span>
         <span className="chip">Read-only</span>
       </div>
@@ -286,13 +284,80 @@ export function LoanBrainBrowser({ status }: { status: DriveConnectionStatus }) 
                 <span className="text-ink-700 dark:text-ink-200">{selectedFolder.label}</span>
               </div>
 
-              <LoanBrainDetail
-                folder={selectedFolder}
-                files={files}
-                filesLoading={filesLoading}
-                driveStatus={status}
-                allowedKinds={ALL_KINDS}
-              />
+              <div className="card-padded">
+                <div className="section-title">
+                  <div>
+                    <h2>Files</h2>
+                    <p>
+                      Read-only. Preview is a placeholder until live Drive is
+                      connected.
+                    </p>
+                  </div>
+                </div>
+                {/* Split: compact file list on the left, preview detail on the right */}
+                <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-[1fr_1.4fr]">
+                  <ul className="space-y-1">
+                    {files.length === 0 ? (
+                      <li className="text-xs text-ink-500 dark:text-ink-400">
+                        No files listed for this folder.
+                      </li>
+                    ) : (
+                      files.map((f) => (
+                        <li key={f.id}>
+                          <button
+                            type="button"
+                            onClick={() => setPreviewFile(f)}
+                            aria-pressed={previewFile?.id === f.id}
+                            className={cn(
+                              "flex w-full items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-left text-xs transition-colors",
+                              previewFile?.id === f.id
+                                ? "border-accent-champagne/40 bg-accent-champagne/10 dark:bg-ink-800/40"
+                                : "border-ink-200 bg-white/60 hover:border-accent-champagne/30 dark:border-ink-800 dark:bg-ink-950/40"
+                            )}
+                          >
+                            <span className="flex min-w-0 items-center gap-2">
+                              <FileText size={13} className="shrink-0 text-ink-500 dark:text-ink-400" />
+                              <span className="truncate text-ink-700 dark:text-ink-200">{f.name}</span>
+                            </span>
+                            <span
+                              className={
+                                f.status === "received" ? "chip-ok" : "chip-warn"
+                              }
+                            >
+                              {f.status}
+                            </span>
+                          </button>
+                        </li>
+                      ))
+                    )}
+                  </ul>
+
+                  {previewFile ? (
+                    <div className="rounded-xl border border-ink-200 bg-white/70 p-4 dark:border-ink-800 dark:bg-ink-950/60">
+                      <p className="flex items-center gap-2 text-xs font-medium text-ink-700 dark:text-ink-200">
+                        <Eye size={13} className="text-accent-gold" /> {previewFile.name}
+                      </p>
+                      <div className="mt-2 grid h-40 place-items-center rounded-lg border border-dashed border-ink-300 bg-ink-50/60 text-center dark:border-ink-700 dark:bg-ink-900/40">
+                        <div>
+                          <FileText size={22} className="mx-auto text-ink-400 dark:text-ink-500" />
+                          <p className="mt-2 text-[11px] text-ink-500 dark:text-ink-400">
+                            Inline preview placeholder
+                          </p>
+                          <p className="text-[10px] text-ink-400 dark:text-ink-500">
+                            Renders the real file once read-only Drive is connected.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid place-items-center rounded-xl border border-dashed border-ink-200 p-4 text-center text-[11px] text-ink-500 dark:border-ink-800 dark:text-ink-400">
+                      Select a file to preview it here.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <GeneratorPanel folderId={selectedFolder.id} allowedKinds={ALL_KINDS} />
             </>
           )}
         </div>
