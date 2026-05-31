@@ -1,0 +1,242 @@
+{
+  "name": "LegendsOS Intake \u2014 Shared Alert Router",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "LegendsOS Gmail AI Intake \u2014 Shared Internal Alert Router\n\nPURPOSE: Receives an APPROVED internal alert (a human already approved it in LegendsOS) and routes it to the INTERNAL channel only (in-app / internal HTTP endpoint).\n\nSAFETY (Phase 1): This NEVER sends an external customer reply, NEVER emails a borrower, NEVER deletes. Internal notification only.\n\nTRIGGER: Started by a webhook from LegendsOS once an alert decision = approved.\n\nSETUP:\n1. Set env LEGENDSOS_WEBHOOK_BASE_URL.\n2. Header Auth credential 'LegendsOS Webhook Secret' (name=x-legendsos-webhook-secret) on the HTTP node.\n3. The trigger webhook path is protected by n8n's own webhook auth; configure a Header Auth credential on the Webhook node too.\n\nShips INACTIVE (active:false).",
+        "height": 360,
+        "width": 460,
+        "color": 4
+      },
+      "id": "note-alert",
+      "name": "Setup & Safety",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -160,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "legendsos-internal-alert",
+        "authentication": "headerAuth",
+        "options": {}
+      },
+      "id": "wh-alert",
+      "name": "Approved Alert In (webhook)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        360,
+        200
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "SET_IN_N8N",
+          "name": "LegendsOS Webhook Secret"
+        }
+      },
+      "webhookId": "legendsos-internal-alert"
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b1",
+              "name": "alert_id",
+              "type": "string",
+              "value": "={{ $json.body.alert_id || $json.alert_id || '' }}"
+            },
+            {
+              "id": "b2",
+              "name": "message_id",
+              "type": "string",
+              "value": "={{ $json.body.message_id || $json.message_id || '' }}"
+            },
+            {
+              "id": "b3",
+              "name": "alert_type",
+              "type": "string",
+              "value": "={{ $json.body.alert_type || $json.alert_type || '' }}"
+            },
+            {
+              "id": "b4",
+              "name": "severity",
+              "type": "string",
+              "value": "={{ $json.body.severity || $json.severity || 'info' }}"
+            },
+            {
+              "id": "b5",
+              "name": "target_team_member",
+              "type": "string",
+              "value": "={{ $json.body.target_team_member || $json.target_team_member || '' }}"
+            },
+            {
+              "id": "b6",
+              "name": "decision",
+              "type": "string",
+              "value": "={{ $json.body.decision || $json.decision || '' }}"
+            },
+            {
+              "id": "b7",
+              "name": "channel",
+              "type": "string",
+              "value": "internal"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-alert",
+      "name": "Normalize Alert",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        620,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "ca1",
+              "leftValue": "={{ $json.decision }}",
+              "rightValue": "approved",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-approved",
+      "name": "Decision = approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LEGENDSOS_WEBHOOK_BASE_URL }}/api/webhooks/internal-alert-dispatch",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ alert_id: $json.alert_id, message_id: $json.message_id, alert_type: $json.alert_type, severity: $json.severity, target_team_member: $json.target_team_member, channel: 'internal', dispatched_by: 'n8n-shared-alert-router' }) }}",
+        "options": {}
+      },
+      "id": "http-dispatch",
+      "name": "Dispatch to Internal Channel",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1140,
+        120
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "SET_IN_N8N",
+          "name": "LegendsOS Webhook Secret"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "noop-skip",
+      "name": "Not Approved (ignore)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1140,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Approved Alert In (webhook)": {
+      "main": [
+        [
+          {
+            "node": "Normalize Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Alert": {
+      "main": [
+        [
+          {
+            "node": "Decision = approved?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decision = approved?": {
+      "main": [
+        [
+          {
+            "node": "Dispatch to Internal Channel",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Not Approved (ignore)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "legendsos-intake"
+    }
+  ],
+  "meta": {
+    "legendsos": {
+      "phase": 1,
+      "internalOnly": true,
+      "neverExternalReply": true,
+      "neverDeletes": true
+    }
+  }
+}

@@ -1,0 +1,221 @@
+{
+  "name": "LegendsOS Intake \u2014 Attachment Needs Review Router",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "LegendsOS Gmail AI Intake \u2014 Attachment 'Needs Review' Router\n\nPURPOSE: For UNKNOWN / unmatched attachments, upload the file to the Google Drive 'Needs Review' folder ONLY, then POST metadata to /api/webhooks/document-intake so LegendsOS records it for human review.\n\nSAFETY (Phase 1): NEVER writes to a borrower folder. Upload target is the single 'Needs Review' folder (id is a placeholder/expression). No deletes, no customer sends.\n\nSETUP:\n1. Google Drive credential (a service/shared-drive account with access to the 'Needs Review' folder).\n2. Set env LEGENDSOS_NEEDS_REVIEW_FOLDER_ID to the Drive folder id (or replace the placeholder in the Google Drive node).\n3. Set env LEGENDSOS_WEBHOOK_BASE_URL.\n4. Header Auth credential 'LegendsOS Webhook Secret' (name=x-legendsos-webhook-secret) on the HTTP node.\n5. Trigger webhook: protect with a Header Auth credential.\n\nShips INACTIVE (active:false).",
+        "height": 420,
+        "width": 480,
+        "color": 4
+      },
+      "id": "note-attach",
+      "name": "Setup & Safety",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -180,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "legendsos-attachment-needs-review",
+        "authentication": "headerAuth",
+        "options": {
+          "binaryData": true
+        }
+      },
+      "id": "wh-attach",
+      "name": "Unmatched Attachment In (webhook)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        340,
+        200
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "SET_IN_N8N",
+          "name": "LegendsOS Webhook Secret"
+        }
+      },
+      "webhookId": "legendsos-attachment-needs-review"
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c1",
+              "name": "source_account",
+              "type": "string",
+              "value": "={{ $json.body.source_account || $json.source_account || 'SET_IN_N8N' }}"
+            },
+            {
+              "id": "c2",
+              "name": "gmail_message_id",
+              "type": "string",
+              "value": "={{ $json.body.gmail_message_id || $json.gmail_message_id || '' }}"
+            },
+            {
+              "id": "c3",
+              "name": "file_name",
+              "type": "string",
+              "value": "={{ $json.body.file_name || $json.file_name || 'unknown-attachment' }}"
+            },
+            {
+              "id": "c4",
+              "name": "mime_type",
+              "type": "string",
+              "value": "={{ $json.body.mime_type || $json.mime_type || '' }}"
+            },
+            {
+              "id": "c5",
+              "name": "size_bytes",
+              "type": "number",
+              "value": "={{ Number($json.body.size_bytes || $json.size_bytes || 0) }}"
+            },
+            {
+              "id": "c6",
+              "name": "loan_match_status",
+              "type": "string",
+              "value": "={{ $json.body.loan_match_status || $json.loan_match_status || 'unmatched' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-attach",
+      "name": "Normalize Attachment Meta",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        600,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "upload",
+        "inputDataFieldName": "data",
+        "name": "={{ $json.file_name }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.LEGENDSOS_NEEDS_REVIEW_FOLDER_ID || 'SET_IN_N8N' }}"
+        },
+        "options": {}
+      },
+      "id": "gdrive-upload",
+      "name": "Upload to 'Needs Review' folder",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        860,
+        140
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "SET_IN_N8N",
+          "name": "Google Drive \u2014 LegendsOS Needs Review"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LEGENDSOS_WEBHOOK_BASE_URL }}/api/webhooks/document-intake",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ source_account: $('Normalize Attachment Meta').item.json.source_account, gmail_message_id: $('Normalize Attachment Meta').item.json.gmail_message_id, file_name: $('Normalize Attachment Meta').item.json.file_name, mime_type: $('Normalize Attachment Meta').item.json.mime_type, size_bytes: $('Normalize Attachment Meta').item.json.size_bytes, loan_match_status: 'unmatched', drive_location: 'needs_review', drive_file_id: ($json.id || ''), drive_url: ($json.webViewLink || ''), note: 'uploaded to Needs Review only \u2014 never a borrower folder' }) }}",
+        "options": {}
+      },
+      "id": "http-doc",
+      "name": "POST document-intake (metadata)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        140
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "SET_IN_N8N",
+          "name": "LegendsOS Webhook Secret"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Unmatched Attachment In (webhook)": {
+      "main": [
+        [
+          {
+            "node": "Normalize Attachment Meta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Attachment Meta": {
+      "main": [
+        [
+          {
+            "node": "Upload to 'Needs Review' folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload to 'Needs Review' folder": {
+      "main": [
+        [
+          {
+            "node": "POST document-intake (metadata)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "legendsos-intake"
+    }
+  ],
+  "meta": {
+    "legendsos": {
+      "phase": 1,
+      "needsReviewOnly": true,
+      "neverBorrowerFolder": true,
+      "neverDeletes": true
+    }
+  }
+}

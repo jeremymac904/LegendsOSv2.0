@@ -1,0 +1,15 @@
+{
+  "_comment": "SAMPLE — obviously fake test data. POST to /api/webhooks/alert-intake with header x-legendsos-webhook-secret. Internal-only channel. New alerts default decision=pending (human approval required). is_sample=true.",
+  "source_account": "sample.mailbox@example.test",
+  "gmail_message_id": "MSG-SAMPLE-0001-DO-NOT-USE",
+  "alert_type": "urgent_condition",
+  "severity": "high",
+  "target_team_member_gmail": "sample.mailbox@example.test",
+  "channel": "in_app",
+  "decision": "pending",
+  "payload": {
+    "reason": "SAMPLE — fake underwriting condition due soon (test data, no real loan)",
+    "sample": true
+  },
+  "is_sample": true
+}

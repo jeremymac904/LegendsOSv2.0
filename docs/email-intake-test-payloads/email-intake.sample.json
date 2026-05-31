@@ -1,0 +1,19 @@
+{
+  "_comment": "SAMPLE — obviously fake test data. POST to /api/webhooks/email-intake with header x-legendsos-webhook-secret. All names/ids are fake. is_sample=true.",
+  "source_account": "sample.mailbox@example.test",
+  "team_member_gmail": "sample.mailbox@example.test",
+  "gmail_message_id": "MSG-SAMPLE-0001-DO-NOT-USE",
+  "gmail_thread_id": "THREAD-SAMPLE-0001-DO-NOT-USE",
+  "from_address": "sample.borrower@example.test",
+  "from_name": "SAMPLE Borrower Testerton",
+  "to_address": "sample.mailbox@example.test",
+  "subject": "SAMPLE — Here are my requested documents (paystub attached)",
+  "snippet": "SAMPLE TEST EMAIL. Hi, here are my requested documents — see attached pay stub and bank statement. This is fake sample data.",
+  "received_at": "2026-05-30T15:04:05Z",
+  "has_attachments": true,
+  "raw_headers": {
+    "Message-ID": "<MSG-SAMPLE-0001@example.test>",
+    "X-Sample-Data": "true"
+  },
+  "is_sample": true
+}

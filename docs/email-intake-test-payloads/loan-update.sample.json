@@ -1,0 +1,10 @@
+{
+  "_comment": "SAMPLE — obviously fake test data. POST to /api/webhooks/loan-update with header x-legendsos-webhook-secret. Webhook only writes loan_match_status=suggested; human confirms in-app. is_sample=true.",
+  "source_account": "sample.mailbox@example.test",
+  "gmail_message_id": "MSG-SAMPLE-0001-DO-NOT-USE",
+  "loan_match_id": "00000000-0000-0000-0000-00000000SMPL",
+  "loan_match_confidence": 0.74,
+  "loan_match_status": "suggested",
+  "attachment_id": null,
+  "is_sample": true
+}
