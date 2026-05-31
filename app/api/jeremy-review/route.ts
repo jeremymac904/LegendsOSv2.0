@@ -9,6 +9,12 @@ export const dynamic = "force-dynamic";
 
 const schema = z.object({
   content: z.string().min(1).max(20000),
+  // "asset" (default) = the user pasted the GENERATED draft to be reviewed as a
+  // final, about-to-publish asset. "brief" = the user is running a pre-check on
+  // the instruction brief/prompt itself (not the final asset). The mode only
+  // changes how the content is framed to the reviewer; it never fabricates a
+  // verdict.
+  mode: z.enum(["asset", "brief"]).optional().default("asset"),
 });
 
 type DimensionStatus = "pass" | "needs_edit" | "escalate";
@@ -22,29 +28,39 @@ type ReviewResult = {
   verdict: DimensionStatus;
   dimensions: {
     brand: Dimension;
-    compliance: Dimension;
     clarity: Dimension;
+    compliance: Dimension;
     cta: Dimension;
-    risk: Dimension;
+    mortgageClaims: Dimension;
+    missingInfo: Dimension;
   };
   summary: string;
 };
 
 const SYSTEM_PROMPT = [
   "You are Jeremy's AI brand and compliance reviewer for The Legends Mortgage Team.",
-  "You review marketing and website copy BEFORE it is published, the way Jeremy McDonald would.",
-  "Evaluate the supplied content across exactly five dimensions:",
-  "  - brand: Does it match a warm, professional, local, trustworthy mortgage-team voice?",
-  "  - compliance: Mortgage advertising compliance. Flag any rate guarantees, approval guarantees, promised closing times, or 'lowest/best rate' claims. Check for NMLS ID presence and Equal Housing / Equal Housing Opportunity awareness.",
+  "You review the FINAL, generated marketing or website asset BEFORE it is published, the way Jeremy McDonald would.",
+  "IMPORTANT: You are judging the actual produced copy/asset itself — NOT a set of instructions, a brief, or a prompt. If the supplied text reads like instructions to an AI (e.g. it lists rules such as 'Do NOT promise a rate' or 'Always include NMLS'), it is NOT a finished asset: do not treat the mere presence of compliance instructions as compliance. Judge what an end reader would actually see.",
+  "Evaluate the supplied content across exactly six dimensions:",
+  "  - brand: Brand fit. Does it match a warm, professional, local, trustworthy mortgage-team voice?",
   "  - clarity: Is it clear, skimmable, and easy for an everyday homebuyer to understand?",
+  "  - compliance: Compliance risk. Mortgage advertising compliance. Flag any rate guarantees, approval guarantees, promised closing times, or 'lowest/best rate' claims. Confirm the actual NMLS ID and the Equal Housing / Equal Housing Opportunity statement are PRESENT in the finished copy (a real ID, not a [placeholder]).",
   "  - cta: Is there a clear, single, compelling call to action?",
-  "  - risk: Any risky mortgage language — individualized financial/legal/tax advice, absolute promises, or anything that could mislead a borrower.",
+  "  - mortgageClaims: Mortgage claims check. Any risky or misleading mortgage language — individualized financial/legal/tax advice, absolute promises, guaranteed savings, or anything that could mislead a borrower.",
+  "  - missingInfo: Missing info. Identify required elements that are absent or still left as unfilled placeholders (e.g. NMLS ID, Equal Housing statement, loan officer name/title, disclosures). If something a published asset legally needs is missing or still a [placeholder], flag it.",
   "For each dimension assign a status of 'pass', 'needs_edit', or 'escalate' and a one-sentence note explaining why.",
   "Then assign an overall verdict: 'pass' (publish-ready), 'needs_edit' (fixable issues), or 'escalate' (serious compliance/risk — Jeremy must review personally).",
   "The overall verdict must be at least as severe as the most severe dimension (any 'escalate' dimension forces an 'escalate' verdict; any 'needs_edit' forces at least 'needs_edit').",
   "Respond with ONLY a strict JSON object, no markdown, no code fences, in exactly this shape:",
-  '{"verdict":"pass|needs_edit|escalate","dimensions":{"brand":{"status":"pass|needs_edit|escalate","note":"..."},"compliance":{"status":"...","note":"..."},"clarity":{"status":"...","note":"..."},"cta":{"status":"...","note":"..."},"risk":{"status":"...","note":"..."}},"summary":"one or two sentences"}',
+  '{"verdict":"pass|needs_edit|escalate","dimensions":{"brand":{"status":"pass|needs_edit|escalate","note":"..."},"clarity":{"status":"...","note":"..."},"compliance":{"status":"...","note":"..."},"cta":{"status":"...","note":"..."},"mortgageClaims":{"status":"...","note":"..."},"missingInfo":{"status":"...","note":"..."}},"summary":"one or two sentences"}',
 ].join("\n");
+
+// When the user explicitly pre-checks the BRIEF (the instruction prompt) rather
+// than the produced asset, we tell the reviewer so it judges the brief on its
+// own terms and never confuses "the brief lists the rules" with "the asset
+// follows the rules". The verdict still reflects real issues; nothing is faked.
+const BRIEF_PRECHECK_NOTE =
+  "NOTE: The user is pre-checking their BRIEF (the instruction prompt that will be sent to an AI builder), NOT the final asset. Judge whether the brief is well-formed and asks for the right compliance elements. Do NOT treat this as a publish-ready sign-off — it is only a pre-check of the brief. In your summary, make clear this reviews the brief, not the final asset.";
 
 const VALID_STATUSES: DimensionStatus[] = ["pass", "needs_edit", "escalate"];
 
@@ -92,13 +108,35 @@ function parseReview(text: string): ReviewResult | null {
   const d = dims as Record<string, unknown>;
 
   const brand = coerceDimension(d.brand);
-  const compliance = coerceDimension(d.compliance);
   const clarity = coerceDimension(d.clarity);
+  const compliance = coerceDimension(d.compliance);
   const cta = coerceDimension(d.cta);
-  const risk = coerceDimension(d.risk);
-  if (!brand || !compliance || !clarity || !cta || !risk) return null;
+  // Accept a couple of reasonable key aliases the model might emit so a sound
+  // review isn't thrown away over naming. Falls back to null → honest
+  // "unparseable" state, never a fabricated pass.
+  const mortgageClaims = coerceDimension(
+    d.mortgageClaims ?? d.mortgage_claims ?? d.risk,
+  );
+  const missingInfo = coerceDimension(d.missingInfo ?? d.missing_info);
+  if (
+    !brand ||
+    !clarity ||
+    !compliance ||
+    !cta ||
+    !mortgageClaims ||
+    !missingInfo
+  ) {
+    return null;
+  }
 
-  const dimensions = { brand, compliance, clarity, cta, risk };
+  const dimensions = {
+    brand,
+    clarity,
+    compliance,
+    cta,
+    mortgageClaims,
+    missingInfo,
+  };
 
   // Derive the verdict from the dimensions so it can never be softer than the
   // worst dimension, even if the model reports an inconsistent overall verdict.
@@ -145,16 +183,19 @@ export async function POST(req: Request) {
     );
   }
 
+  const { content, mode } = parsed.data;
+  const userInstruction =
+    mode === "brief"
+      ? `${BRIEF_PRECHECK_NOTE}\n\nPre-check the following BRIEF and return the strict JSON review object only.\n\n---\n${content}\n---`
+      : `Review the following FINAL generated asset (the actual copy a reader will see) and return the strict JSON review object only.\n\n---\n${content}\n---`;
+
   const result = await runChat({
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
-      {
-        role: "user",
-        content: `Review the following content and return the strict JSON review object only.\n\n---\n${parsed.data.content}\n---`,
-      },
+      { role: "user", content: userInstruction },
     ],
     temperature: 0.2,
-    max_tokens: 800,
+    max_tokens: 900,
   });
 
   // No provider configured / enabled — degrade honestly. The UI shows a

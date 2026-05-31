@@ -307,9 +307,11 @@ function BuildDetailPanel({
             </button>
           </div>
 
-          {/* Jeremy AI Review */}
+          {/* Jeremy AI Review — reviews the GENERATED asset (pasted below),
+              not the prompt above. The filled prompt is passed only as an
+              optional brief pre-check. */}
           <div className="rounded-xl border border-ink-200 bg-white/60 p-4 dark:border-ink-800 dark:bg-ink-950/40">
-            <JeremyReviewPanel content={filledPrompt} />
+            <JeremyReviewPanel briefPreview={filledPrompt} />
           </div>
         </div>
       </div>

@@ -25,7 +25,7 @@ export default async function ProcessingPage() {
         title="Processor cockpit"
         description="Your assigned files, what's missing, conditions, and one-click draft tools. Everything is a draft — nothing sends itself."
       />
-      <SampleModeBanner note="Demo assigned loans until real files are connected · no borrower data · drafts only." />
+      <SampleModeBanner note="Demo data, no live loans yet — these 2 files are samples. Setup required for live data · no borrower data · drafts only." />
       <ProcessorCockpit rows={rows} />
     </div>
   );

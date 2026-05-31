@@ -142,13 +142,18 @@ export default async function CalendarPage({ searchParams }: PageProps) {
   const monthEntries: CalendarEntry[] = [
     ...((calendar ?? []) as Pick<
       CalendarItem,
-      "id" | "title" | "description" | "starts_at"
+      "id" | "title" | "description" | "starts_at" | "item_type"
     >[]).map((c) => ({
       id: c.id,
       kind: "calendar" as const,
       title: c.title,
       whenIso: c.starts_at,
+      // Calendar entries open an in-place detail popover (see
+      // CalendarMonthGrid) rather than navigating, so `link` is unused for
+      // them in the grid. Kept as a stable self-reference for the type.
       link: `/calendar?month=${month}`,
+      description: c.description,
+      itemType: c.item_type,
     })),
     ...((socials ?? []) as Pick<
       SocialPost,

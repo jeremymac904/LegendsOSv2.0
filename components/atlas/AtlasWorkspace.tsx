@@ -160,6 +160,198 @@ function ToolResultCard({ result, createdAt }: { result: AtlasToolResultMeta; cr
   );
 }
 
+// ─── Minimal markdown renderer ───────────────────────────────────────────────
+// Dependency-free. Renders a SAFE subset of markdown for assistant/system
+// messages only. It builds React nodes (never dangerouslySetInnerHTML), so all
+// text is escaped by React automatically — model output cannot inject HTML.
+// Supported: fenced code blocks (```), inline code (`), bold (**), hash
+// headings (#..######), and unordered (-, *, +) / ordered (1.) lists.
+
+// Parse a single line of text into inline React nodes: inline code spans and
+// bold runs. Everything else is plain (auto-escaped) text. A running key
+// counter keeps React keys stable within one line.
+function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
+  const nodes: React.ReactNode[] = [];
+  // Split on `code` first so ** inside code is left literal.
+  const codeParts = text.split(/(`[^`]+`)/g);
+  let k = 0;
+  for (const part of codeParts) {
+    if (!part) continue;
+    if (part.length >= 2 && part.startsWith("`") && part.endsWith("`")) {
+      nodes.push(
+        <code
+          key={`${keyPrefix}-c${k++}`}
+          className="rounded bg-ink-100/80 dark:bg-ink-800/80 px-1 py-0.5 font-mono text-[0.85em] text-accent-gold"
+        >
+          {part.slice(1, -1)}
+        </code>
+      );
+      continue;
+    }
+    // Bold runs: **text**
+    const boldParts = part.split(/(\*\*[^*]+\*\*)/g);
+    for (const bp of boldParts) {
+      if (!bp) continue;
+      if (bp.length >= 4 && bp.startsWith("**") && bp.endsWith("**")) {
+        nodes.push(
+          <strong key={`${keyPrefix}-b${k++}`} className="font-semibold">
+            {bp.slice(2, -2)}
+          </strong>
+        );
+      } else {
+        nodes.push(<span key={`${keyPrefix}-t${k++}`}>{bp}</span>);
+      }
+    }
+  }
+  return nodes;
+}
+
+type MdBlock =
+  | { type: "code"; content: string }
+  | { type: "heading"; level: number; text: string }
+  | { type: "ul"; items: string[] }
+  | { type: "ol"; items: string[] }
+  | { type: "p"; lines: string[] };
+
+// Group raw markdown text into blocks. Fenced code blocks are split out first so
+// their contents are rendered verbatim and never parsed for inline markup.
+function parseMarkdownBlocks(src: string): MdBlock[] {
+  const blocks: MdBlock[] = [];
+  const segments = src.split(/```/g);
+  segments.forEach((segment, i) => {
+    // Odd segments are inside a pair of fences → code blocks.
+    if (i % 2 === 1) {
+      // Drop an optional language hint on the first line (e.g. ```ts).
+      const withoutLang = segment.replace(/^[^\n]*\n/, (m) =>
+        /^[A-Za-z0-9_+-]*\n$/.test(m) ? "" : m
+      );
+      blocks.push({ type: "code", content: withoutLang.replace(/\n$/, "") });
+      return;
+    }
+    // Even segments are normal markdown text.
+    const lines = segment.split("\n");
+    let paragraph: string[] = [];
+    let ul: string[] = [];
+    let ol: string[] = [];
+    const flushParagraph = () => {
+      if (paragraph.length) {
+        blocks.push({ type: "p", lines: paragraph });
+        paragraph = [];
+      }
+    };
+    const flushUl = () => {
+      if (ul.length) {
+        blocks.push({ type: "ul", items: ul });
+        ul = [];
+      }
+    };
+    const flushOl = () => {
+      if (ol.length) {
+        blocks.push({ type: "ol", items: ol });
+        ol = [];
+      }
+    };
+    const flushAll = () => {
+      flushParagraph();
+      flushUl();
+      flushOl();
+    };
+    for (const line of lines) {
+      const heading = /^(#{1,6})\s+(.*)$/.exec(line);
+      const bullet = /^\s*[-*+]\s+(.*)$/.exec(line);
+      const ordered = /^\s*\d+[.)]\s+(.*)$/.exec(line);
+      if (heading) {
+        flushAll();
+        blocks.push({ type: "heading", level: heading[1].length, text: heading[2] });
+      } else if (bullet) {
+        flushParagraph();
+        flushOl();
+        ul.push(bullet[1]);
+      } else if (ordered) {
+        flushParagraph();
+        flushUl();
+        ol.push(ordered[1]);
+      } else if (line.trim() === "") {
+        flushAll();
+      } else {
+        flushUl();
+        flushOl();
+        paragraph.push(line);
+      }
+    }
+    flushAll();
+  });
+  return blocks;
+}
+
+function Markdown({ content }: { content: string }) {
+  const blocks = useMemo(() => parseMarkdownBlocks(content), [content]);
+  return (
+    <div className="space-y-2">
+      {blocks.map((block, i) => {
+        const key = `md-${i}`;
+        if (block.type === "code") {
+          return (
+            <pre
+              key={key}
+              className="overflow-x-auto rounded-lg border border-ink-200 dark:border-ink-800 bg-ink-100/70 dark:bg-ink-950/70 p-3 text-[12.5px] leading-relaxed scrollbar-thin"
+            >
+              <code className="font-mono text-ink-900 dark:text-ink-100">{block.content}</code>
+            </pre>
+          );
+        }
+        if (block.type === "heading") {
+          const sizes: Record<number, string> = {
+            1: "text-[15px]",
+            2: "text-[14px]",
+            3: "text-[13px]",
+          };
+          return (
+            <p
+              key={key}
+              className={cn(
+                "font-semibold text-ink-900 dark:text-ink-100",
+                sizes[block.level] ?? "text-[12.5px]"
+              )}
+            >
+              {renderInline(block.text, key)}
+            </p>
+          );
+        }
+        if (block.type === "ul") {
+          return (
+            <ul key={key} className="list-disc space-y-1 pl-5">
+              {block.items.map((item, j) => (
+                <li key={`${key}-${j}`}>{renderInline(item, `${key}-${j}`)}</li>
+              ))}
+            </ul>
+          );
+        }
+        if (block.type === "ol") {
+          return (
+            <ol key={key} className="list-decimal space-y-1 pl-5">
+              {block.items.map((item, j) => (
+                <li key={`${key}-${j}`}>{renderInline(item, `${key}-${j}`)}</li>
+              ))}
+            </ol>
+          );
+        }
+        // paragraph — preserve intra-paragraph line breaks
+        return (
+          <p key={key} className="whitespace-pre-wrap">
+            {block.lines.map((line, j) => (
+              <span key={`${key}-${j}`}>
+                {renderInline(line, `${key}-${j}`)}
+                {j < block.lines.length - 1 ? "\n" : null}
+              </span>
+            ))}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
 function MessageRow({ message }: { message: ChatMessage }) {
   const isUser = message.role === "user";
   const isSystem = message.role === "system";
@@ -188,12 +380,15 @@ function MessageRow({ message }: { message: ChatMessage }) {
         </div>
       )}
       <div className={cn(
-        "max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap shadow-sm",
+        "max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm",
+        // User messages stay plain text (pre-wrap). Assistant/system messages
+        // run through the markdown renderer, which manages its own whitespace.
+        isUser && "whitespace-pre-wrap",
         isUser ? "bg-gradient-to-br from-accent-orange/80 to-accent-gold/80 text-ink-950 dark:text-ink-950"
           : isSystem ? "border border-status-warn/30 bg-status-warn/10 text-status-warn"
           : "border border-ink-200 dark:border-ink-800 bg-white/70 dark:bg-ink-900/70 text-ink-900 dark:text-ink-100"
       )}>
-        {message.content}
+        {isUser ? message.content : <Markdown content={message.content} />}
         {!isUser && !isSystem && toolResult && <ToolResultCard result={toolResult} createdAt={message.created_at} />}
         <p className={cn("mt-1.5 text-[10px] uppercase tracking-[0.18em]", isUser ? "text-ink-950/60 dark:text-ink-950/60" : "text-ink-600 dark:text-ink-300")}>
           {message.role} · {formatRelative(message.created_at)}

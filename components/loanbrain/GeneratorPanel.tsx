@@ -36,6 +36,17 @@ const PURPOSE: Record<string, string> = {
   other: "Other",
 };
 
+// Sprint 2 — "Stop Lying": sample drafts must be unmistakably marked and must
+// NOT look send-ready. Prepend a loud banner so any copied/pasted text carries
+// the warning with it.
+const SAMPLE_WATERMARK =
+  "SAMPLE — not a real borrower. Do not send. Generated from demo data while " +
+  "the Loan Brain runs in sample mode (no live Drive connection).";
+
+function watermarkBody(body: string): string {
+  return `⚠️ ${SAMPLE_WATERMARK}\n\n${"—".repeat(8)}\n\n${body}`;
+}
+
 export function GeneratorPanel({
   folderId,
   allowedKinds,
@@ -98,10 +109,16 @@ export function GeneratorPanel({
     }
   }
 
+  // While in sample mode every draft is demo content. Mark it everywhere it can
+  // travel — including the clipboard — so it can never be mistaken for a real,
+  // send-ready document.
+  const sampleMode = summary?.isSample ?? true;
+
   async function copyDraft() {
     if (!draft) return;
+    const text = sampleMode ? watermarkBody(draft.body) : draft.body;
     try {
-      await navigator.clipboard.writeText(draft.body);
+      await navigator.clipboard.writeText(text);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
@@ -111,7 +128,7 @@ export function GeneratorPanel({
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 p-6 text-xs text-ink-300">
+      <div className="flex items-center gap-2 p-6 text-xs text-ink-700 dark:text-ink-300">
         <Loader2 size={14} className="animate-spin" /> Loading borrower summary…
       </div>
     );
@@ -135,14 +152,14 @@ export function GeneratorPanel({
       <div className="card-padded">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[15px] font-semibold text-ink-100">{summary.borrowerName}</p>
-            <p className="text-xs text-ink-300">
+            <p className="text-[15px] font-semibold text-ink-900 dark:text-ink-100">{summary.borrowerName}</p>
+            <p className="text-xs text-ink-700 dark:text-ink-300">
               {summary.loanProgram ?? "Program TBD"}
               {summary.loanPurpose ? ` · ${PURPOSE[summary.loanPurpose] ?? summary.loanPurpose}` : ""}
               {summary.loanNumber ? ` · #${summary.loanNumber}` : ""}
             </p>
             {summary.propertyAddress && (
-              <p className="mt-0.5 text-xs text-ink-400">{summary.propertyAddress}</p>
+              <p className="mt-0.5 text-xs text-ink-600 dark:text-ink-400">{summary.propertyAddress}</p>
             )}
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
@@ -176,10 +193,10 @@ export function GeneratorPanel({
             <p className="label mb-1.5">Conditions</p>
             <ul className="space-y-1">
               {summary.conditions.map((c, i) => (
-                <li key={i} className="text-xs text-ink-200">
+                <li key={i} className="text-xs text-ink-700 dark:text-ink-200">
                   <span className="chip mr-1.5">{c.source}</span>
                   {c.description}
-                  <span className="text-ink-400"> — {c.status}</span>
+                  <span className="text-ink-600 dark:text-ink-400"> — {c.status}</span>
                 </li>
               ))}
             </ul>
@@ -189,7 +206,7 @@ export function GeneratorPanel({
         {summary.nextSteps.length > 0 && (
           <div className="mt-4">
             <p className="label mb-1.5">Priority next steps</p>
-            <ul className="list-inside list-disc space-y-0.5 text-xs text-ink-200">
+            <ul className="list-inside list-disc space-y-0.5 text-xs text-ink-700 dark:text-ink-200">
               {summary.nextSteps.map((n, i) => (
                 <li key={i}>{n}</li>
               ))}
@@ -203,7 +220,11 @@ export function GeneratorPanel({
         <div className="section-title">
           <div>
             <h2>Generate a draft</h2>
-            <p>Every output is a draft for review. Nothing is sent or written to Drive.</p>
+            <p>
+              {sampleMode
+                ? "Sample mode: drafts are built from demo data, watermarked, and not for sending. Nothing is sent or written to Drive."
+                : "Every output is a draft for review. Nothing is sent or written to Drive."}
+            </p>
           </div>
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
@@ -226,23 +247,57 @@ export function GeneratorPanel({
         </div>
 
         {draft && (
-          <div className="mt-4 rounded-xl border border-accent-champagne/15 bg-ink-950/40 p-4 backdrop-blur-sm">
+          <div
+            className={cn(
+              "mt-4 rounded-xl border p-4 backdrop-blur-sm",
+              sampleMode
+                ? "border-status-warn/40 bg-status-warn/5 dark:bg-status-warn/10"
+                : "border-accent-champagne/15 bg-white/60 dark:bg-ink-950/40"
+            )}
+          >
+            {sampleMode && (
+              <div className="mb-3 flex items-start gap-2 rounded-lg border border-status-warn/40 bg-status-warn/10 p-2.5">
+                <ShieldAlert size={14} className="mt-0.5 shrink-0 text-status-warn" />
+                <p className="text-[11px] font-medium leading-relaxed text-status-warn">
+                  SAMPLE — not a real borrower. Do not send. This draft is generated
+                  from demo data while the Loan Brain runs in sample mode (no live
+                  Drive connection).
+                </p>
+              </div>
+            )}
             <div className="flex items-center justify-between gap-2">
-              <p className="text-sm font-medium text-ink-100">{draft.title}</p>
-              <button type="button" onClick={copyDraft} className="btn-ghost text-xs">
+              <p className="text-sm font-medium text-ink-900 dark:text-ink-100">
+                {sampleMode ? `${draft.title} (sample)` : draft.title}
+              </p>
+              <button
+                type="button"
+                onClick={copyDraft}
+                className="btn-ghost text-xs"
+                title={
+                  sampleMode
+                    ? "Copies sample text with a SAMPLE — do not send warning prepended"
+                    : "Copy draft to clipboard"
+                }
+              >
                 <Copy size={13} />
-                {copied ? "Copied" : "Copy"}
+                {copied
+                  ? "Copied"
+                  : sampleMode
+                  ? "Copy sample (not for sending)"
+                  : "Copy"}
               </button>
             </div>
-            <div className="mt-2 space-y-1 rounded-lg border border-status-warn/30 bg-status-warn/10 p-2.5">
-              {draft.warnings.map((w, i) => (
-                <p key={i} className="flex items-start gap-1.5 text-[11px] text-status-warn">
-                  <ShieldAlert size={12} className="mt-0.5 shrink-0" /> {w}
-                </p>
-              ))}
-            </div>
-            <pre className="mt-3 max-h-[420px] overflow-auto whitespace-pre-wrap rounded-lg border border-ink-800 bg-ink-950/60 p-3 text-[12px] leading-relaxed text-ink-200 scrollbar-thin">
-{draft.body}
+            {draft.warnings.length > 0 && (
+              <div className="mt-2 space-y-1 rounded-lg border border-status-warn/30 bg-status-warn/10 p-2.5">
+                {draft.warnings.map((w, i) => (
+                  <p key={i} className="flex items-start gap-1.5 text-[11px] text-status-warn">
+                    <ShieldAlert size={12} className="mt-0.5 shrink-0" /> {w}
+                  </p>
+                ))}
+              </div>
+            )}
+            <pre className="mt-3 max-h-[420px] overflow-auto whitespace-pre-wrap rounded-lg border border-ink-200 bg-white/70 p-3 text-[12px] leading-relaxed text-ink-700 scrollbar-thin dark:border-ink-800 dark:bg-ink-950/60 dark:text-ink-200">
+{sampleMode ? watermarkBody(draft.body) : draft.body}
             </pre>
           </div>
         )}
@@ -277,11 +332,11 @@ function DocList({
     <div>
       <p className="label mb-1.5">{title}</p>
       {items.length === 0 ? (
-        <p className="text-xs text-ink-400">{emptyText}</p>
+        <p className="text-xs text-ink-600 dark:text-ink-400">{emptyText}</p>
       ) : (
         <ul className="space-y-1">
           {items.map((it, i) => (
-            <li key={i} className="flex items-center gap-1.5 text-xs text-ink-200">
+            <li key={i} className="flex items-center gap-1.5 text-xs text-ink-700 dark:text-ink-200">
               {tone === "ok" ? (
                 <CheckCircle2 size={13} className="shrink-0 text-status-ok" />
               ) : (

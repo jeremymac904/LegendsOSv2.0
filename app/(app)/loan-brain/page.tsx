@@ -17,12 +17,16 @@ export default async function LoanBrainPage() {
 
   const status = getDriveConnectionStatus();
 
+  const description = status.connected
+    ? "Read-only view of the Jeremy Applicants Pipeline. Browse a borrower folder, then generate a loan summary, processor handoff, missing-item list, condition plan, overlay note, pipeline update, or Ashley email — all as drafts for review."
+    : "Sample/demo mode — no live Drive connection yet. Borrowers and files below are demo data. You can preview the workflow and generate watermarked sample drafts (not for sending); live read-only Drive browsing turns on once the connection is wired up.";
+
   return (
     <div className="space-y-6">
       <SectionHeader
         eyebrow="Atlas · Loan Brain"
-        title="Borrower file browser"
-        description="Read-only view of the Jeremy Applicants Pipeline. Browse a borrower folder, then generate a loan summary, processor handoff, missing-item list, condition plan, overlay note, pipeline update, or Ashley email — all as drafts."
+        title={status.connected ? "Borrower file browser" : "Borrower file browser (sample mode)"}
+        description={description}
       />
       <LoanBrainBrowser status={status} />
     </div>

@@ -59,10 +59,10 @@ export default async function TrainingPage() {
               <GraduationCap size={13} />
               Learning paths
             </p>
-            <h2 className="mt-2 text-2xl font-semibold text-ink-100">
+            <h2 className="mt-2 text-2xl font-semibold text-ink-900 dark:text-ink-100">
               Build repeatable loan officer execution.
             </h2>
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-300">
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-700 dark:text-ink-300">
               Organize videos, quick tutorials, technology walkthroughs,
               mortgage coaching, sales coaching, AI training, n8n training,
               LegendsOS training, and Loan Factory workflow training in one
@@ -97,7 +97,7 @@ export default async function TrainingPage() {
           {TRAINING_NUGGETS.map((nugget) => (
             <div
               key={nugget}
-              className="rounded-xl border border-accent-champagne/10 bg-ink-950/30 p-3 text-sm text-ink-200 backdrop-blur-sm"
+              className="rounded-xl border border-ink-200 bg-ink-50 p-3 text-sm text-ink-700 backdrop-blur-sm dark:border-accent-champagne/10 dark:bg-ink-950/30 dark:text-ink-200"
             >
               {nugget}
             </div>
@@ -139,16 +139,16 @@ function HeroStat({
   value: string;
 }) {
   return (
-    <div className="rounded-xl border border-accent-champagne/10 bg-ink-950/30 p-3 backdrop-blur-sm">
+    <div className="rounded-xl border border-ink-200 bg-ink-50 p-3 backdrop-blur-sm dark:border-accent-champagne/10 dark:bg-ink-950/30">
       <div className="flex items-center gap-2">
         <span className="grid h-8 w-8 place-items-center rounded-lg border border-accent-champagne/20 bg-accent-gold/10 text-accent-champagne">
           <Icon size={15} />
         </span>
-        <p className="text-[10px] uppercase tracking-[0.18em] text-ink-400">
+        <p className="text-[10px] uppercase tracking-[0.18em] text-ink-600 dark:text-ink-400">
           {label}
         </p>
       </div>
-      <p className="mt-3 text-sm font-semibold text-ink-100">{value}</p>
+      <p className="mt-3 text-sm font-semibold text-ink-900 dark:text-ink-100">{value}</p>
     </div>
   );
 }

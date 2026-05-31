@@ -52,7 +52,10 @@ export function QuickUploadPicker({
           </h2>
           <p>
             Drop files straight into any collection without navigating in.
-            Atlas indexes the text and picks them up on its next reply.
+            Atlas can keyword-match the body text of plain-text, Markdown, CSV
+            and JSON files — but only after this collection is connected to an
+            assistant in Settings. PDF, DOCX, PPTX and image text is not read
+            yet (file name only).
           </p>
         </div>
       </div>

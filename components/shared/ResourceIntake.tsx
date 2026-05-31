@@ -6,7 +6,6 @@ import {
   FileText,
   Link2,
   Loader2,
-  Sparkles,
   Type,
 } from "lucide-react";
 
@@ -115,7 +114,7 @@ export function ResourceIntake({ userId, organizationId, canManage }: Props) {
 
     patchItem(itemId, {
       status: "stored",
-      message: "Uploaded to storage. Awaiting AI review before any share.",
+      message: "Stored in the uploads bucket. Not published to the team.",
       storagePath: path,
     });
   }
@@ -165,7 +164,7 @@ export function ResourceIntake({ userId, organizationId, canManage }: Props) {
 
     patchItem(itemId, {
       status: "stored",
-      message: "Captured to storage. Awaiting AI review before any share.",
+      message: "Stored in the uploads bucket. Not published to the team.",
       storagePath: path,
     });
   }
@@ -263,10 +262,12 @@ export function ResourceIntake({ userId, organizationId, canManage }: Props) {
   return (
     <div className="card-padded space-y-4">
       <div>
-        <p className="label">Resource intake</p>
+        <p className="label">Stage for later (stored — pending AI review)</p>
         <p className="mt-1 text-[11px] text-ink-600 dark:text-ink-300">
-          Drop a file, paste content, or capture a link. Everything lands in
-          storage for review. Nothing is published to the team automatically.
+          Drop a file, paste content, or capture a link. Everything is{" "}
+          <strong>stored</strong> in the uploads bucket only — AI review is not
+          active yet, and nothing is published to the team. To make a resource
+          appear in Active resources now, use the Publish now panel above.
         </p>
       </div>
 
@@ -357,11 +358,11 @@ export function ResourceIntake({ userId, organizationId, canManage }: Props) {
 
       {/* Intake queue */}
       <div className="space-y-2">
-        <p className="label">Intake queue</p>
+        <p className="label">Staged items</p>
         {queue.length === 0 ? (
           <p className="text-[11px] text-ink-500 dark:text-ink-400">
-            Nothing in the queue yet. Submitted items appear here with their
-            storage and review status.
+            Nothing staged yet. Items you stage appear here as stored — they are
+            not processed and not published.
           </p>
         ) : (
           <ul className="space-y-3">
@@ -397,39 +398,15 @@ export function ResourceIntake({ userId, organizationId, canManage }: Props) {
                   </p>
                 )}
 
-                {/* AI review placeholder — honestly pending, never fabricated */}
-                <div className="mt-3 rounded-lg border border-status-info/30 bg-status-info/10 p-3">
-                  <p className="flex items-center gap-1.5 text-[11px] font-medium text-status-info">
-                    <Sparkles size={12} /> AI review: pending
+                {/* Honest status: file is only stored. No AI has run. */}
+                {item.status === "stored" && (
+                  <p className="mt-3 text-[11px] text-ink-600 dark:text-ink-400">
+                    Status: stored — pending AI review. AI review is not active
+                    yet, so no title, summary, or compliance check has been
+                    generated. Nothing is shared with the team until you publish
+                    it manually.
                   </p>
-                  <p className="mt-1 text-[10px] text-ink-600 dark:text-ink-300">
-                    Once an AI provider is wired in, this item will get a
-                    recommended title, description, category, audience, body,
-                    team-friendly summary, sanitized version, Legends-branded
-                    rewrite, compliance notes, and a suggested share status. No
-                    AI output has been generated yet, and nothing here is shared
-                    with the team until you approve it.
-                  </p>
-                  <ul className="mt-2 grid grid-cols-2 gap-1 text-[10px] text-ink-500 dark:text-ink-400">
-                    {[
-                      "Title",
-                      "Description",
-                      "Category",
-                      "Audience",
-                      "Body",
-                      "Team summary",
-                      "Sanitized version",
-                      "Legends rewrite",
-                      "Compliance notes",
-                      "Share status",
-                    ].map((field) => (
-                      <li key={field} className="flex items-center gap-1">
-                        <span className="inline-block h-1 w-1 rounded-full bg-ink-400" />
-                        {field}: <span className="italic">pending</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                )}
               </li>
             ))}
           </ul>
@@ -437,8 +414,9 @@ export function ResourceIntake({ userId, organizationId, canManage }: Props) {
       </div>
 
       <p className="text-[11px] text-ink-500 dark:text-ink-400">
-        Intake stores to the <code>uploads</code> bucket only. Publishing to
-        Shared Resources stays a manual owner action — there is no auto-publish.
+        Staging stores to the <code>uploads</code> bucket only — items are not
+        processed and no AI has run. Publishing to Active resources stays a
+        manual owner action via Publish now; there is no auto-publish.
       </p>
     </div>
   );

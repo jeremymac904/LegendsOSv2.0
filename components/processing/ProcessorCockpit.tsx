@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ClipboardList, FileText, FolderOpen, Inbox } from "lucide-react";
+import { AlertTriangle, ClipboardList, FileText, FolderOpen, Inbox } from "lucide-react";
 
 import { GeneratorPanel } from "@/components/loanbrain/GeneratorPanel";
 import { PriorityPill, StageStatusPill } from "@/components/loanbrain/statusPill";
@@ -24,7 +24,14 @@ const COLUMNS: { key: string; title: string; match: (r: BoardRow) => boolean }[]
 
 export function ProcessorCockpit({ rows }: { rows: BoardRow[] }) {
   const [selected, setSelected] = useState<BoardRow | null>(rows[0] ?? null);
+  // Temporary scratch note — intentionally NOT persisted. Reset on every file
+  // switch so the "clears when you switch files" label is literally true.
   const [notes, setNotes] = useState("");
+
+  function selectFile(row: BoardRow) {
+    if (row.folderId !== selected?.folderId) setNotes("");
+    setSelected(row);
+  }
 
   if (rows.length === 0) {
     return (
@@ -49,14 +56,14 @@ export function ProcessorCockpit({ rows }: { rows: BoardRow[] }) {
                 <span className="chip">{items.length}</span>
               </div>
               {items.length === 0 ? (
-                <p className="text-xs text-ink-500 dark:text-ink-400">Nothing here.</p>
+                <p className="text-xs text-ink-600 dark:text-ink-400">Nothing here.</p>
               ) : (
                 <ul className="space-y-1">
                   {items.map((r) => (
                     <li key={r.folderId}>
                       <button
                         type="button"
-                        onClick={() => setSelected(r)}
+                        onClick={() => selectFile(r)}
                         aria-pressed={selected?.folderId === r.folderId}
                         className={cn(
                           "flex w-full items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left transition-colors",
@@ -69,7 +76,7 @@ export function ProcessorCockpit({ rows }: { rows: BoardRow[] }) {
                           <span className="block truncate text-sm font-medium text-ink-900 dark:text-ink-100">
                             {r.borrowerName}
                           </span>
-                          <span className="block truncate text-[11px] text-ink-500 dark:text-ink-300">
+                          <span className="block truncate text-[11px] text-ink-600 dark:text-ink-300">
                             {r.loanProgram ?? "Program TBD"}
                             {r.loanNumber ? ` · #${r.loanNumber}` : ""}
                           </span>
@@ -122,22 +129,32 @@ export function ProcessorCockpit({ rows }: { rows: BoardRow[] }) {
 
             <GeneratorPanel folderId={selected.folderId} allowedKinds={[...ASHLEY_KINDS]} />
 
-            {/* Processor notes — local only, not sent or saved server-side yet */}
-            <div className="card-padded">
+            {/* Temporary note — useState only. NOT persisted: discarded on file
+               switch or refresh. De-emphasized + explicitly labeled so no one
+               trusts it as saved. No DB persistence in this build (no migrations). */}
+            <div className="card-padded opacity-90">
               <div className="section-title">
                 <div>
-                  <h2 className="flex items-center gap-2">
-                    <FileText size={14} className="text-accent-gold" />
-                    Processor notes
+                  <h2 className="flex items-center gap-2 text-ink-700 dark:text-ink-300">
+                    <FileText size={14} className="text-ink-500 dark:text-ink-400" />
+                    Temporary note — not saved
                   </h2>
-                  <p>Private scratch pad for this file. Local only in this build.</p>
+                  <p>Clears when you switch files or refresh. Nothing here is stored.</p>
                 </div>
+              </div>
+              <div className="mt-2 flex items-start gap-1.5 rounded-lg border border-status-warn/30 bg-status-warn/10 px-2.5 py-1.5 text-[11px] text-status-warn">
+                <AlertTriangle size={13} className="mt-px shrink-0" />
+                <span>
+                  Scratch pad only — this is <strong>not saved</strong> and will be lost when you
+                  switch files or reload. Do not rely on it as a record.
+                </span>
               </div>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Notes about conditions, lender calls, or borrower follow-ups…"
-                className="textarea mt-3"
+                placeholder="Temporary scratch only — not saved. Switching files clears this…"
+                className="textarea mt-2 border-dashed text-ink-700 dark:text-ink-300"
+                aria-label="Temporary note, not saved — clears when you switch files"
               />
             </div>
           </>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowUpRight, Inbox, UserCheck } from "lucide-react";
+import { Flag, Inbox, UserCheck } from "lucide-react";
 
 import { GeneratorPanel } from "@/components/loanbrain/GeneratorPanel";
 import { PriorityPill, StageStatusPill } from "@/components/loanbrain/statusPill";
@@ -19,10 +19,28 @@ const COLUMNS: { key: string; title: string; match: (r: BoardRow) => boolean }[]
   { key: "handled", title: "Handled", match: (r) => r.stageStatus === "done" || r.stageStatus === "seen" },
 ];
 
-export function CoordinatorBoard({ rows }: { rows: BoardRow[] }) {
+export function CoordinatorBoard({
+  rows,
+  sampleMode = false,
+}: {
+  rows: BoardRow[];
+  sampleMode?: boolean;
+}) {
   const [selected, setSelected] = useState<BoardRow | null>(rows[0] ?? null);
-  const [notes, setNotes] = useState("");
-  const [escalated, setEscalated] = useState<string | null>(null);
+  // Per-borrower scratchpad, in-memory only. Keyed by folderId so switching
+  // borrowers shows that borrower's note; nothing is persisted (reload clears).
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  // Local-only "mark for review" flag. This does NOT send or notify anyone — it
+  // only toggles a visible reminder in this session. See the button copy below.
+  const [marked, setMarked] = useState<string | null>(null);
+
+  // The "Handled" column keys off stageStatus done/seen, which sample leads /
+  // prospects never have — so in Sample Mode it is structurally always empty.
+  // Hide it (and explain why) rather than show a permanently empty column that
+  // implies a flow the user can't complete.
+  const columns = sampleMode
+    ? COLUMNS.filter((c) => c.key !== "handled")
+    : COLUMNS;
 
   if (rows.length === 0) {
     return (
@@ -38,7 +56,7 @@ export function CoordinatorBoard({ rows }: { rows: BoardRow[] }) {
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1.4fr]">
       {/* Board — compact rows */}
       <div className="space-y-3">
-        {COLUMNS.map((col) => {
+        {columns.map((col) => {
           const items = rows.filter(col.match);
           return (
             <div key={col.key} className="card-padded">
@@ -47,7 +65,7 @@ export function CoordinatorBoard({ rows }: { rows: BoardRow[] }) {
                 <span className="chip">{items.length}</span>
               </div>
               {items.length === 0 ? (
-                <p className="text-xs text-ink-500 dark:text-ink-400">Nothing here.</p>
+                <p className="text-xs text-ink-600 dark:text-ink-400">Nothing here.</p>
               ) : (
                 <ul className="space-y-1">
                   {items.map((r) => (
@@ -67,7 +85,7 @@ export function CoordinatorBoard({ rows }: { rows: BoardRow[] }) {
                           <span className="block truncate text-sm font-medium text-ink-900 dark:text-ink-100">
                             {r.borrowerName}
                           </span>
-                          <span className="block truncate text-[11px] capitalize text-ink-500 dark:text-ink-300">
+                          <span className="block truncate text-[11px] capitalize text-ink-600 dark:text-ink-300">
                             {r.stage}
                           </span>
                         </span>
@@ -86,6 +104,13 @@ export function CoordinatorBoard({ rows }: { rows: BoardRow[] }) {
             </div>
           );
         })}
+        {sampleMode && (
+          <p className="px-1 text-[11px] leading-relaxed text-ink-600 dark:text-ink-400">
+            A <span className="font-medium text-ink-700 dark:text-ink-300">Handled</span> column
+            appears here once live leads are connected — completed follow-ups will move into it
+            automatically.
+          </p>
+        )}
       </div>
 
       {/* Detail */}
@@ -111,34 +136,44 @@ export function CoordinatorBoard({ rows }: { rows: BoardRow[] }) {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setEscalated(selected.folderId)}
+                  onClick={() =>
+                    setMarked((cur) => (cur === selected.folderId ? null : selected.folderId))
+                  }
+                  aria-pressed={marked === selected.folderId}
                   className="btn-secondary text-xs"
                 >
-                  <ArrowUpRight size={13} /> Escalate to Jeremy
+                  <Flag size={13} />
+                  {marked === selected.folderId ? "Marked for review" : "Mark for review (not sent)"}
                 </button>
               </div>
-              {escalated === selected.folderId && (
-                <p className="mt-3 rounded-lg border border-status-info/30 bg-status-info/10 px-3 py-2 text-xs text-status-info">
-                  Flagged for Jeremy with this file&apos;s context. (No message is sent in this
-                  build — this just marks it for his command center.)
+              {marked === selected.folderId && (
+                <p className="mt-3 rounded-lg border border-ink-200 bg-ink-100/60 px-3 py-2 text-xs text-ink-700 dark:border-ink-800 dark:bg-ink-900/40 dark:text-ink-300">
+                  Flagged locally on your screen only. No notification is sent and Jeremy is not
+                  alerted — escalation routing isn&apos;t wired up yet. Tap again to clear.
                 </p>
               )}
             </div>
 
             <GeneratorPanel folderId={selected.folderId} allowedKinds={[...COORDINATOR_KINDS]} />
 
-            <div className="card-padded">
+            <div className="card-padded opacity-90">
               <div className="section-title">
                 <div>
-                  <h2>Pipeline notes</h2>
-                  <p>Track status and follow-up history. Local only in this build.</p>
+                  <h2 className="text-ink-700 dark:text-ink-300">Temporary note — not saved</h2>
+                  <p>
+                    A scratchpad for this session only. It is not stored anywhere and clears when
+                    you reload the page.
+                  </p>
                 </div>
               </div>
               <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
+                value={notes[selected.folderId] ?? ""}
+                onChange={(e) =>
+                  setNotes((cur) => ({ ...cur, [selected.folderId]: e.target.value }))
+                }
                 placeholder="Called borrower, left voicemail, waiting on bank statements…"
                 className="textarea mt-3"
+                aria-label="Temporary note, not saved"
               />
             </div>
           </>

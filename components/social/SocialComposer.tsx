@@ -456,9 +456,7 @@ export function SocialComposer({
             ? editing
               ? "Changes saved."
               : "Draft saved."
-            : data.job?.status === "sent"
-            ? "Scheduled and dispatched to n8n."
-            : `Scheduled. n8n status: ${data.job?.status ?? "queued"}.`
+            : "Saved as a scheduled draft. Nothing was published — external publishing is disabled."
         );
         if (!editing) {
           // Only reset to a blank composer for the legacy create-new-draft
@@ -489,7 +487,7 @@ export function SocialComposer({
       <div className="section-title">
         <div>
           <h2>Compose</h2>
-          <p>Drafts always save. Schedule queues an automation job for later.</p>
+          <p>Drafts save to your account. Scheduling stores a date only — nothing is published externally.</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -532,7 +530,7 @@ export function SocialComposer({
         onChange={(e) => setBody(e.target.value)}
         maxLength={8000}
       />
-      <p className="text-[11px] text-ink-300">
+      <p className="text-[11px] text-ink-600 dark:text-ink-400">
         {body.length.toLocaleString()} chars
       </p>
 
@@ -540,7 +538,7 @@ export function SocialComposer({
         <div className="rounded-xl border border-[#FF0000]/30 bg-[#FF0000]/5 p-3">
           <p className="label flex items-center gap-1 text-[#ff8484]">
             YouTube video title{" "}
-            <span className="text-[10px] uppercase tracking-[0.18em] text-ink-300">
+            <span className="text-[10px] uppercase tracking-[0.18em] text-ink-600 dark:text-ink-400">
               (required for YouTube)
             </span>
           </p>
@@ -551,7 +549,7 @@ export function SocialComposer({
             onChange={(e) => setYoutubeTitle(e.target.value)}
             maxLength={100}
           />
-          <p className="mt-1 text-[10px] text-ink-300">
+          <p className="mt-1 text-[10px] text-ink-600 dark:text-ink-400">
             {youtubeTitle.length}/100 — YouTube limits titles to 100 characters.
           </p>
         </div>
@@ -605,7 +603,7 @@ export function SocialComposer({
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <div className="grid h-full w-full place-items-center text-[9px] text-ink-300">
+                    <div className="grid h-full w-full place-items-center text-[9px] text-ink-600 dark:text-ink-300">
                       {m.status}
                     </div>
                   )}
@@ -621,17 +619,17 @@ export function SocialComposer({
               ))}
             </div>
           ) : (
-            <p className="self-center text-[11px] text-ink-300">
+            <p className="self-center text-[11px] text-ink-600 dark:text-ink-400">
               No media attached yet. Attach generated images or upload your own.
             </p>
           )}
         </div>
 
         {showLibrary && (
-          <div className="mt-3 rounded-xl border border-ink-800 bg-ink-900/40 p-3">
-            <p className="text-xs font-medium text-ink-100">Generated library</p>
+          <div className="mt-3 rounded-xl border border-ink-200 bg-white/70 p-3 dark:border-ink-800 dark:bg-ink-900/40">
+            <p className="text-xs font-medium text-ink-900 dark:text-ink-100">Generated library</p>
             {library.length === 0 ? (
-              <p className="mt-2 text-[11px] text-ink-300">
+              <p className="mt-2 text-[11px] text-ink-600 dark:text-ink-400">
                 No generated images yet. Open Image Studio to make one.
               </p>
             ) : (
@@ -706,7 +704,7 @@ export function SocialComposer({
                 "rounded-xl border px-3 py-1.5 text-xs transition",
                 selected.includes(c.id)
                   ? "border-accent-gold/40 bg-accent-gold/10 text-accent-gold"
-                  : "border-ink-700 text-ink-200 hover:border-ink-500"
+                  : "border-ink-300 text-ink-700 hover:border-ink-400 dark:border-ink-700 dark:text-ink-200 dark:hover:border-ink-500"
               )}
               onClick={() => toggleChannel(c.id)}
             >
@@ -725,9 +723,9 @@ export function SocialComposer({
             onChange={(e) => setScheduledAt(e.target.value)}
           />
         </div>
-        <div className="self-end text-[11px] text-ink-300">
-          Drafts always save. External publishing only runs when the owner
-          enables it AND n8n is configured.
+        <div className="self-end text-[11px] text-ink-600 dark:text-ink-400">
+          A schedule time is saved with the draft for your own planning. It does
+          not trigger a post.
         </div>
       </div>
         </div>
@@ -769,13 +767,15 @@ export function SocialComposer({
           className="btn-primary"
           onClick={() => submit("schedule")}
           disabled={isPending || !body.trim() || !scheduledAt}
+          title="Saves the draft with a planned date. Nothing is published externally."
         >
           <CalendarPlus size={14} />
-          Schedule
+          Save as scheduled draft (external publishing disabled)
         </button>
-        <span className="ml-auto inline-flex items-center gap-1 text-[11px] text-ink-300">
+        <span className="ml-auto inline-flex items-center gap-1 text-[11px] text-ink-600 dark:text-ink-400">
           <Send size={12} />
-          External publishing only fires when the owner enables it.
+          External publishing is disabled. Drafts save to your account only —
+          nothing is sent to a social platform.
         </span>
       </div>
     </section>

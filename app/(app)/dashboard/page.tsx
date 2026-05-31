@@ -1,19 +1,20 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import {
   Activity,
+  AlertTriangle,
   ArrowRight,
-  BookOpen,
   Calendar,
   Clock,
-  Factory,
-  FileStack,
-  GraduationCap,
+  HardDrive,
   ImageIcon,
   Mail,
   MessageCircle,
+  Settings,
   Share2,
   Sparkles,
   TrendingUp,
+  Webhook,
 } from "lucide-react";
 
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -21,7 +22,13 @@ import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { imageLibrary } from "@/lib/assets";
 import { renderEmailPreview } from "@/lib/email/render";
-import { PUBLIC_ENV, getServerEnv } from "@/lib/env";
+import {
+  PUBLIC_ENV,
+  getAIProviderStatuses,
+  getServerEnv,
+} from "@/lib/env";
+import { getN8nConfigState } from "@/lib/automation/n8n";
+import { getDriveConnectionStatus } from "@/lib/loanbrain/driveStatus";
 import { getEffectiveProfile } from "@/lib/impersonation";
 import { isOwner } from "@/lib/permissions";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
@@ -36,6 +43,9 @@ import type {
 
 export const dynamic = "force-dynamic";
 
+// Trimmed to the four highest-value owner actions so the dashboard stays a
+// command center, not a tile wall. The rest of the studios remain one click
+// away in the left nav.
 const QUICK_LAUNCH = [
   {
     href: "/atlas",
@@ -61,41 +71,20 @@ const QUICK_LAUNCH = [
     description: "Email Studio drafts that always save.",
     icon: Mail,
   },
-  {
-    href: "/calendar",
-    label: "Plan Content",
-    description: "Schedule posts and campaigns.",
-    icon: Calendar,
-  },
-  {
-    href: "/knowledge",
-    label: "Add Knowledge",
-    description: "Upload reference material for Atlas.",
-    icon: BookOpen,
-  },
-  {
-    href: "/training",
-    label: "Open Training",
-    description: "Videos, tutorials, and coaching paths.",
-    icon: GraduationCap,
-  },
-  {
-    href: "/marketing-materials",
-    label: "Use Marketing Materials",
-    description: "Templates and campaign assets for LOs.",
-    icon: FileStack,
-  },
-  {
-    href: "/lf-resources",
-    label: "Find LF Resources",
-    description: "Loan Factory folders, forms, and support links.",
-    icon: Factory,
-  },
 ];
 
 export default async function DashboardPage() {
   const { profile } = await getEffectiveProfile();
   if (!profile) return null;
+
+  // (#10) Role-aware landing. The dashboard is the owner/admin command center.
+  // Operator roles land on the surface that is actually theirs so they don't
+  // get a wall of owner-only widgets they can't act on. RLS still governs the
+  // data; this is purely navigational.
+  if (profile.role === "loan_officer") redirect("/my-loans");
+  if (profile.role === "processor") redirect("/processing");
+  if (profile.role === "coordinator") redirect("/coordinator");
+
   const supabase = getSupabaseServerClient();
   const nowIso = new Date().toISOString();
   const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -208,6 +197,116 @@ export default async function DashboardPage() {
   const imagesUsed = events.filter((e) => e.module === "images").length;
   const socialUsed = events.filter((e) => e.module === "social").length;
   const emailUsed = events.filter((e) => e.module === "email").length;
+
+  // -------------------------------------------------------------------------
+  // (#9) "Needs attention" band — compact, honest, conditional. Every row is a
+  // real check against env/config/data, deep-links where it can act, and the
+  // whole band hides when there is nothing to surface so it never adds noise.
+  // -------------------------------------------------------------------------
+  type AttentionTone = "warn" | "info";
+  type AttentionItem = {
+    id: string;
+    tone: AttentionTone;
+    icon: React.ComponentType<{ size?: number | string }>;
+    text: string;
+    href?: string;
+    cta?: string;
+  };
+  const attention: AttentionItem[] = [];
+
+  // No AI text provider configured AND enabled — Atlas / drafting can't run.
+  const providers = getAIProviderStatuses();
+  const anyTextProviderReady = providers.some(
+    (p) => p.id !== "fal" && p.configured && p.enabled
+  );
+  if (!anyTextProviderReady) {
+    attention.push({
+      id: "ai-provider",
+      tone: "warn",
+      icon: Settings,
+      text: "No AI text provider is configured yet — Atlas and drafting will say so until one is added.",
+      href: "/settings",
+      cta: "Open settings",
+    });
+  }
+  // Image provider (Fal) not ready — Image Studio falls back to sample/brand art.
+  const falReady = providers.some((p) => p.id === "fal" && p.configured && p.enabled);
+  if (!falReady) {
+    attention.push({
+      id: "image-provider",
+      tone: "info",
+      icon: ImageIcon,
+      text: "Image generation isn't configured — Image Studio shows brand starters instead of new renders.",
+      href: "/settings",
+      cta: "Configure",
+    });
+  }
+
+  // Failed automation jobs surfaced from the rows we already loaded.
+  const failedJobs = jobs.filter((j) => j.status === "failed");
+  if (failedJobs.length > 0) {
+    const first = failedJobs[0];
+    attention.push({
+      id: "failed-jobs",
+      tone: "warn",
+      icon: AlertTriangle,
+      text:
+        failedJobs.length === 1
+          ? `Automation job "${first.job_type}" failed${first.last_error ? `: ${first.last_error.slice(0, 80)}` : "."}`
+          : `${failedJobs.length} automation jobs failed — newest "${first.job_type}".`,
+      href: owner ? "/admin/usage" : undefined,
+      cta: owner ? "Review" : undefined,
+    });
+  }
+
+  // Any daily usage cap at or over 100%.
+  const capRows: Array<{ label: string; used: number; cap: number }> = [
+    { label: "Atlas chats", used: chatsUsed, cap: caps.chat },
+    { label: "image generations", used: imagesUsed, cap: caps.images },
+    { label: "social actions", used: socialUsed, cap: caps.social },
+    { label: "email actions", used: emailUsed, cap: caps.email },
+  ];
+  const cappedOut = capRows.filter((r) => r.cap > 0 && r.used >= r.cap);
+  if (cappedOut.length > 0) {
+    attention.push({
+      id: "usage-cap",
+      tone: "warn",
+      icon: TrendingUp,
+      text: `Daily cap reached for ${cappedOut
+        .map((r) => r.label)
+        .join(", ")} — resets at midnight.`,
+    });
+  }
+
+  // Drive not connected — Loan Brain / source retrieval run on sample data.
+  const drive = getDriveConnectionStatus();
+  if (owner && !drive.connected) {
+    attention.push({
+      id: "drive",
+      tone: "info",
+      icon: HardDrive,
+      text: "Google Drive isn't connected — loan source retrieval runs on safe sample data.",
+      href: "/loan-brain",
+      cta: "Connect",
+    });
+  }
+
+  // n8n inactive and/or external sends disabled — publishing is draft-only.
+  const n8n = getN8nConfigState();
+  const externalSendsOn =
+    env.SAFETY.allowLiveSocialPublish || env.SAFETY.allowLiveEmailSend;
+  if (owner && (!n8n.configured || !externalSendsOn)) {
+    attention.push({
+      id: "external-sends",
+      tone: "info",
+      icon: Webhook,
+      text: !n8n.configured
+        ? "n8n isn't wired up — posts and newsletters save as drafts; nothing sends externally."
+        : "External sends are turned off — content saves as drafts until you enable live publishing.",
+      href: "/settings",
+      cta: "Settings",
+    });
+  }
 
   // When the image library is essentially empty, surface the brand visuals
   // from the asset manifest so the "Recent imagery" card never looks dead.
@@ -328,6 +427,61 @@ export default async function DashboardPage() {
         }
       />
 
+      {attention.length > 0 && (
+        <section className="overflow-hidden rounded-2xl border border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-900">
+          <div className="flex items-center gap-2 border-b border-ink-200 dark:border-ink-800 px-4 py-2">
+            <AlertTriangle size={13} className="text-accent-gold" />
+            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-ink-700 dark:text-ink-300">
+              Needs attention
+            </p>
+            <span className="ml-auto text-[11px] text-ink-600 dark:text-ink-400">
+              {attention.length} {attention.length === 1 ? "item" : "items"}
+            </span>
+          </div>
+          <ul className="divide-y divide-ink-100 dark:divide-ink-800/70">
+            {attention.map((a) => {
+              const Icon = a.icon;
+              const row = (
+                <div className="flex items-center gap-3 px-4 py-2.5">
+                  <span
+                    className={
+                      a.tone === "warn"
+                        ? "text-accent-orange"
+                        : "text-ink-500 dark:text-ink-400"
+                    }
+                  >
+                    <Icon size={14} />
+                  </span>
+                  <p className="min-w-0 flex-1 text-xs text-ink-700 dark:text-ink-300">
+                    {a.text}
+                  </p>
+                  {a.href && a.cta ? (
+                    <span className="inline-flex shrink-0 items-center gap-1 text-[11px] font-medium text-accent-gold">
+                      {a.cta}
+                      <ArrowRight size={12} />
+                    </span>
+                  ) : null}
+                </div>
+              );
+              return (
+                <li key={a.id}>
+                  {a.href ? (
+                    <Link
+                      href={a.href}
+                      className="block transition hover:bg-ink-50 dark:hover:bg-ink-950/40"
+                    >
+                      {row}
+                    </Link>
+                  ) : (
+                    row
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+
       <section>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <UsageCard
@@ -365,27 +519,31 @@ export default async function DashboardPage() {
         <div className="section-title mb-3">
           <div>
             <h2>Quick launch</h2>
-            <p>Jump into the highest-value workflows.</p>
+            <p>Jump straight into the highest-value workflows.</p>
           </div>
         </div>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {QUICK_LAUNCH.map(({ href, label, description, icon: Icon }) => (
             <Link
               key={href}
               href={href}
-              className="card-padded group transition hover:border-accent-gold/30 hover:shadow-glow"
+              className="card group flex items-center gap-3 px-4 py-3 transition hover:border-accent-gold/30 hover:shadow-glow"
             >
-              <div className="flex items-center justify-between">
-                <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-accent-orange/40 to-accent-gold/30 text-accent-gold">
-                  <Icon size={16} />
-                </div>
-                <ArrowRight
-                  size={14}
-                  className="text-ink-600 dark:text-ink-300 transition-transform group-hover:translate-x-1 group-hover:text-accent-gold"
-                />
+              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-accent-orange/40 to-accent-gold/30 text-accent-gold">
+                <Icon size={15} />
               </div>
-              <p className="mt-3 font-medium text-ink-900 dark:text-ink-100">{label}</p>
-              <p className="text-xs text-ink-600 dark:text-ink-300">{description}</p>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-ink-900 dark:text-ink-100">
+                  {label}
+                </p>
+                <p className="truncate text-xs text-ink-600 dark:text-ink-300">
+                  {description}
+                </p>
+              </div>
+              <ArrowRight
+                size={14}
+                className="ml-auto hidden shrink-0 text-ink-600 transition-transform group-hover:translate-x-1 group-hover:text-accent-gold sm:block dark:text-ink-300"
+              />
             </Link>
           ))}
         </div>
@@ -522,44 +680,6 @@ export default async function DashboardPage() {
         </section>
       </div>
 
-      {latestNewsletter && (
-        <section className="card-padded">
-          <div className="section-title">
-            <div>
-              <h2>Latest newsletter</h2>
-              <p>
-                {`"${latestNewsletter.subject || "(No subject)"}" · ${
-                  latestNewsletter.status
-                } · updated ${formatRelative(latestNewsletter.updated_at)}`}
-              </p>
-            </div>
-            <Link
-              href={`/email?id=${latestNewsletter.id}`}
-              className="btn-primary text-xs"
-            >
-              <Mail size={14} />
-              Continue editing
-            </Link>
-          </div>
-          <div className="mt-4 overflow-hidden rounded-xl border border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-950">
-            <div className="flex items-center justify-between gap-2 border-b border-ink-200 dark:border-ink-800 px-3 py-1.5">
-              <p className="text-[10px] uppercase tracking-[0.18em] text-ink-600 dark:text-ink-300">
-                Inbox preview
-              </p>
-              <p className="text-[10px] text-ink-500 dark:text-ink-400">
-                Same shell ships when n8n relays
-              </p>
-            </div>
-            <iframe
-              title="Latest newsletter preview"
-              srcDoc={latestNewsletterHtml}
-              sandbox=""
-              className="block h-[320px] w-full bg-white dark:bg-ink-950"
-            />
-          </div>
-        </section>
-      )}
-
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <section className="card-padded">
           <div className="section-title">
@@ -656,6 +776,53 @@ export default async function DashboardPage() {
           </div>
         </section>
       </div>
+
+      {latestNewsletter && (
+        <section className="card-padded">
+          <div className="section-title">
+            <div>
+              <h2>Latest newsletter</h2>
+              <p>
+                {`"${latestNewsletter.subject || "(No subject)"}" · ${
+                  latestNewsletter.status
+                } · updated ${formatRelative(latestNewsletter.updated_at)}`}
+              </p>
+            </div>
+            <Link
+              href={`/email?id=${latestNewsletter.id}`}
+              className="btn-primary text-xs"
+            >
+              <Mail size={14} />
+              Continue editing
+            </Link>
+          </div>
+          {/* Collapsed by default so the tall iframe doesn't dominate the
+              scroll. Native <details> toggles without any client JS, keeping
+              this a server component. */}
+          <details className="group mt-4 overflow-hidden rounded-xl border border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-950">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 border-b border-transparent px-3 py-2 text-[11px] text-ink-700 marker:content-none group-open:border-ink-200 dark:text-ink-300 dark:group-open:border-ink-800">
+              <span className="inline-flex items-center gap-2">
+                <Mail size={13} className="text-accent-gold" />
+                <span className="font-medium">Preview inbox render</span>
+                <span className="hidden text-ink-500 sm:inline dark:text-ink-400">
+                  · same shell ships when n8n relays
+                </span>
+              </span>
+              <span className="text-[10px] uppercase tracking-[0.18em] text-ink-600 dark:text-ink-400">
+                <span className="group-open:hidden">Show</span>
+                <span className="hidden group-open:inline">Hide</span>
+              </span>
+            </summary>
+            <iframe
+              title="Latest newsletter preview"
+              srcDoc={latestNewsletterHtml}
+              sandbox=""
+              loading="lazy"
+              className="block h-[320px] w-full bg-white dark:bg-ink-950"
+            />
+          </details>
+        </section>
+      )}
 
       {owner && (
         <section className="card-padded">

@@ -26,17 +26,17 @@ export function EmptyState({
             aria-hidden
             className="absolute inset-1 rounded-full border border-accent-gold/25"
           />
-          <span className="relative grid h-10 w-10 place-items-center rounded-full border border-accent-gold/30 bg-ink-900/70 text-accent-gold shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)]">
+          <span className="relative grid h-10 w-10 place-items-center rounded-full border border-accent-gold/30 bg-white/70 text-accent-gold shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)] dark:bg-ink-900/70">
             <Icon size={18} />
           </span>
         </div>
       )}
       <div className="space-y-1.5">
-        <p className="text-[15px] font-semibold tracking-tight text-ink-100">
+        <p className="text-[15px] font-semibold tracking-tight text-ink-900 dark:text-ink-100">
           {title}
         </p>
         {description && (
-          <p className="mx-auto max-w-md text-[12.5px] leading-relaxed text-ink-300">
+          <p className="mx-auto max-w-md text-[12.5px] leading-relaxed text-ink-600 dark:text-ink-300">
             {description}
           </p>
         )}
