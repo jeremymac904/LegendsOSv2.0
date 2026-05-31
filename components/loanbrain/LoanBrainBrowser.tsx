@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Brain,
   ChevronRight,
   Eye,
   FileText,
@@ -21,6 +22,8 @@ import type {
 import { cn } from "@/lib/utils";
 
 import { GeneratorPanel } from "./GeneratorPanel";
+import { LoanMemoryTab, type LoanMemoryTabBundle } from "./LoanMemoryTab";
+import { buildSampleLoanMemoryBundle } from "./sampleLoanMemory";
 import { StageStatusPill } from "./statusPill";
 
 const ALL_KINDS: GeneratorKind[] = [
@@ -89,6 +92,14 @@ export function LoanBrainBrowser({ status }: { status: DriveConnectionStatus }) 
   const [search, setSearch] = useState("");
   const [searchResults, setSearchResults] = useState<DriveFolder[] | null>(null);
   const [loading, setLoading] = useState(false);
+  const [detailTab, setDetailTab] = useState<"files" | "memory">("files");
+  // Phase 1: no live memory wiring yet — feed the Memory tab a clearly-labeled
+  // SAMPLE bundle keyed to the selected borrower folder so it is demoable
+  // without real data. Swapped for a real bundle once memory is connected.
+  const memoryBundle: LoanMemoryTabBundle = useMemo(
+    () => buildSampleLoanMemoryBundle(selectedFolder?.label),
+    [selectedFolder?.label]
+  );
 
   useEffect(() => {
     (async () => {
@@ -284,6 +295,51 @@ export function LoanBrainBrowser({ status }: { status: DriveConnectionStatus }) 
                 <span className="text-ink-700 dark:text-ink-200">{selectedFolder.label}</span>
               </div>
 
+              {/* Detail tabs: Files (Drive) + Memory (loan memory file) */}
+              <div className="flex items-center gap-1 rounded-xl border border-ink-200 bg-white/60 p-1 dark:border-ink-800 dark:bg-ink-950/40">
+                {([
+                  { id: "files", label: "Files", icon: FileText },
+                  { id: "memory", label: "Memory", icon: Brain },
+                ] as const).map((t) => {
+                  const Icon = t.icon;
+                  const active = detailTab === t.id;
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setDetailTab(t.id)}
+                      aria-pressed={active}
+                      className={cn(
+                        "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors",
+                        active
+                          ? "bg-accent-champagne/10 text-ink-900 dark:bg-ink-800/40 dark:text-ink-100"
+                          : "text-ink-600 hover:text-ink-900 dark:text-ink-300 dark:hover:text-ink-100"
+                      )}
+                    >
+                      <Icon size={13} className={active ? "text-accent-gold" : "text-ink-500 dark:text-ink-400"} />
+                      {t.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {detailTab === "memory" ? (
+                <div className="card-padded">
+                  <div className="section-title">
+                    <div>
+                      <h2>Loan memory</h2>
+                      <p>
+                        What the assistant knows about this loan — snapshot, timeline,
+                        documents, blockers, and AI notes.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <LoanMemoryTab bundle={memoryBundle} />
+                  </div>
+                </div>
+              ) : (
+                <>
               <div className="card-padded">
                 <div className="section-title">
                   <div>
@@ -358,6 +414,8 @@ export function LoanBrainBrowser({ status }: { status: DriveConnectionStatus }) 
               </div>
 
               <GeneratorPanel folderId={selectedFolder.id} allowedKinds={ALL_KINDS} />
+                </>
+              )}
             </>
           )}
         </div>

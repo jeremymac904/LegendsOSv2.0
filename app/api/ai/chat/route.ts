@@ -14,6 +14,17 @@ import {
 } from "@/lib/atlas/toolRouter";
 import { getN8nConfigState } from "@/lib/automation/n8n";
 import { getAIProviderStatuses } from "@/lib/env";
+import { isLoanRelated, isPipelineUpdate } from "@/lib/loanMemory/detect";
+import { writeMemoryEvent } from "@/lib/loanMemory/events";
+import {
+  buildLoanSystemPrompt,
+  runLoanRetrieval,
+} from "@/lib/loanMemory/retrievalMiddleware";
+import {
+  DEFAULT_VOICE_ID,
+  getVoice,
+  pipelineUpdateConfirmation,
+} from "@/lib/loanMemory/voices";
 import {
   getCurrentProfile,
   getSupabaseServerClient,
@@ -178,6 +189,247 @@ export async function POST(req: Request) {
       { ok: false, error: "internal_error", message: userMsgErr.message },
       { status: 500 }
     );
+  }
+
+  // ---- Loan Memory retrieval (additive, fully guarded) --------------------
+  // BEFORE the model is called: if the message is loan-related, ATTEMPT
+  // retrieval first. The assistant must never answer a loan question without
+  // first grounding it in loan memory.
+  //   • matched          → prepend the loan context to the system prompt below.
+  //   • multiple_matches → short-circuit: ask the user to choose (never guess).
+  //   • no_match         → short-circuit: ask for borrower / address / loan #.
+  //   • pipeline update  → write a memory event and return the confirmation.
+  // Everything is wrapped so a failure (or unapplied migration) can NEVER break
+  // normal chat — non-loan messages skip this block entirely.
+  let loanContextText: string | null = null;
+  try {
+    if (isLoanRelated(message)) {
+      const retrieval = await runLoanRetrieval(supabase, {
+        userId: profile.id,
+        queryText: message,
+        threadId: threadId ?? undefined,
+      });
+
+      if (retrieval.loanRelated) {
+        // Resolve the writer's voice for loan-shaped responses. Guarded: a
+        // missing user_ai_preferences table (migration unapplied) falls back to
+        // the default voice instead of throwing.
+        let voicePref: string | null = null;
+        try {
+          const { data: pref } = await supabase
+            .from("user_ai_preferences")
+            .select("tone_profile")
+            .eq("user_id", profile.id)
+            .maybeSingle();
+          voicePref = (pref as { tone_profile?: string } | null)?.tone_profile ?? null;
+        } catch {
+          voicePref = null;
+        }
+        const voice = getVoice(voicePref ?? DEFAULT_VOICE_ID);
+
+        // (1) PIPELINE UPDATE on a matched loan → write event + confirm.
+        if (
+          retrieval.matchStatus === "matched" &&
+          retrieval.memory &&
+          isPipelineUpdate(message)
+        ) {
+          const write = await writeMemoryEvent(supabase, {
+            loan_memory_id: retrieval.memory.id,
+            event_type: "processor_note",
+            event_title: "Pipeline update from Atlas chat",
+            event_summary: message.slice(0, 2000),
+            source_type: "atlas_chat",
+            source_name: profile.full_name ?? profile.email ?? "Atlas user",
+            created_by: profile.id,
+            confidence: "medium",
+            // No protected-status advances and no source_evidence flag — the
+            // writer's guardrails reject CTC/closed/denied without evidence.
+          });
+
+          const confirm = pipelineUpdateConfirmation({
+            borrowerName: retrieval.memory.borrower_name ?? "this loan",
+            status: retrieval.memory.current_stage ?? "Unknown",
+            nextAction: retrieval.memory.next_action ?? "Unknown",
+            missing: (write.blocked_updates ?? []).join("; ") || "None",
+          });
+
+          const { data: puMsg } = await supabase
+            .from("chat_messages")
+            .insert({
+              thread_id: threadId,
+              user_id: profile.id,
+              role: "assistant",
+              content: confirm,
+              metadata: {
+                source: "loan_pipeline_update",
+                loan_memory_id: retrieval.memory.id,
+                event_id: write.event_id ?? null,
+                applied_updates: write.applied_updates ?? [],
+                blocked_updates: write.blocked_updates ?? [],
+              },
+            })
+            .select("id")
+            .single();
+          await supabase
+            .from("chat_threads")
+            .update({ last_message_at: new Date().toISOString() })
+            .eq("id", threadId);
+          await logUsage(profile, {
+            module: "atlas",
+            event_type: "loan_pipeline_update",
+            metadata: { thread_id: threadId, loan_memory_id: retrieval.memory.id },
+          });
+          return NextResponse.json({
+            ok: true,
+            thread_id: threadId,
+            message_id: puMsg?.id ?? null,
+            kind: "loan_pipeline_update",
+            content: confirm,
+            assistant_message: confirm,
+            provider: "loan_memory",
+            model: null,
+            loan: { match_status: "matched", panel: retrieval.panel ?? null },
+            usage: { daily_count: cap.used + 1, daily_limit: cap.cap },
+            knowledge: { count: 0, sources: [] },
+          });
+        }
+
+        // (2) MATCHED question → carry context into the model call below.
+        if (retrieval.matchStatus === "matched" && retrieval.contextText) {
+          loanContextText = buildLoanSystemPrompt(retrieval.contextText, voice);
+        }
+
+        // (3) MULTIPLE / LOW CONFIDENCE → ask the user to choose. Never answer.
+        else if (
+          retrieval.matchStatus === "multiple_matches" ||
+          retrieval.matchStatus === "low_confidence"
+        ) {
+          const candidates = retrieval.candidates ?? [];
+          const lines = candidates
+            .slice(0, 5)
+            .map((c, i) => {
+              const bits = [
+                c.borrower_name ?? "Unknown borrower",
+                c.loan_number ? `Loan #${c.loan_number}` : null,
+                c.property_address ?? null,
+              ]
+                .filter(Boolean)
+                .join(" — ");
+              return `${i + 1}. ${bits}`;
+            })
+            .join("\n");
+          const ask = candidates.length
+            ? `I found more than one loan that could match. Which one do you mean?\n\n${lines}\n\nReply with the number, the borrower's full name, the property address, or the loan number.`
+            : `I need to be sure which loan you mean before I answer. Give me the borrower's full name, the property address, or the loan number.`;
+          const { data: askMsg } = await supabase
+            .from("chat_messages")
+            .insert({
+              thread_id: threadId,
+              user_id: profile.id,
+              role: "assistant",
+              content: ask,
+              metadata: {
+                source: "loan_retrieval_clarify",
+                match_status: retrieval.matchStatus,
+                candidates: candidates.map((c) => ({
+                  loan_memory_id: c.loan_memory_id,
+                  borrower_name: c.borrower_name,
+                  loan_number: c.loan_number,
+                  property_address: c.property_address,
+                })),
+              },
+            })
+            .select("id")
+            .single();
+          await supabase
+            .from("chat_threads")
+            .update({ last_message_at: new Date().toISOString() })
+            .eq("id", threadId);
+          await logUsage(profile, {
+            module: "atlas",
+            event_type: "loan_retrieval_clarify",
+            metadata: { thread_id: threadId, match_status: retrieval.matchStatus },
+          });
+          return NextResponse.json({
+            ok: true,
+            thread_id: threadId,
+            message_id: askMsg?.id ?? null,
+            kind: "loan_retrieval_clarify",
+            content: ask,
+            assistant_message: ask,
+            provider: "loan_memory",
+            model: null,
+            loan: {
+              match_status: retrieval.matchStatus,
+              candidates: candidates.slice(0, 5),
+            },
+            usage: { daily_count: cap.used + 1, daily_limit: cap.cap },
+            knowledge: { count: 0, sources: [] },
+          });
+        }
+
+        // (4) NO MATCH → ask for an identifier. Never answer the loan blind.
+        else if (retrieval.matchStatus === "no_match") {
+          const fieldLabel: Record<string, string> = {
+            borrower_name: "the borrower's full name",
+            property_address: "the property address",
+            loan_number: "the loan number",
+          };
+          const wanted = (retrieval.requiredClarification ?? [
+            "borrower_name",
+            "property_address",
+            "loan_number",
+          ])
+            .map((f) => fieldLabel[f] ?? f)
+            .join(", or ");
+          const ask = `I couldn't find a matching loan in memory yet, so I don't want to guess. Tell me ${wanted} and I'll pull it up.`;
+          const { data: nmMsg } = await supabase
+            .from("chat_messages")
+            .insert({
+              thread_id: threadId,
+              user_id: profile.id,
+              role: "assistant",
+              content: ask,
+              metadata: {
+                source: "loan_retrieval_no_match",
+                required_clarification: retrieval.requiredClarification ?? [],
+              },
+            })
+            .select("id")
+            .single();
+          await supabase
+            .from("chat_threads")
+            .update({ last_message_at: new Date().toISOString() })
+            .eq("id", threadId);
+          await logUsage(profile, {
+            module: "atlas",
+            event_type: "loan_retrieval_no_match",
+            metadata: { thread_id: threadId },
+          });
+          return NextResponse.json({
+            ok: true,
+            thread_id: threadId,
+            message_id: nmMsg?.id ?? null,
+            kind: "loan_retrieval_no_match",
+            content: ask,
+            assistant_message: ask,
+            provider: "loan_memory",
+            model: null,
+            loan: {
+              match_status: "no_match",
+              required_clarification: retrieval.requiredClarification ?? [],
+            },
+            usage: { daily_count: cap.used + 1, daily_limit: cap.cap },
+            knowledge: { count: 0, sources: [] },
+          });
+        }
+      }
+    }
+  } catch (e) {
+    // Loan retrieval is strictly additive. Any failure falls through to the
+    // normal chat path so non-loan and loan chat both keep working.
+    console.error("loan retrieval failed", e);
+    loanContextText = null;
   }
 
   // ---- Atlas tool router --------------------------------------------------
@@ -447,7 +699,12 @@ export async function POST(req: Request) {
       role: m.role as "user" | "assistant" | "system",
       content: m.content,
     }));
-  const systemBlocks = [projectBlock, knowledgeBlock].filter(Boolean);
+  // loanContextText is set above ONLY when a loan was matched in memory. It
+  // leads the system blocks so the grounded loan context + response format take
+  // priority over generic project/knowledge context.
+  const systemBlocks = [loanContextText, projectBlock, knowledgeBlock].filter(
+    Boolean
+  );
   const messages = systemBlocks.length > 0
     ? [
         ...baseMessages,

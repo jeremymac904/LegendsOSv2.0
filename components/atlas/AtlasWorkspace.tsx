@@ -42,6 +42,7 @@ import {
   type AtlasThreadSummary,
 } from "./AtlasProjectsPanel";
 import { BuilderPromptCards } from "./BuilderPromptCards";
+import { LoanContextPanel, type AtlasLoanContext } from "./LoanContextPanel";
 import { LOWorkspace } from "./LOWorkspace";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -306,10 +307,12 @@ function buildResources(messages: ChatMessage[]): WorkspaceResource[] {
 function WorkspaceResourcePanel({
   messages,
   currentProject,
+  loanContext,
   onPrompt,
 }: {
   messages: ChatMessage[];
   currentProject: AtlasProjectSummary | null;
+  loanContext: AtlasLoanContext | null;
   onPrompt: (prompt: string) => void;
 }) {
   const resources = buildResources(messages);
@@ -324,6 +327,8 @@ function WorkspaceResourcePanel({
           Knowledge hits, tool outputs, and project work stay visible here.
         </p>
       </div>
+      {/* Loan memory context — additive, only shown when Atlas loaded a loan. */}
+      {loanContext && <LoanContextPanel context={loanContext} />}
       <div className="space-y-2 p-3">
         {resources.length === 0 ? (
           <div className="rounded-xl border border-dashed border-ink-200 dark:border-ink-700 bg-white/30 dark:bg-ink-900/30 p-3">
@@ -506,6 +511,9 @@ export function AtlasWorkspace({
   );
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  // Loan memory context returned by the chat route when a message resolves to a
+  // loan. Null until/unless a loan-related question is answered. Additive only.
+  const [loanContext, setLoanContext] = useState<AtlasLoanContext | null>(null);
   const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(false);
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -538,14 +546,15 @@ export function AtlasWorkspace({
     setThreadId(currentThread?.id ?? null);
     setMessages(initialMessages);
     setSelectedProjectId(currentThread?.assistant_id ?? null);
+    setLoanContext(null);
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [currentThread?.id]);
 
   const providerEntry = providerCatalog.find((p) => p.id === provider);
   const currentProject = projects.find((p) => p.id === selectedProjectId) ?? null;
   const hasWorkspaceResources = useMemo(
-    () => buildResources(messages).length > 0 || Boolean(currentProject),
-    [messages, currentProject]
+    () => buildResources(messages).length > 0 || Boolean(currentProject) || Boolean(loanContext),
+    [messages, currentProject, loanContext]
   );
 
   useEffect(() => {
@@ -679,6 +688,11 @@ export function AtlasWorkspace({
           return;
         }
         const newTid = data.thread_id as string;
+        // The chat route returns a compact loan context object when the message
+        // resolved to a loan. Read it defensively; leave prior context if absent.
+        if (data.loan_context && typeof data.loan_context === "object") {
+          setLoanContext(data.loan_context as AtlasLoanContext);
+        }
         if (!threadId) { setThreadId(newTid); router.replace(`/atlas/${newTid}`); }
         setMessages((m) => [...m, { id: data.message_id ?? `asst-${Date.now()}`, thread_id: newTid, user_id: ownerId, role: "assistant", content: data.content, metadata: { provider: data.provider, model: data.model, knowledge_hits: data.knowledge?.count ?? 0, knowledge_sources: data.knowledge?.sources ?? [], ...(data.tool_result ? { tool_result: data.tool_result } : {}) }, token_count: null, created_at: new Date().toISOString() }]);
         router.refresh();
@@ -800,6 +814,7 @@ export function AtlasWorkspace({
         <WorkspaceResourcePanel
           messages={messages}
           currentProject={currentProject}
+          loanContext={loanContext}
           onPrompt={injectPrompt}
         />
       </div>
