@@ -4,6 +4,7 @@ import path from "node:path";
 import Link from "next/link";
 import { Apple, Download, MonitorDown, PlayCircle } from "lucide-react";
 
+import { DesktopDownloadGate } from "@/components/auth/DesktopDownloadGate";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { PUBLIC_ENV, isSupabaseConfigured } from "@/lib/env";
 
@@ -120,11 +121,16 @@ export default function LoginPage({
                 </div>
               )}
             </div>
-            <DesktopDownloadCard
-              macUrl={macDownloadUrl}
-              winUrl={winDownloadUrl}
-              shellVersion={DESKTOP_SHELL_VERSION}
-            />
+            {/* Hidden inside the desktop app — those users are already in
+                the native shell, so the download card would be a dead end.
+                Web browser users still see it. */}
+            <DesktopDownloadGate>
+              <DesktopDownloadCard
+                macUrl={macDownloadUrl}
+                winUrl={winDownloadUrl}
+                shellVersion={DESKTOP_SHELL_VERSION}
+              />
+            </DesktopDownloadGate>
           </div>
         </section>
 

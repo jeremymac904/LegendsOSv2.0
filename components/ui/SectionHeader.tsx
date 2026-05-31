@@ -15,7 +15,7 @@ export function SectionHeader({
     <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
       <div className="min-w-0">
         {eyebrow && (
-          <p className="flex items-center gap-2 text-[10px] font-medium uppercase tracking-[0.18em] text-ink-400">
+          <p className="flex items-center gap-2 text-[10px] font-medium uppercase tracking-[0.18em] text-ink-500 dark:text-ink-400">
             <span
               aria-hidden
               className="inline-block h-px w-6 bg-gradient-to-r from-accent-gold/70 to-transparent"
@@ -23,11 +23,11 @@ export function SectionHeader({
             {eyebrow}
           </p>
         )}
-        <h1 className="mt-1.5 text-[22px] font-semibold tracking-tight text-ink-100">
+        <h1 className="mt-1.5 text-[22px] font-semibold tracking-tight text-ink-900 dark:text-ink-100">
           {title}
         </h1>
         {description && (
-          <p className="mt-1.5 max-w-2xl text-[13px] leading-relaxed text-ink-300">
+          <p className="mt-1.5 max-w-2xl text-[13px] leading-relaxed text-ink-600 dark:text-ink-300">
             {description}
           </p>
         )}

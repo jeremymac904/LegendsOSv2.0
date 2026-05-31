@@ -397,13 +397,15 @@ export function AtlasShell({
         </div>
       </div>
 
-      {/* Scrollable conversation */}
+      {/* Scrollable conversation — the ONLY vertical scroll region. min-h-0
+          lets this flex child shrink so the pinned composer below always stays
+          visible without the page itself scrolling. */}
       <div
         ref={scrollerRef}
-        className="flex-1 overflow-y-auto px-4 py-6 scrollbar-thin"
+        className="min-h-0 flex-1 overflow-y-auto px-4 py-6 scrollbar-thin sm:px-6"
       >
-        <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
-          {messages.length === 0 && (
+        <div className="mx-auto flex h-full w-full max-w-5xl flex-col gap-5 2xl:max-w-6xl">
+          {messages.length === 0 ? (
             <EmptyChat
               provider={provider}
               configured={Boolean(providerEntry?.configured)}
@@ -414,22 +416,25 @@ export function AtlasShell({
                 setTimeout(() => composerRef.current?.focus(), 0);
               }}
             />
-          )}
-          {messages.map((m) => (
-            <MessageRow key={m.id} message={m} />
-          ))}
-          {isPending && (
-            <div className="flex items-center gap-2 text-xs text-ink-600 dark:text-ink-300">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent-gold" />
-              Atlas is thinking…
-            </div>
+          ) : (
+            <>
+              {messages.map((m) => (
+                <MessageRow key={m.id} message={m} />
+              ))}
+              {isPending && (
+                <div className="flex items-center gap-2 text-xs text-ink-600 dark:text-ink-300">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent-gold" />
+                  Atlas is thinking…
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
 
-      {/* Pinned composer */}
-      <div className="border-t border-ink-200 dark:border-ink-800 bg-white/80 dark:bg-ink-950/80 px-3 pb-4 pt-3 backdrop-blur sm:px-6">
-        <div className="mx-auto w-full max-w-5xl">
+      {/* Pinned composer — shrink-0 keeps it from being squeezed out. */}
+      <div className="shrink-0 border-t border-ink-200 dark:border-ink-800 bg-white/80 dark:bg-ink-950/80 px-3 pb-4 pt-3 backdrop-blur sm:px-6">
+        <div className="mx-auto w-full max-w-5xl 2xl:max-w-6xl">
           {error && (
             <p className="mb-2 rounded-lg border border-status-err/30 bg-status-err/10 px-3 py-2 text-xs text-status-err">
               {error}
@@ -525,7 +530,7 @@ function EmptyChat({
   onPick: (prompt: string) => void;
 }) {
   return (
-    <div className="grid place-items-center py-16">
+    <div className="grid min-h-full place-items-center py-8">
       <div className="w-full max-w-xl rounded-2xl border border-ink-200 dark:border-ink-800 bg-white/40 dark:bg-ink-900/40 p-6">
         <div className="flex flex-col items-center text-center">
           <div className="grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-accent-gold via-accent-gold to-accent-orange text-ink-950 dark:text-ink-950">
@@ -784,12 +789,12 @@ function MessageRow({ message }: { message: ChatMessage }) {
       )}
       <div
         className={cn(
-          "max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap shadow-sm",
+          "rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap shadow-sm",
           isUser
-            ? "bg-gradient-to-br from-accent-orange/80 to-accent-gold/80 text-ink-950 dark:text-ink-950"
+            ? "max-w-[88%] bg-gradient-to-br from-accent-orange/80 to-accent-gold/80 text-ink-950 dark:text-ink-950 sm:max-w-[75%]"
             : isSystem
-            ? "border border-status-warn/30 bg-status-warn/10 text-status-warn"
-            : "border border-ink-200 dark:border-ink-800 bg-white/70 dark:bg-ink-900/70 text-ink-900 dark:text-ink-100"
+            ? "max-w-[92%] border border-status-warn/30 bg-status-warn/10 text-status-warn"
+            : "w-full max-w-full border border-ink-200 dark:border-ink-800 bg-white/70 dark:bg-ink-900/70 text-ink-900 dark:text-ink-100"
         )}
       >
         {message.content}

@@ -29,19 +29,19 @@
  */
 .light {
   color-scheme: light;
-  /* Warm off-white page background (champagne-tinted), not cool blue-white.
-   * Keeps the Legends gold palette feeling premium rather than corporate. */
-  --bg: 250 248 243;
-  --fg: 14 17 25;
-  --muted: 71 78 102;
+  /* Pure, cool light mode — white page, cool-gray surfaces, charcoal text.
+   * No beige/cream. The gold palette stays as a subtle glow accent only. */
+  --bg: 255 255 255; /* pure white page */
+  --fg: 17 19 23; /* near-black charcoal #111317 — high contrast body text */
+  --muted: 71 78 102; /* medium slate — secondary text, AA on white */
   --accent: 199 150 53;
   --accent-2: 155 104 40;
   --primary-gold: 199 150 53;
   --burnt-gold: 155 104 40;
   --champagne-highlight: 226 201 120;
-  --dark-charcoal: 245 240 230;
+  --dark-charcoal: 241 243 245; /* cool light-gray raised surface #f1f3f5 */
   --black-glass: 255 255 255;
-  --glass-border: 199 150 53;
+  --glass-border: 216 220 226; /* silver divider #d8dce2 */
   --muted-text: 71 78 102;
 }
 
@@ -65,15 +65,17 @@ body {
 }
 
 /* Light mode body: drop the dark image + heavy overlays in favor of a
- * soft warm gradient. Brand accent radials stay at lower opacity. */
+ * pure white base with a whisper of cool gray and a subtle gold glow.
+ * No cream/beige — neutral cool tones only. */
 .light body {
-  /* Three warm radials over a cream base for the "premium, breathing" feel
-   * — top-left burnt gold, top-right champagne, bottom-left soft champagne. */
+  background-color: rgb(255, 255, 255);
+  /* Pure white → faint cool-gray base, with low-opacity gold radials so the
+   * accent reads as a subtle glow, never a beige fill. */
   background-image:
-    linear-gradient(180deg, rgba(252, 250, 244, 0.55) 0%, rgba(250, 248, 242, 0.92) 60%, rgba(244, 241, 232, 0.98) 100%),
-    radial-gradient(70% 55% at 30% 8%, rgba(var(--burnt-gold), 0.1) 0%, rgba(var(--burnt-gold), 0) 62%),
-    radial-gradient(55% 50% at 88% 18%, rgba(var(--champagne-highlight), 0.1) 0%, rgba(var(--champagne-highlight), 0) 64%),
-    radial-gradient(60% 60% at 12% 92%, rgba(var(--champagne-highlight), 0.08) 0%, rgba(var(--champagne-highlight), 0) 64%);
+    linear-gradient(180deg, rgba(255, 255, 255, 1) 0%, rgba(248, 249, 251, 1) 62%, rgba(244, 246, 248, 1) 100%),
+    radial-gradient(70% 55% at 30% 8%, rgba(var(--primary-gold), 0.05) 0%, rgba(var(--primary-gold), 0) 60%),
+    radial-gradient(55% 50% at 88% 18%, rgba(var(--champagne-highlight), 0.06) 0%, rgba(var(--champagne-highlight), 0) 62%),
+    radial-gradient(60% 60% at 12% 92%, rgba(var(--primary-gold), 0.04) 0%, rgba(var(--primary-gold), 0) 62%);
 }
 
 @layer components {
@@ -243,111 +245,112 @@ body {
  * Tailwind classes in markup may still look dark-leaning in light mode;
  * this is Phase 1 — Phase 2 cleans those up route-by-route.
  */
-/* `.card` in light — a champagne-tinted liquid-glass surface. Translucent
- * enough to let the warm body gradient breathe through, contrasted enough
- * to keep text crisp. */
+/* `.card` in light — a clean cool-white raised surface. Very light cool gray
+ * (#f6f7f9-ish) with a silver hairline border and a near-invisible gold edge
+ * tint on hover. No cream. Text is charcoal for crisp contrast. */
 .light .card {
-  background-color: rgba(255, 255, 255, 0.7);
+  background-color: rgb(255, 255, 255);
   background-image:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(255, 253, 247, 0.62) 55%, rgba(252, 248, 240, 0.7) 100%),
-    linear-gradient(145deg, rgba(255, 255, 255, 0.96) 0%, rgba(252, 248, 240, 0.86) 100%);
-  border-color: rgba(199, 150, 53, 0.22);
-  color: rgb(14, 17, 25);
+    linear-gradient(180deg, rgba(255, 255, 255, 1) 0%, rgba(246, 247, 249, 1) 100%);
+  border-color: rgba(216, 220, 226, 1); /* silver #d8dce2 */
+  color: rgb(17, 19, 23);
   box-shadow:
-    0 1px 0 0 rgba(255, 255, 255, 0.7) inset,
-    0 12px 28px -20px rgba(13, 18, 32, 0.12),
-    0 0 0 1px rgba(199, 150, 53, 0.05);
+    0 1px 0 0 rgba(255, 255, 255, 0.9) inset,
+    0 12px 28px -20px rgba(13, 18, 32, 0.1),
+    0 0 0 1px rgba(216, 220, 226, 0.4);
 }
 .light .card::before {
-  opacity: 0.6;
+  opacity: 0.45;
 }
 .light .card:hover {
-  border-color: rgba(199, 150, 53, 0.38);
+  border-color: rgba(199, 150, 53, 0.32);
   box-shadow:
-    0 1px 0 0 rgba(255, 255, 255, 0.8) inset,
-    0 14px 30px -16px rgba(13, 18, 32, 0.14),
-    0 0 0 1px rgba(199, 150, 53, 0.18),
-    0 8px 28px -14px rgba(199, 150, 53, 0.22);
+    0 1px 0 0 rgba(255, 255, 255, 1) inset,
+    0 14px 30px -16px rgba(13, 18, 32, 0.12),
+    0 0 0 1px rgba(199, 150, 53, 0.14),
+    0 8px 28px -14px rgba(199, 150, 53, 0.16);
 }
 
-/* `.glass-card` in light — even more pronounced liquid glass. Used by the
- * Academy hero/track/module/catalog cards for the "premium SaaS" feel. */
+/* `.glass-card` in light — frostier cool-white liquid glass. Used by the
+ * Academy hero/track/module/catalog cards. Cool neutral tints (no cream) with
+ * a translucent white-to-cool-gray wash and a subtle gold glow on hover. */
 .light .glass-card {
-  background-color: rgba(255, 255, 255, 0.55);
+  background-color: rgba(255, 255, 255, 0.85);
   background-image:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.88) 0%, rgba(255, 252, 244, 0.45) 60%, rgba(252, 248, 240, 0.6) 100%),
-    linear-gradient(145deg, rgba(255, 255, 255, 0.96) 0%, rgba(254, 250, 240, 0.7) 50%, rgba(248, 244, 234, 0.6) 100%);
-  border-color: rgba(199, 150, 53, 0.26);
-  color: rgb(14, 17, 25);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(248, 249, 251, 0.72) 60%, rgba(244, 246, 248, 0.8) 100%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.98) 0%, rgba(246, 248, 250, 0.82) 50%, rgba(241, 243, 245, 0.78) 100%);
+  border-color: rgba(216, 220, 226, 1); /* silver #d8dce2 */
+  color: rgb(17, 19, 23);
   box-shadow:
-    0 1px 0 0 rgba(255, 255, 255, 0.75) inset,
-    0 16px 40px -22px rgba(13, 18, 32, 0.14),
-    0 0 0 1px rgba(199, 150, 53, 0.06),
-    0 4px 18px -10px rgba(199, 150, 53, 0.1);
+    0 1px 0 0 rgba(255, 255, 255, 0.9) inset,
+    0 16px 40px -22px rgba(13, 18, 32, 0.12),
+    0 0 0 1px rgba(216, 220, 226, 0.45),
+    0 4px 18px -10px rgba(199, 150, 53, 0.06);
 }
 .light .glass-card::before {
-  opacity: 0.7;
+  opacity: 0.55;
 }
 .light .glass-card:hover {
-  border-color: rgba(199, 150, 53, 0.45);
+  border-color: rgba(199, 150, 53, 0.36);
   box-shadow:
-    0 1px 0 0 rgba(255, 255, 255, 0.85) inset,
-    0 18px 40px -18px rgba(13, 18, 32, 0.16),
-    0 0 0 1px rgba(199, 150, 53, 0.22),
-    0 8px 32px -12px rgba(199, 150, 53, 0.26);
+    0 1px 0 0 rgba(255, 255, 255, 1) inset,
+    0 18px 40px -18px rgba(13, 18, 32, 0.14),
+    0 0 0 1px rgba(199, 150, 53, 0.18),
+    0 8px 32px -12px rgba(199, 150, 53, 0.18);
 }
 
 .light .glass-panel {
-  background-color: rgba(255, 255, 255, 0.6);
-  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.85) 0%, rgba(252, 248, 240, 0.62) 100%);
-  border-color: rgba(199, 150, 53, 0.18);
-  color: rgb(14, 17, 25);
+  background-color: rgba(255, 255, 255, 0.9);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(246, 247, 249, 0.78) 100%);
+  border-color: rgba(216, 220, 226, 0.9); /* silver */
+  color: rgb(17, 19, 23);
 }
 
 .light .btn {
-  background-color: rgba(255, 255, 255, 0.9);
-  border-color: rgba(0, 0, 0, 0.08);
-  color: rgb(14, 17, 25);
+  background-color: rgb(255, 255, 255);
+  border-color: rgba(216, 220, 226, 1); /* silver */
+  color: rgb(17, 19, 23);
 }
 .light .btn:hover {
-  background-color: rgba(244, 245, 249, 0.95);
+  background-color: rgb(241, 243, 245); /* cool light gray #f1f3f5 */
+  border-color: rgba(199, 207, 216, 1);
 }
 /* .btn-primary keeps its gold gradient in light — high contrast against page bg */
 .light .btn-primary {
   color: rgb(255, 255, 255);
 }
 .light .btn-secondary {
-  background-color: rgba(255, 255, 255, 0.92);
+  background-color: rgb(255, 255, 255);
   border-color: rgba(199, 150, 53, 0.3);
-  color: rgb(14, 17, 25);
+  color: rgb(17, 19, 23);
 }
 .light .btn-secondary:hover {
-  background-color: rgba(255, 255, 255, 1);
+  background-color: rgb(255, 255, 255);
   border-color: rgba(199, 150, 53, 0.45);
 }
 /* Ghost buttons in light = icon-bearing controls in TopBar / cards. They
- * need strong icon contrast on both light page surface and translucent
+ * need strong icon contrast on both white page surface and translucent
  * card surfaces. `rgb(51, 58, 78)` is ink-600-equivalent — readable on
- * cream backgrounds without going pure black. */
+ * white without going pure black; hover lands on a cool gray. */
 .light .btn-ghost {
   background-color: transparent;
   border-color: transparent;
   color: rgb(51, 58, 78);
 }
 .light .btn-ghost:hover {
-  background-color: rgba(244, 240, 230, 0.7);
-  color: rgb(14, 17, 25);
+  background-color: rgb(241, 243, 245); /* cool light gray */
+  color: rgb(17, 19, 23);
 }
 
 .light .input,
 .light .textarea {
-  background-color: rgba(255, 255, 255, 0.96);
-  border-color: rgba(0, 0, 0, 0.1);
-  color: rgb(14, 17, 25);
+  background-color: rgb(255, 255, 255);
+  border-color: rgba(216, 220, 226, 1); /* silver */
+  color: rgb(17, 19, 23);
 }
 .light .input::placeholder,
 .light .textarea::placeholder {
-  color: rgb(140, 147, 175);
+  color: rgb(122, 130, 150); /* mid slate — visible but clearly placeholder */
 }
 .light .input:focus,
 .light .textarea:focus {
@@ -362,14 +365,14 @@ body {
 }
 
 .light .chip {
-  background-color: rgba(255, 255, 255, 0.85);
-  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(252, 248, 240, 0.7) 100%);
-  border-color: rgba(199, 150, 53, 0.22);
+  background-color: rgb(255, 255, 255);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 1) 0%, rgba(246, 247, 249, 1) 100%);
+  border-color: rgba(216, 220, 226, 1); /* silver */
   color: rgb(38, 44, 60);
 }
 .light .chip-active {
   background-image: linear-gradient(180deg, rgba(199, 150, 53, 0.12) 0%, rgba(155, 104, 40, 0.1) 100%);
-  background-color: rgba(255, 255, 255, 0.85);
+  background-color: rgb(255, 255, 255);
   border-color: rgba(199, 150, 53, 0.45);
   color: rgb(112, 68, 23);
 }
@@ -382,24 +385,24 @@ body {
 }
 
 .light .divider {
-  background-image: linear-gradient(to right, transparent, rgba(0, 0, 0, 0.1), transparent);
+  background-image: linear-gradient(to right, transparent, rgba(216, 220, 226, 0.9), transparent);
 }
 
 .light .nav-item {
   color: rgb(51, 58, 78);
 }
 .light .nav-item:hover {
-  background-color: rgba(244, 240, 230, 0.7);
-  color: rgb(14, 17, 25);
+  background-color: rgb(241, 243, 245); /* cool light gray */
+  color: rgb(17, 19, 23);
 }
 .light .nav-item-active {
-  background-image: linear-gradient(to right, rgba(199, 150, 53, 0.2) 0%, rgba(255, 252, 246, 0.9) 50%, rgba(248, 244, 234, 0.78) 100%);
-  background-color: rgba(255, 252, 246, 0.95);
-  border-color: rgba(199, 150, 53, 0.38);
-  color: rgb(14, 17, 25);
+  background-image: linear-gradient(to right, rgba(199, 150, 53, 0.16) 0%, rgba(246, 247, 249, 0.95) 50%, rgba(241, 243, 245, 0.9) 100%);
+  background-color: rgb(246, 247, 249);
+  border-color: rgba(199, 150, 53, 0.34);
+  color: rgb(17, 19, 23);
   box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.8),
-    0 4px 12px -6px rgba(199, 150, 53, 0.18);
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.9),
+    0 4px 12px -6px rgba(199, 150, 53, 0.14);
 }
 
 .light .scrollbar-thin::-webkit-scrollbar-thumb {
@@ -409,6 +412,19 @@ body {
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+
+  /* ─── Electron window drag regions ───────────────────────────────────
+   * Harmless in a browser (the -webkit-app-region property is ignored).
+   * The Desktop lane's Electron build uses these to make the Mac window
+   * draggable by the top bar while keeping its controls clickable.
+   * Apply `.app-region-drag` to a draggable surface and
+   * `.app-region-no-drag` to every interactive child inside it. */
+  .app-region-drag {
+    -webkit-app-region: drag;
+  }
+  .app-region-no-drag {
+    -webkit-app-region: no-drag;
   }
   .bg-checker {
     background-image: linear-gradient(45deg, rgba(255, 255, 255, 0.03) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.03) 75%, rgba(255, 255, 255, 0.03)),
@@ -452,4 +468,13 @@ body {
       0 18px 54px -28px rgba(0, 0, 0, 0.9),
       0 0 28px -14px rgba(var(--burnt-gold), 0.32);
   }
+}
+
+/* ─── Desktop (Electron) chrome hooks ────────────────────────────────
+ * The Desktop lane sets `is-desktop` on <html> via the Electron preload.
+ * In the hosted browser these selectors never match, so the web build is
+ * unaffected. This nudges the TopBar content clear of the macOS traffic
+ * lights so they don't overlap the bar's left edge. */
+.is-desktop .app-topbar {
+  padding-left: 80px;
 }

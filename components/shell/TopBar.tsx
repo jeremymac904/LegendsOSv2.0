@@ -29,7 +29,7 @@ export function TopBar({ profile }: { profile: Profile }) {
   }
 
   return (
-    <header className="sticky top-0 z-20 flex items-center justify-between gap-4 border-b border-ink-900/10 bg-white/75 px-5 py-3 backdrop-blur-md relative dark:border-accent-champagne/10 dark:bg-ink-950/65">
+    <header className="app-topbar app-region-drag sticky top-0 z-20 flex items-center justify-between gap-4 border-b border-ink-900/10 bg-white/75 px-5 py-3 backdrop-blur-md relative dark:border-accent-champagne/10 dark:bg-ink-950/65">
       <span
         aria-hidden
         className="pointer-events-none absolute inset-x-6 bottom-[-1px] h-px bg-gradient-to-r from-transparent via-accent-champagne/30 to-transparent dark:via-accent-champagne/20"
@@ -49,7 +49,7 @@ export function TopBar({ profile }: { profile: Profile }) {
             </h1>
           </div>
         </div>
-        <div className="ml-6 hidden flex-1 max-w-md items-center gap-2 rounded-xl border border-ink-900/10 bg-white/70 px-3 py-1.5 text-xs text-ink-700 backdrop-blur-sm transition-colors focus-within:border-accent-champagne/50 dark:border-accent-champagne/10 dark:bg-ink-950/40 dark:text-ink-300 md:flex">
+        <div className="app-region-no-drag ml-6 hidden flex-1 max-w-md items-center gap-2 rounded-xl border border-ink-900/10 bg-white/70 px-3 py-1.5 text-xs text-ink-700 backdrop-blur-sm transition-colors focus-within:border-accent-champagne/50 dark:border-accent-champagne/10 dark:bg-ink-950/40 dark:text-ink-300 md:flex">
           <Search size={14} className="text-ink-500 dark:text-ink-400" />
           <input
             placeholder="Search threads, drafts, knowledge…"
@@ -61,8 +61,11 @@ export function TopBar({ profile }: { profile: Profile }) {
         </div>
       </div>
       <div className="flex items-center gap-2">
-        <ThemeToggle />
-        <button className="btn-ghost px-2 py-2" aria-label="Notifications">
+        <ThemeToggle className="app-region-no-drag btn-ghost px-2 py-2 text-ink-300 dark:text-ink-300" />
+        <button
+          className="app-region-no-drag btn-ghost px-2 py-2"
+          aria-label="Notifications"
+        >
           <Bell size={16} />
         </button>
         <div className="hidden items-center gap-3 rounded-xl border border-ink-900/10 bg-white/70 px-3 py-1.5 backdrop-blur-sm dark:border-accent-champagne/10 dark:bg-ink-950/40 md:flex">
@@ -81,7 +84,7 @@ export function TopBar({ profile }: { profile: Profile }) {
         </div>
         <button
           onClick={handleSignOut}
-          className="btn-ghost"
+          className="app-region-no-drag btn-ghost"
           aria-label="Sign out"
         >
           <LogOut size={14} />

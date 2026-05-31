@@ -36,6 +36,7 @@ app.setName(APP_NAME);
 
 function createMainWindow() {
   const url = process.env.LEGENDSOS_DESKTOP_URL || DEFAULT_URL;
+  const isMac = process.platform === "darwin";
   const win = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -44,7 +45,19 @@ function createMainWindow() {
     title: APP_NAME,
     backgroundColor: "#0a0a0d",
     autoHideMenuBar: true,
-    titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
+    // On macOS `hiddenInset` hides the title bar chrome but keeps the
+    // traffic lights, inset over the page. The web TopBar marks itself
+    // `-webkit-app-region: drag` to provide the move surface, and
+    // globals.css adds `.is-desktop .app-topbar { padding-left: 80px }`
+    // so content clears the lights. We do NOT set `movable: false` and
+    // nothing here overrides the page's drag region.
+    titleBarStyle: isMac ? "hiddenInset" : "default",
+    // Nudge the traffic lights down so they sit vertically centered in the
+    // TopBar instead of hugging the top edge — small touch, more native feel.
+    ...(isMac ? { trafficLightPosition: { x: 18, y: 18 } } : {}),
+    // The window is movable by default; we keep it that way explicitly so a
+    // future edit can't silently drop the native drag behavior.
+    movable: true,
     show: false,
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),

@@ -8,6 +8,7 @@ import { TopBar } from "@/components/shell/TopBar";
 import { isSupabaseConfigured } from "@/lib/env";
 import { getEffectiveProfile } from "@/lib/impersonation";
 import { getCurrentUser } from "@/lib/supabase/server";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -39,8 +40,14 @@ export default async function ProtectedLayout({
   const path = pathFromHeaders();
   const fullBleed = path.startsWith("/atlas");
 
+  // For full-bleed routes (Atlas), the whole shell is bounded to the viewport
+  // height (h-dvh) with min-h-0 flex children so the chat composer stays pinned
+  // and the impersonation banner is accounted for automatically — no page-level
+  // scroll just to reach the send box. Every other route keeps the exact prior
+  // class strings (min-h-screen + body scroll), so non-Atlas pages are
+  // unchanged.
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className={cn("flex flex-col", fullBleed ? "h-dvh overflow-hidden" : "min-h-screen")}>
       {impersonating && realProfile && (
         <ImpersonationBanner
           targetName={profile.full_name ?? profile.email}
@@ -50,12 +57,12 @@ export default async function ProtectedLayout({
           }
         />
       )}
-      <div className="flex min-h-screen">
+      <div className={cn("flex", fullBleed ? "min-h-0 flex-1" : "min-h-screen")}>
         <Sidebar profile={profile} />
-        <div className="flex min-h-screen w-full flex-col">
+        <div className={cn("flex w-full flex-col", fullBleed ? "min-h-0 flex-1" : "min-h-screen")}>
           <TopBar profile={profile} />
           {fullBleed ? (
-            <main className="flex-1 overflow-hidden">{children}</main>
+            <main className="min-h-0 flex-1 overflow-hidden">{children}</main>
           ) : (
             <main className="flex-1 px-4 py-6 sm:px-5 lg:px-6">
               <div className="mx-auto w-full max-w-[1500px]">{children}</div>

@@ -35,13 +35,13 @@ export function StatCard({
       <div className="flex items-start justify-between gap-3">
         <p className="label">{label}</p>
         {Icon && (
-          <div className="grid h-8 w-8 place-items-center rounded-lg border border-ink-700/80 bg-ink-800/70 text-accent-gold shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)]">
+          <div className="grid h-8 w-8 place-items-center rounded-lg border border-ink-900/10 bg-ink-100/70 text-accent-orange shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)] dark:border-ink-700/80 dark:bg-ink-800/70 dark:text-accent-gold">
             <Icon size={14} />
           </div>
         )}
       </div>
       <div className="mt-3 flex items-baseline gap-2">
-        <p className="text-[22px] font-semibold leading-none tracking-tight text-ink-100">
+        <p className="text-[22px] font-semibold leading-none tracking-tight text-ink-900 dark:text-ink-100">
           {value}
         </p>
         {trend && (
@@ -50,7 +50,7 @@ export function StatCard({
               "text-[11px] font-medium",
               trend === "up" && "text-status-ok",
               trend === "down" && "text-status-err",
-              trend === "flat" && "text-ink-300"
+              trend === "flat" && "text-ink-500 dark:text-ink-300"
             )}
           >
             {trend === "up" ? "▲" : trend === "down" ? "▼" : "→"}
@@ -58,7 +58,7 @@ export function StatCard({
         )}
       </div>
       {hint && (
-        <p className="mt-1.5 text-[11px] text-ink-300">{hint}</p>
+        <p className="mt-1.5 text-[11px] text-ink-500 dark:text-ink-300">{hint}</p>
       )}
       {/* Hairline gold→orange accent bar, 2px tall, anchored to bottom edge. */}
       <div
