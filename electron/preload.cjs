@@ -13,6 +13,9 @@ const { contextBridge } = require("electron");
 
 contextBridge.exposeInMainWorld("legendsos", {
   desktop: true,
+  // process.platform is available in the sandboxed preload. The web app uses
+  // this to inset the draggable region for the macOS traffic lights.
+  platform: process.platform,
   // Bumped manually when the shell changes shape; the web app can compare.
   shellVersion: "1.0.0",
 });

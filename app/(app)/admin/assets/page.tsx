@@ -1,10 +1,7 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Image as ImageIcon, Search, X } from "lucide-react";
 
-import { AssetCard } from "@/components/admin/AssetCard";
+import { AssetLibraryGrid, type AssetGridItem } from "@/components/admin/AssetLibraryGrid";
 import { AssetUploadCard } from "@/components/admin/AssetUploadCard";
-import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { loadAssetManifest, type AssetCategory } from "@/lib/assets";
@@ -24,46 +21,7 @@ const CATEGORY_LABEL: Record<AssetCategory, string> = {
   unclassified: "Documents & videos",
 };
 
-// Type chips at the top of the listing. "Other" maps to anything that
-// isn't an image / document / video — currently empty in practice but
-// kept future-proof.
-type KindFilter = "all" | "image" | "document" | "video" | "other";
-const KIND_LABEL: Record<KindFilter, string> = {
-  all: "All",
-  image: "Images",
-  document: "Docs",
-  video: "Video",
-  other: "Other",
-};
-
-interface PageProps {
-  searchParams: { q?: string; cat?: string; kind?: string };
-}
-
-function normalizeKind(k: string | undefined): KindFilter {
-  if (k === "image" || k === "document" || k === "video" || k === "other")
-    return k;
-  return "all";
-}
-
-type MergedAsset = {
-  kind: "image" | "document" | "video";
-  id: string;
-  category: AssetCategory;
-  label: string;
-  file_name: string;
-  public_path: string | null;
-  tags: string[];
-  default_visibility: "owner_only" | "team_shared";
-  person: string | undefined;
-  is_uploaded: boolean;
-  // Used to sort by recency. Uploaded assets carry the row's created_at;
-  // manifest assets fall back to the manifest's generated_at (or empty
-  // string) so they always sort below recent uploads.
-  sort_ts: string;
-};
-
-export default async function AssetLibraryPage({ searchParams }: PageProps) {
+export default async function AssetLibraryPage() {
   const { profile } = await getEffectiveProfile();
   if (!profile || !isOwner(profile)) redirect("/dashboard");
 
@@ -74,6 +32,8 @@ export default async function AssetLibraryPage({ searchParams }: PageProps) {
     sb.from("social_posts").select("id,media_id,metadata"),
   ]);
 
+  // Count how many social drafts reference each asset id, so each card can
+  // honestly say whether deleting it would orphan a draft.
   const usageCount = new Map<string, number>();
   for (const row of (socialRefs ?? []) as {
     id: string;
@@ -93,266 +53,74 @@ export default async function AssetLibraryPage({ searchParams }: PageProps) {
     }
   }
 
-  const q = (searchParams.q ?? "").trim().toLowerCase();
-  const activeCat = (searchParams.cat ?? "").trim() as AssetCategory | "";
-  const activeKind = normalizeKind(searchParams.kind);
-
   const manifestTs = manifest.generated_at ?? "";
 
-  // Merge uploaded (newest first) + manifest. Both go through the same
-  // shape so the AssetCard component doesn't have to branch.
-  const merged: MergedAsset[] = [
-    ...uploaded.map<MergedAsset>((u) => ({
+  // Merge uploaded (real Supabase rows) + manifest (checked-in library) into a
+  // single shape. `origin` is the honest source label, mirroring
+  // components/images/AssetLibraryBrowser.tsx: uploaded → real team brand,
+  // library → repo-managed manifest, sample → a tagged starter visual.
+  const items: AssetGridItem[] = [
+    ...uploaded.map<AssetGridItem & { sortTs: string }>((u) => ({
       kind:
         u.kind === "document" ? "document" : u.kind === "video" ? "video" : "image",
       id: u.id,
       category: u.category,
+      categoryLabel: CATEGORY_LABEL[u.category] ?? u.category,
       label: u.label,
-      file_name: u.file_name,
-      public_path: u.public_path,
+      fileName: u.file_name,
+      publicPath: u.public_path,
+      visibility: u.default_visibility,
       tags: u.tags,
-      default_visibility: u.default_visibility,
       person: undefined,
-      is_uploaded: true,
-      sort_ts: u.created_at,
+      isUploaded: true,
+      usageCount: usageCount.get(u.id) ?? 0,
+      origin: "uploaded",
+      sortTs: u.created_at,
     })),
-    ...manifest.assets.map<MergedAsset>((a) => ({
+    ...manifest.assets.map<AssetGridItem & { sortTs: string }>((a) => ({
       kind: "image",
       id: a.id,
       category: a.category,
+      categoryLabel: CATEGORY_LABEL[a.category] ?? a.category,
       label: a.label,
-      file_name: a.file_name,
-      public_path: a.public_path,
+      fileName: a.file_name,
+      publicPath: a.public_path,
+      visibility: a.default_visibility,
       tags: a.tags,
-      default_visibility: a.default_visibility,
       person: a.person,
-      is_uploaded: false,
-      sort_ts: manifestTs,
+      isUploaded: false,
+      usageCount: usageCount.get(a.id) ?? 0,
+      origin: a.tags.some((t) => t.toLowerCase() === "sample")
+        ? "sample"
+        : "library",
+      sortTs: manifestTs,
     })),
-  ];
-
-  // Default sort: newest first by sort_ts, falling back to label asc when
-  // timestamps are equal (manifest assets all share the same ts).
-  merged.sort((a, b) => {
-    const diff = (b.sort_ts || "").localeCompare(a.sort_ts || "");
-    if (diff !== 0) return diff;
-    return a.label.localeCompare(b.label);
-  });
-
-  let assets = merged;
-  if (q) {
-    assets = assets.filter(
-      (a) =>
-        a.label.toLowerCase().includes(q) ||
-        a.file_name.toLowerCase().includes(q) ||
-        a.tags.some((t) => t.toLowerCase().includes(q))
-    );
-  }
-  if (activeCat) {
-    assets = assets.filter((a) => a.category === activeCat);
-  }
-  if (activeKind !== "all") {
-    assets = assets.filter((a) =>
-      activeKind === "other"
-        ? !(a.kind === "image" || a.kind === "document" || a.kind === "video")
-        : a.kind === activeKind
-    );
-  }
-
-  const counts: Record<string, number> = {};
-  for (const a of merged) {
-    counts[a.category] = (counts[a.category] ?? 0) + 1;
-  }
-  const kindCounts: Record<KindFilter, number> = {
-    all: merged.length,
-    image: merged.filter((a) => a.kind === "image").length,
-    document: merged.filter((a) => a.kind === "document").length,
-    video: merged.filter((a) => a.kind === "video").length,
-    other: 0,
-  };
-
-  function buildHref(next: {
-    q?: string | null;
-    cat?: AssetCategory | null;
-    kind?: KindFilter | null;
-  }): string {
-    const params = new URLSearchParams();
-    const qNext = next.q === undefined ? searchParams.q : next.q;
-    const catNext = next.cat === undefined ? activeCat : next.cat;
-    const kindNext = next.kind === undefined ? activeKind : next.kind;
-    if (qNext) params.set("q", qNext);
-    if (catNext) params.set("cat", catNext);
-    if (kindNext && kindNext !== "all") params.set("kind", kindNext);
-    const qs = params.toString();
-    return qs ? `/admin/assets?${qs}` : "/admin/assets";
-  }
+  ]
+    // Newest uploads first; manifest entries (shared ts) fall back to label.
+    .sort((a, b) => {
+      const diff = (b.sortTs || "").localeCompare(a.sortTs || "");
+      return diff !== 0 ? diff : a.label.localeCompare(b.label);
+    })
+    .map(({ sortTs: _sortTs, ...rest }) => rest);
 
   return (
     <div className="space-y-6">
       <SectionHeader
         eyebrow="Admin · Asset Library"
         title="Brand & content assets"
-        description={`${merged.length} assets (${uploaded.length} uploaded · ${manifest.assets.length} indexed${
+        description={`${items.length} assets · ${uploaded.length} uploaded to Supabase Storage · ${manifest.assets.length} in the checked-in library${
           manifest.generated_at
-            ? `, last scanned ${new Date(manifest.generated_at).toLocaleString()}`
+            ? `, last scanned ${new Date(manifest.generated_at).toLocaleDateString()}`
             : ""
-        }). Uploads are saved to Supabase Storage and visible to your team based on the visibility you set. Sorted newest-first by default.`}
+        }. Uploads are shared with your team based on the visibility you set. Sorted newest-first.`}
         action={
-          <StatusPill
-            status="ok"
-            label="upload to add new assets — no terminal needed"
-          />
+          <StatusPill status="ok" label="upload to add new assets — no terminal needed" />
         }
       />
 
       <AssetUploadCard />
 
-      <div className="card-padded space-y-3">
-        <form className="flex flex-wrap items-end gap-3">
-          <label className="flex-1 min-w-[200px]">
-            <span className="label flex items-center gap-1">
-              <Search size={11} />
-              Search
-            </span>
-            <input
-              type="search"
-              name="q"
-              defaultValue={searchParams.q ?? ""}
-              placeholder="name, file, tag…"
-              className="input mt-1"
-            />
-          </label>
-          {activeCat && <input type="hidden" name="cat" value={activeCat} />}
-          {activeKind !== "all" && (
-            <input type="hidden" name="kind" value={activeKind} />
-          )}
-          <button type="submit" className="btn-primary">
-            Search
-          </button>
-          {(searchParams.q || searchParams.cat || activeKind !== "all") && (
-            <Link href="/admin/assets" className="btn">
-              Reset
-            </Link>
-          )}
-        </form>
-
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[10px] uppercase tracking-[0.18em] text-ink-300">
-            Type
-          </span>
-          {(Object.keys(KIND_LABEL) as KindFilter[]).map((k) => (
-            <CategoryChip
-              key={k}
-              label={KIND_LABEL[k]}
-              count={kindCounts[k]}
-              href={buildHref({ kind: k })}
-              active={activeKind === k}
-            />
-          ))}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[10px] uppercase tracking-[0.18em] text-ink-300">
-            Category
-          </span>
-          <CategoryChip
-            label="All"
-            count={merged.length}
-            href={buildHref({ cat: null })}
-            active={!activeCat}
-          />
-          {(Object.keys(CATEGORY_LABEL) as AssetCategory[])
-            .filter((k) => (counts[k] ?? 0) > 0)
-            .map((k) => (
-              <CategoryChip
-                key={k}
-                label={CATEGORY_LABEL[k]}
-                count={counts[k] ?? 0}
-                href={buildHref({ cat: k })}
-                active={activeCat === k}
-              />
-            ))}
-          {activeCat && (
-            <Link
-              href={buildHref({ cat: null })}
-              className="inline-flex items-center gap-1 rounded-full border border-ink-700 px-2 py-1 text-[11px] text-ink-300 transition hover:border-status-err/40 hover:text-status-err"
-              title="Clear category filter"
-            >
-              <X size={10} />
-              Clear
-            </Link>
-          )}
-        </div>
-      </div>
-
-      <p className="text-[11px] text-ink-300">
-        Showing {assets.length} of {merged.length} assets
-        {activeKind !== "all" && ` · type: ${KIND_LABEL[activeKind]}`}
-        {activeCat && ` · category: ${CATEGORY_LABEL[activeCat as AssetCategory] ?? activeCat}`}
-        {q && ` · search: "${q}"`}
-      </p>
-
-      {assets.length === 0 ? (
-        <EmptyState
-          icon={ImageIcon}
-          title="No assets match"
-          description="Try clearing filters, uploading something new above, or re-running the indexer."
-        />
-      ) : (
-        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {assets.map((a) => (
-            <AssetCard
-              key={`${a.is_uploaded ? "u" : "m"}-${a.id}`}
-              id={a.id}
-              kind={a.kind}
-              category={a.category}
-              categoryLabel={CATEGORY_LABEL[a.category] ?? a.category}
-              label={a.label}
-              fileName={a.file_name}
-              publicPath={a.public_path}
-              visibility={a.default_visibility}
-              tags={a.tags}
-              person={a.person}
-              isUploaded={a.is_uploaded}
-              usageCount={usageCount.get(a.id) ?? 0}
-            />
-          ))}
-        </section>
-      )}
+      <AssetLibraryGrid assets={items} />
     </div>
-  );
-}
-
-function CategoryChip({
-  label,
-  count,
-  href,
-  active,
-}: {
-  label: string;
-  count: number;
-  href: string;
-  active: boolean;
-}) {
-  return (
-    <Link
-      href={href}
-      className={
-        active
-          ? "inline-flex items-center gap-1 rounded-full border border-accent-gold/50 bg-accent-gold/10 px-2.5 py-1 text-[11px] font-medium text-accent-gold"
-          : "inline-flex items-center gap-1 rounded-full border border-ink-700 bg-ink-900/40 px-2.5 py-1 text-[11px] text-ink-200 transition hover:border-ink-500 hover:text-ink-100"
-      }
-    >
-      {label}
-      <span
-        className={
-          active
-            ? "rounded-full bg-accent-gold/20 px-1.5 text-[10px] tabular-nums"
-            : "rounded-full bg-ink-800 px-1.5 text-[10px] tabular-nums text-ink-300"
-        }
-      >
-        {count}
-      </span>
-    </Link>
   );
 }

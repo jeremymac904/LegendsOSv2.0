@@ -44,7 +44,15 @@ function createMainWindow() {
     title: APP_NAME,
     backgroundColor: "#0a0a0d",
     autoHideMenuBar: true,
+    // Real Mac-app window behavior. On macOS we hide the OS titlebar but keep
+    // the traffic lights inset; the web app paints a `-webkit-app-region: drag`
+    // strip (TopBar / sidebar header) so the window drags like a native app.
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
+    trafficLightPosition: process.platform === "darwin" ? { x: 16, y: 18 } : undefined,
+    movable: true,
+    resizable: true,
+    maximizable: true,
+    fullscreenable: true,
     show: false,
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
