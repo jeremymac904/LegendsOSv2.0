@@ -15,6 +15,7 @@
     "test:e2e:install": "playwright install --with-deps chromium",
     "index-assets": "tsx scripts/index-local-assets.ts",
     "seed-assistants": "tsx scripts/seed-atlas-assistants-from-local.ts",
+    "ingest-twins": "node scripts/ingest-ai-twins.mjs",
     "import-local-knowledge": "tsx scripts/import-local-knowledge.ts",
     "desktop:dev": "electron .",
     "desktop:dev:local": "LEGENDSOS_DESKTOP_URL=http://localhost:3000 electron .",

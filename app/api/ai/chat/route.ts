@@ -2,6 +2,13 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { runChat } from "@/lib/ai/providers";
+import { loadAgentMemory, renderMemoryBlock } from "@/lib/agents/memory";
+import { defaultAgentForRole } from "@/lib/agents/registry";
+import {
+  loadAgentSkills,
+  renderSkillsBlock,
+  selectRelevantSkills,
+} from "@/lib/agents/skills";
 import { detectAtlasIntent } from "@/lib/atlas/intentDetection";
 import {
   retrieveForAssistant,
@@ -753,10 +760,31 @@ export async function POST(req: Request) {
       role: m.role as "user" | "assistant" | "system",
       content: m.content,
     }));
+  // Per-user AI Twin persona: load this user's private agent memory + relevant
+  // saved/shared skills and inject them so Atlas answers AS them. Degrade-safe:
+  // if the agent_* tables aren't applied, this silently no-ops.
+  let personaBlock = "";
+  try {
+    const agentType = defaultAgentForRole(profile.role);
+    const [mem, skl] = await Promise.all([
+      loadAgentMemory(supabase, profile.id, agentType),
+      loadAgentSkills(supabase, profile.id, agentType),
+    ]);
+    const blocks = [
+      renderMemoryBlock(mem.memories),
+      renderSkillsBlock(selectRelevantSkills(skl.skills, message)),
+    ].filter(Boolean);
+    if (blocks.length) {
+      personaBlock = ["## Your persona & saved skills (answer in this voice)", ...blocks].join("\n\n");
+    }
+  } catch (e) {
+    console.error("agent persona load failed", e);
+  }
+
   // loanContextText is set above ONLY when a loan was matched in memory. It
   // leads the system blocks so the grounded loan context + response format take
-  // priority over generic project/knowledge context.
-  const systemBlocks = [loanContextText, projectBlock, knowledgeBlock].filter(
+  // priority; the persona block follows so Atlas adopts the user's voice.
+  const systemBlocks = [loanContextText, personaBlock, projectBlock, knowledgeBlock].filter(
     Boolean
   );
   const runtimeContextBlock = renderAtlasRuntimeContextBlock(runtimeContext);
