@@ -259,7 +259,9 @@ export default async function SettingsPage() {
       title: "Zapier MCP",
       detail: "Personal or team MCP endpoints can be saved below",
       envNames: ["Zapier MCP URL", "Zapier MCP token"],
-      configured: true,
+      // Not env-configured at the page level — real saved endpoints are shown
+      // in the MCP Connections panel below. Don't fake a "ready" pill here.
+      configured: false,
       icon: "plug",
       scope: "Personal",
       href: "#mcp-connections",
@@ -299,7 +301,9 @@ export default async function SettingsPage() {
       title: "MCP app connections",
       detail: "User-managed endpoints live below this panel",
       envNames: ["MCP URL", "MCP token"],
-      configured: true,
+      // Not env-configured at the page level — real saved endpoints are shown
+      // in the MCP Connections panel below. Don't fake a "ready" pill here.
+      configured: false,
       icon: "mail",
       scope: "Personal",
       href: "#mcp-connections",

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { N8N_SIGNATURE_HEADER, verifyN8nSignature } from "@/lib/automation/n8n";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -20,6 +21,23 @@ export const dynamic = "force-dynamic";
 // }
 export async function POST(req: Request) {
   const raw = await req.text();
+
+  // FAIL CLOSED: reject unless the request carries a valid HMAC-SHA256 of the
+  // raw body (keyed by N8N_WEBHOOK_SECRET) in the signature header. Without
+  // this, a forged callback with a guessed job UUID could flip
+  // automation_jobs / social_posts / email_campaigns to succeeded/published/sent.
+  // This does NOT activate automation — nothing dispatches jobs.
+  if (!verifyN8nSignature(raw, req.headers.get(N8N_SIGNATURE_HEADER) ?? "")) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "unauthorized",
+        message: "Missing or invalid webhook signature.",
+      },
+      { status: 401 }
+    );
+  }
+
   let payload: Record<string, unknown>;
   try {
     payload = JSON.parse(raw);
