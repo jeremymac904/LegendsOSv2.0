@@ -113,17 +113,17 @@ export function AudienceImportPanel({ audienceId, imports }: Props) {
 
       <label
         className={cn(
-          "flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed bg-ink-900/40 p-6 text-center transition",
+          "flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed bg-ink-50 p-6 text-center transition dark:bg-ink-900/40",
           file
             ? "border-accent-gold/40 bg-accent-gold/5"
-            : "border-ink-700 text-ink-300 hover:border-ink-500"
+            : "border-ink-300 text-ink-600 hover:border-ink-400 dark:border-ink-700 dark:text-ink-300 dark:hover:border-ink-500"
         )}
       >
         <CloudUpload size={22} />
-        <p className="mt-2 text-sm font-medium text-ink-100">
+        <p className="mt-2 text-sm font-medium text-ink-900 dark:text-ink-100">
           {file ? truncate(file.name, 50) : "Choose a CSV file"}
         </p>
-        <p className="text-[11px] text-ink-300">
+        <p className="text-[11px] text-ink-600 dark:text-ink-300">
           {file
             ? `${Math.round(file.size / 1024)} KB · click again to replace`
             : "Up to 20 MB. RFC4180 quoting supported."}
@@ -138,9 +138,9 @@ export function AudienceImportPanel({ audienceId, imports }: Props) {
       </label>
 
       {headers.length > 0 && (
-        <div className="overflow-hidden rounded-xl border border-ink-800">
+        <div className="overflow-hidden rounded-xl border border-ink-200 dark:border-ink-800">
           <table className="w-full text-left text-[11px]">
-            <thead className="bg-ink-900/70 text-[10px] uppercase tracking-[0.18em] text-ink-300">
+            <thead className="bg-ink-100/70 text-[10px] uppercase tracking-[0.18em] text-ink-600 dark:bg-ink-900/70 dark:text-ink-300">
               <tr>
                 {headers.map((h, i) => (
                   <th key={i} className="px-2 py-1.5 whitespace-nowrap">
@@ -151,11 +151,11 @@ export function AudienceImportPanel({ audienceId, imports }: Props) {
             </thead>
             <tbody>
               {previewRows.map((r, i) => (
-                <tr key={i} className="border-t border-ink-800">
+                <tr key={i} className="border-t border-ink-200 dark:border-ink-800">
                   {r.values.map((v, j) => (
                     <td
                       key={j}
-                      className="max-w-[140px] truncate px-2 py-1 text-ink-200"
+                      className="max-w-[140px] truncate px-2 py-1 text-ink-700 dark:text-ink-200"
                     >
                       {truncate(v, 22)}
                     </td>
@@ -164,7 +164,7 @@ export function AudienceImportPanel({ audienceId, imports }: Props) {
               ))}
             </tbody>
           </table>
-          <p className="border-t border-ink-800 bg-ink-900/40 px-2 py-1 text-[10px] text-ink-300">
+          <p className="border-t border-ink-200 bg-ink-50 px-2 py-1 text-[10px] text-ink-600 dark:border-ink-800 dark:bg-ink-900/40 dark:text-ink-300">
             Preview of first 10 data rows. The full file is parsed server-side.
           </p>
         </div>
@@ -206,7 +206,7 @@ export function AudienceImportPanel({ audienceId, imports }: Props) {
         <p className="label">Recent imports</p>
         <div className="mt-2 space-y-1">
           {imports.length === 0 ? (
-            <p className="text-[11px] text-ink-300">No imports yet.</p>
+            <p className="text-[11px] text-ink-600 dark:text-ink-300">No imports yet.</p>
           ) : (
             imports.map((imp) => <ImportRow key={imp.id} imp={imp} />)
           )}
@@ -218,14 +218,14 @@ export function AudienceImportPanel({ audienceId, imports }: Props) {
 
 function ImportSummary({ summary }: { summary: NewsletterContactImport }) {
   return (
-    <div className="rounded-xl border border-ink-800 bg-ink-900/40 p-3 text-xs">
+    <div className="rounded-xl border border-ink-200 bg-white/60 p-3 text-xs dark:border-ink-800 dark:bg-ink-900/40">
       <div className="flex items-center justify-between">
-        <p className="font-medium text-ink-100">Import summary</p>
+        <p className="font-medium text-ink-900 dark:text-ink-100">Import summary</p>
         <StatusPill status={statusToPill(summary.status)} label={summary.status} />
       </div>
-      <ul className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-ink-200 sm:grid-cols-3">
+      <ul className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-ink-700 sm:grid-cols-3 dark:text-ink-200">
         <li>
-          Total: <span className="text-ink-100">{summary.total_rows}</span>
+          Total: <span className="text-ink-900 dark:text-ink-100">{summary.total_rows}</span>
         </li>
         <li>
           New: <span className="text-status-ok">{summary.inserted_count}</span>
@@ -235,7 +235,7 @@ function ImportSummary({ summary }: { summary: NewsletterContactImport }) {
         </li>
         <li>
           In-file dupes:{" "}
-          <span className="text-ink-300">{summary.duplicate_count}</span>
+          <span className="text-ink-600 dark:text-ink-300">{summary.duplicate_count}</span>
         </li>
         <li>
           Missing email:{" "}
@@ -248,10 +248,10 @@ function ImportSummary({ summary }: { summary: NewsletterContactImport }) {
       </ul>
       {summary.errors && summary.errors.length > 0 && (
         <details className="mt-2">
-          <summary className="cursor-pointer text-[10px] uppercase tracking-[0.18em] text-ink-300">
+          <summary className="cursor-pointer text-[10px] uppercase tracking-[0.18em] text-ink-600 dark:text-ink-300">
             View first {Math.min(10, summary.errors.length)} row error(s)
           </summary>
-          <ul className="mt-1 space-y-0.5 text-[11px] text-ink-300">
+          <ul className="mt-1 space-y-0.5 text-[11px] text-ink-600 dark:text-ink-300">
             {summary.errors.slice(0, 10).map((e, i) => (
               <li key={i}>
                 row {e.row}: {e.reason}
@@ -266,19 +266,19 @@ function ImportSummary({ summary }: { summary: NewsletterContactImport }) {
 
 function ImportRow({ imp }: { imp: NewsletterContactImport }) {
   return (
-    <div className="flex items-center justify-between rounded-lg border border-ink-800 bg-ink-900/40 px-2 py-1.5 text-[11px]">
+    <div className="flex items-center justify-between rounded-lg border border-ink-200 bg-white/60 px-2 py-1.5 text-[11px] dark:border-ink-800 dark:bg-ink-900/40">
       <div className="flex items-center gap-2 min-w-0">
-        <FileText size={11} className="shrink-0 text-ink-300" />
-        <span className="truncate text-ink-200">
+        <FileText size={11} className="shrink-0 text-ink-500 dark:text-ink-300" />
+        <span className="truncate text-ink-700 dark:text-ink-200">
           {truncate(imp.source_file_name ?? "uploaded.csv", 28)}
         </span>
       </div>
       <div className="flex items-center gap-2">
-        <span className="text-ink-300">
+        <span className="text-ink-600 dark:text-ink-300">
           {imp.inserted_count}+{imp.updated_count}
         </span>
         <StatusPill status={statusToPill(imp.status)} label={imp.status} />
-        <span className="text-ink-400">
+        <span className="text-ink-500 dark:text-ink-400">
           {formatRelative(imp.completed_at ?? imp.started_at ?? imp.created_at)}
         </span>
       </div>

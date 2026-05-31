@@ -1535,6 +1535,181 @@ export const DEFAULT_LF_RESOURCES: TeamResourceItem[] = [
   },
 ];
 
+// =====================================================================
+// SHARED RESOURCE INTAKE — review items
+// =====================================================================
+//
+// A "review item" is a piece of pasted/uploaded content that an AI step
+// turns into a recommended shared-resource draft. It is persisted in the
+// EXISTING `shared_resources` table (no new migration) using:
+//   - resource_type = "review_item" (status marker, not a team category)
+//   - is_active = false (kept OUT of the team-facing read list until published)
+//   - payload jsonb = the full review-item record below
+//
+// The review_status field is the source of truth for the lifecycle:
+//   - "pending_ai_review": saved, AI not configured OR AI call failed.
+//     The raw content is preserved so the owner can re-run review later.
+//   - "ai_reviewed": AI produced recommendations; owner can edit + publish.
+//   - "published": owner promoted it to a live shared resource (is_active=true,
+//     resource_type set to the recommended category type).
+//
+// We NEVER set "ai_reviewed" unless the AI actually returned content. A failed
+// or unconfigured AI step stays "pending_ai_review" — never a fake "completed".
+
+export const SHARED_REVIEW_RESOURCE_TYPE = "review_item";
+
+export type SharedReviewStatus = "pending_ai_review" | "ai_reviewed" | "published";
+
+export type SharedReviewInputKind =
+  | "plain_text"
+  | "markdown"
+  | "transcript"
+  | "pasted"
+  | "youtube_transcript"
+  | "uploaded_file";
+
+export type SharedReviewShareStatus = "team" | "internal_only" | "needs_owner_review";
+
+/** AI-recommended fields. Every field is optional — a partial AI response is
+ *  still useful and must not crash the UI. */
+export interface SharedReviewRecommendation {
+  title?: string;
+  description?: string;
+  category?: string;
+  audience?: string;
+  body?: string;
+  teamSummary?: string;
+  sanitizedVersion?: string;
+  legendsVoiceRewrite?: string;
+  complianceNotes?: string;
+  shareStatus?: SharedReviewShareStatus;
+}
+
+export interface SharedReviewFileMeta {
+  name: string;
+  /** MIME type as reported by the browser. */
+  type: string;
+  size: number;
+  /** Always true for binary uploads — extraction is honestly deferred. */
+  pendingTextExtraction: boolean;
+}
+
+export interface SharedReviewItem {
+  id: string;
+  title: string;
+  reviewStatus: SharedReviewStatus;
+  inputKind: SharedReviewInputKind;
+  /** Raw pasted/typed text. Empty for binary-only uploads. */
+  sourceText: string;
+  /** Present only for binary uploads (PDF/DOCX) that we did not parse. */
+  file: SharedReviewFileMeta | null;
+  recommendation: SharedReviewRecommendation | null;
+  /** Provider/model that produced the recommendation, when AI ran. */
+  aiProvider: string | null;
+  aiModel: string | null;
+  /** Honest note about why AI did not run, when applicable. */
+  aiNote: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export const SHARED_REVIEW_INPUT_KINDS: {
+  value: SharedReviewInputKind;
+  label: string;
+  textBased: boolean;
+}[] = [
+  { value: "pasted", label: "Pasted content", textBased: true },
+  { value: "plain_text", label: "Plain text", textBased: true },
+  { value: "markdown", label: "Markdown", textBased: true },
+  { value: "transcript", label: "Transcript", textBased: true },
+  { value: "youtube_transcript", label: "YouTube transcript (text)", textBased: true },
+  { value: "uploaded_file", label: "Uploaded file (PDF / DOCX)", textBased: false },
+];
+
+const REVIEW_STATUS_LABELS: Record<SharedReviewStatus, string> = {
+  pending_ai_review: "Pending AI review",
+  ai_reviewed: "AI reviewed",
+  published: "Published to team",
+};
+
+export function reviewStatusLabel(status: SharedReviewStatus): string {
+  return REVIEW_STATUS_LABELS[status] ?? status;
+}
+
+export function reviewStatusTone(status: SharedReviewStatus): "ok" | "info" | "warn" {
+  if (status === "published") return "ok";
+  if (status === "ai_reviewed") return "info";
+  return "warn";
+}
+
+function recommendationFromPayload(value: unknown): SharedReviewRecommendation | null {
+  if (!value || typeof value !== "object") return null;
+  const s = value as Record<string, unknown>;
+  const shareRaw = stringValue(s.share_status ?? s.shareStatus);
+  const shareStatus: SharedReviewShareStatus | undefined =
+    shareRaw === "team" || shareRaw === "internal_only" || shareRaw === "needs_owner_review"
+      ? shareRaw
+      : undefined;
+  const rec: SharedReviewRecommendation = {
+    title: stringValue(s.title) ?? undefined,
+    description: stringValue(s.description) ?? undefined,
+    category: stringValue(s.category) ?? undefined,
+    audience: stringValue(s.audience) ?? undefined,
+    body: stringValue(s.body) ?? undefined,
+    teamSummary: stringValue(s.team_summary ?? s.teamSummary) ?? undefined,
+    sanitizedVersion: stringValue(s.sanitized_version ?? s.sanitizedVersion) ?? undefined,
+    legendsVoiceRewrite:
+      stringValue(s.legends_voice_rewrite ?? s.legendsVoiceRewrite) ?? undefined,
+    complianceNotes: stringValue(s.compliance_notes ?? s.complianceNotes) ?? undefined,
+    shareStatus,
+  };
+  return Object.values(rec).some(Boolean) ? rec : null;
+}
+
+/** Map an existing `shared_resources` row (resource_type = review_item) into a
+ *  typed SharedReviewItem. Tolerant of partial/missing payload fields. */
+export function reviewItemFromShared(row: SharedResource): SharedReviewItem {
+  const payload = (row.payload ?? {}) as Record<string, unknown>;
+  const statusRaw = stringValue(payload.review_status ?? payload.reviewStatus);
+  const reviewStatus: SharedReviewStatus =
+    statusRaw === "ai_reviewed" || statusRaw === "published"
+      ? statusRaw
+      : "pending_ai_review";
+  const kindRaw = stringValue(payload.input_kind ?? payload.inputKind);
+  const inputKind = (SHARED_REVIEW_INPUT_KINDS.find((k) => k.value === kindRaw)?.value ??
+    "pasted") as SharedReviewInputKind;
+
+  const fileRaw = payload.file;
+  let file: SharedReviewFileMeta | null = null;
+  if (fileRaw && typeof fileRaw === "object") {
+    const f = fileRaw as Record<string, unknown>;
+    const name = stringValue(f.name);
+    if (name) {
+      file = {
+        name,
+        type: stringValue(f.type) ?? "application/octet-stream",
+        size: numberValue(f.size) ?? 0,
+        pendingTextExtraction: true,
+      };
+    }
+  }
+
+  return {
+    id: row.id,
+    title: row.title,
+    reviewStatus,
+    inputKind,
+    sourceText: stringValue(payload.source_text ?? payload.sourceText) ?? "",
+    file,
+    recommendation: recommendationFromPayload(payload.recommendation),
+    aiProvider: stringValue(payload.ai_provider ?? payload.aiProvider),
+    aiModel: stringValue(payload.ai_model ?? payload.aiModel),
+    aiNote: stringValue(payload.ai_note ?? payload.aiNote),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
 export function defaultResourcesForMode(mode: TeamResourceMode): TeamResourceItem[] {
   if (mode === "training") return DEFAULT_TRAINING_ITEMS;
   if (mode === "marketing") return DEFAULT_MARKETING_MATERIALS;

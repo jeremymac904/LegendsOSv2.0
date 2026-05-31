@@ -79,7 +79,7 @@ function SavedPostMediaThumb({ media }: { media: SocialMediaPreview }) {
   if (!media.preview_url) return null;
   if (mediaLooksLikeVideo(media)) {
     return (
-      <span className="relative block h-14 w-14 overflow-hidden rounded-lg border border-ink-800 bg-ink-950">
+      <span className="relative block h-14 w-14 overflow-hidden rounded-lg border border-ink-200 bg-ink-100 dark:border-ink-800 dark:bg-ink-950">
         <video
           src={media.preview_url}
           className="h-full w-full object-cover"
@@ -98,7 +98,7 @@ function SavedPostMediaThumb({ media }: { media: SocialMediaPreview }) {
     <img
       src={media.preview_url}
       alt={media.prompt ?? ""}
-      className="h-14 w-14 rounded-lg border border-ink-800 object-cover"
+      className="h-14 w-14 rounded-lg border border-ink-200 object-cover dark:border-ink-800"
     />
   );
 }
@@ -210,17 +210,23 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
           </div>
         }
       />
-      <section className="card-padded">
-        <div className="section-title">
-          <div>
-            <h2>Posting setup path</h2>
-            <p>Drafting is live. External publishing remains disabled until owner flags and webhooks are configured.</p>
+      <details className="card-padded group">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold text-ink-900 dark:text-ink-100">
+              Posting setup path
+            </h2>
+            <p className="mt-0.5 text-xs text-ink-600 dark:text-ink-400">
+              Drafting is live. External publishing stays disabled until owner flags and webhooks are configured.
+            </p>
           </div>
-          <Link href="/settings" className="btn-ghost text-xs">
-            <ExternalLink size={13} />
-            Setup
-          </Link>
-        </div>
+          <span className="shrink-0 text-[10px] uppercase tracking-[0.18em] text-ink-500 dark:text-ink-400 group-open:hidden">
+            Show
+          </span>
+          <span className="hidden shrink-0 text-[10px] uppercase tracking-[0.18em] text-ink-500 dark:text-ink-400 group-open:inline">
+            Hide
+          </span>
+        </summary>
         <div className="mt-3 grid gap-2 md:grid-cols-3">
           <SetupStatusCard
             title="Owner publish flag"
@@ -243,7 +249,11 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
             )}
           />
         </div>
-      </section>
+        <Link href="/settings" className="btn-ghost mt-3 w-fit text-xs">
+          <ExternalLink size={13} />
+          Open Settings
+        </Link>
+      </details>
       <SocialComposer
         userId={profile.id}
         mediaLibrary={mediaLibrary}
@@ -278,14 +288,14 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
               return (
                 <article
                   key={p.id}
-                  className="rounded-xl border border-ink-800 bg-ink-900/40 p-3"
+                  className="rounded-xl border border-ink-200 bg-white/60 p-3 dark:border-ink-800 dark:bg-ink-900/40"
                 >
                   <header className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-ink-100">
+                      <p className="text-sm font-medium text-ink-900 dark:text-ink-100">
                         {p.title ?? "Untitled draft"}
                       </p>
-                      <p className="mt-0.5 line-clamp-2 text-xs text-ink-300">
+                      <p className="mt-0.5 line-clamp-2 text-xs text-ink-600 dark:text-ink-300">
                         {p.body}
                       </p>
                     </div>
@@ -307,7 +317,7 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
                       )}
                     </div>
                   )}
-                  <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-ink-300">
+                  <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-ink-600 dark:text-ink-300">
                     <div className="flex flex-wrap gap-1">
                       {p.channels.map((c) => (
                         <span key={c} className="chip">
@@ -342,15 +352,15 @@ function SetupStatusCard({
   ready: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-ink-800 bg-ink-900/30 p-3">
+    <div className="rounded-xl border border-ink-200 bg-white/50 p-3 dark:border-ink-800 dark:bg-ink-900/30">
       <div className="flex items-center justify-between gap-2">
         <span className="grid h-8 w-8 place-items-center rounded-lg border border-accent-gold/20 bg-accent-gold/10 text-accent-gold">
           <PlugZap size={14} />
         </span>
         <StatusPill status={ready ? "ok" : "warn"} label={ready ? "ready" : "setup needed"} />
       </div>
-      <p className="mt-3 text-sm font-medium text-ink-100">{title}</p>
-      <p className="mt-1 font-mono text-[10px] text-ink-400">{detail}</p>
+      <p className="mt-3 text-sm font-medium text-ink-900 dark:text-ink-100">{title}</p>
+      <p className="mt-1 font-mono text-[10px] text-ink-600 dark:text-ink-400">{detail}</p>
     </div>
   );
 }

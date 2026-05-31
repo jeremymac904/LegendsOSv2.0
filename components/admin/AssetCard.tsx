@@ -21,6 +21,28 @@ export interface AssetCardProps {
   usageCount: number;
 }
 
+// Honest source badge. Three real states only — we never fake a "sample"
+// label for media that isn't actually a sample:
+//   uploaded — real row in shared_resources + Supabase Storage
+//   indexed  — real file checked into public/assets and publicly served
+//   missing  — indexed in the manifest but has no public path (local-only,
+//              not served, so it can't render)
+function SourceBadge({
+  isUploaded,
+  hasPublicPath,
+}: {
+  isUploaded: boolean;
+  hasPublicPath: boolean;
+}) {
+  if (isUploaded) {
+    return <span className="chip-ok text-[10px]">uploaded asset</span>;
+  }
+  if (hasPublicPath) {
+    return <span className="chip-info text-[10px]">indexed asset</span>;
+  }
+  return <span className="chip-warn text-[10px]">missing file</span>;
+}
+
 // Single asset card. Splits the heavy presentation (image / fallback /
 // metadata) into a small client component so we can add a Delete button
 // that hits /api/admin/assets and refreshes the server-rendered list.
@@ -95,21 +117,21 @@ export function AssetCard(props: AssetCardProps) {
             loading="lazy"
           />
         ) : kind === "video" ? (
-          <div className="grid h-full w-full place-items-center text-ink-300">
+          <div className="grid h-full w-full place-items-center text-ink-500 dark:text-ink-300">
             <Video size={28} />
             <span className="mt-1 text-[10px]">video</span>
           </div>
         ) : kind === "document" ? (
-          <div className="grid h-full w-full place-items-center text-ink-300">
+          <div className="grid h-full w-full place-items-center text-ink-500 dark:text-ink-300">
             <FileText size={28} />
             <span className="mt-1 text-[10px]">
               .{fileName.split(".").pop()}
             </span>
           </div>
         ) : (
-          <div className="grid h-full w-full place-items-center text-[10px] text-ink-300">
+          <div className="grid h-full w-full place-items-center text-[10px] text-ink-500 dark:text-ink-300">
             <ImageIcon size={18} />
-            <span className="mt-1">local-only</span>
+            <span className="mt-1">not served</span>
           </div>
         )}
         {isUploaded && (
@@ -125,12 +147,12 @@ export function AssetCard(props: AssetCardProps) {
         )}
       </div>
       <div className="space-y-1 p-3 text-xs">
-        <p className="line-clamp-1 font-medium text-ink-100">{label}</p>
-        <p className="line-clamp-1 text-[10px] text-ink-300">{fileName}</p>
+        <p className="line-clamp-1 font-medium text-ink-900 dark:text-ink-100">{label}</p>
+        <p className="line-clamp-1 text-[10px] text-ink-600 dark:text-ink-300">{fileName}</p>
         <div className="flex flex-wrap items-center gap-1 pt-1">
           <span className="chip">{categoryLabel}</span>
           <UsageChip count={usageCount} />
-          {isUploaded && <span className="chip-ok text-[10px]">uploaded</span>}
+          <SourceBadge isUploaded={isUploaded} hasPublicPath={Boolean(publicPath)} />
           {visibility === "team_shared" ? (
             <span className="chip-ok">
               <Users2 size={10} />
@@ -181,7 +203,7 @@ function UsageChip({ count }: { count: number }) {
       : `Used in ${count} posts`;
   const className =
     count === 0
-      ? "inline-flex items-center gap-1 rounded-full border border-ink-700 bg-ink-900/50 px-2 py-0.5 text-[10px] text-ink-300"
+      ? "inline-flex items-center gap-1 rounded-full border border-ink-200 bg-white px-2 py-0.5 text-[10px] text-ink-600 dark:border-ink-700 dark:bg-ink-900/50 dark:text-ink-300"
       : "inline-flex items-center gap-1 rounded-full border border-accent-gold/40 bg-accent-gold/10 px-2 py-0.5 text-[10px] font-medium text-accent-gold";
   return <span className={className}>{copy}</span>;
 }

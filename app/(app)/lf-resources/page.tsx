@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Building2, ExternalLink, FolderOpen, LifeBuoy } from "lucide-react";
+import { Building2, ChevronDown, ExternalLink, FolderOpen, LifeBuoy } from "lucide-react";
 
 import { LegendsOSHelpCoaches } from "@/components/help/LegendsOSHelpCoaches";
 import { ResourceLibrary } from "@/components/resources/ResourceLibrary";
@@ -52,7 +52,7 @@ export default async function LFResourcesPage() {
   const items = [...sharedItems, ...DEFAULT_LF_RESOURCES];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <SectionHeader
         eyebrow="LF Resources"
         title="Loan Factory resource directory"
@@ -69,56 +69,55 @@ export default async function LFResourcesPage() {
       />
 
       <section className="card-padded">
-        <div className="grid gap-5 lg:grid-cols-[1fr_0.85fr] lg:items-center">
-          <div>
+        <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-start">
+          <div className="min-w-0">
             <p className="label flex items-center gap-2">
               <Building2 size={13} />
               Loan Factory source map
             </p>
-            <h2 className="mt-2 text-2xl font-semibold text-ink-100">
+            <h2 className="mt-1.5 text-lg font-semibold text-ink-900 dark:text-ink-100">
               Keep official LF links easy to find.
             </h2>
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-300">
-              Use this page for Loan Factory training, LO support, development,
-              coaching, department links, system links, important forms, setup
-              references, lender escalation resources, feedback, and AI
-              training.
+            <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-ink-700 dark:text-ink-300">
+              Loan Factory training, LO support, development, coaching,
+              department links, system links, important forms, setup references,
+              lender escalation resources, feedback, and AI training.
             </p>
-            <p className="mt-3 text-xs text-ink-400">
+            <p className="mt-2 text-xs text-ink-600 dark:text-ink-400">
               Source folder retained:{" "}
               <a
                 href={LF_TRAINING_FOLDER_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-accent-champagne hover:text-ink-100"
+                className="text-accent-gold hover:underline dark:text-accent-champagne dark:hover:text-ink-100"
               >
                 Loan Factory Training Folder
               </a>
               .
             </p>
           </div>
-          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+          <div className="flex flex-wrap gap-2 lg:flex-col lg:items-end">
             <HeroStat icon={FolderOpen} label="Source" value="Google Drive" />
             <HeroStat icon={LifeBuoy} label="Support" value="LO-ready" />
             <HeroStat icon={ExternalLink} label="Links" value="New tab safe" />
           </div>
         </div>
-      </section>
-
-      <section className="card-padded">
-        <div className="section-title">
-          <div>
-            <h2>Coverage map</h2>
-            <p>Every required Loan Factory area has a place to land.</p>
+        <details className="group mt-3 border-t border-ink-200 pt-3 dark:border-ink-800">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-[11px] font-medium uppercase tracking-[0.16em] text-ink-600 dark:text-ink-400">
+            <span>Coverage map ({REQUIRED_AREAS.length} areas)</span>
+            <ChevronDown
+              size={14}
+              className="transition-transform group-open:rotate-180"
+            />
+          </summary>
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {REQUIRED_AREAS.map((area) => (
+              <span key={area} className="chip">
+                {area}
+              </span>
+            ))}
           </div>
-        </div>
-        <div className="mt-4 flex flex-wrap gap-2">
-          {REQUIRED_AREAS.map((area) => (
-            <span key={area} className="chip">
-              {area}
-            </span>
-          ))}
-        </div>
+        </details>
       </section>
 
       <LegendsOSHelpCoaches
@@ -155,16 +154,16 @@ function HeroStat({
   value: string;
 }) {
   return (
-    <div className="rounded-xl border border-accent-champagne/10 bg-ink-950/30 p-3 backdrop-blur-sm">
-      <div className="flex items-center gap-2">
-        <span className="grid h-8 w-8 place-items-center rounded-lg border border-accent-champagne/20 bg-accent-gold/10 text-accent-champagne">
-          <Icon size={15} />
-        </span>
-        <p className="text-[10px] uppercase tracking-[0.18em] text-ink-400">
+    <div className="flex items-center gap-2.5 rounded-xl border border-ink-200 bg-ink-50 px-3 py-2 dark:border-accent-champagne/10 dark:bg-ink-950/30 dark:backdrop-blur-sm">
+      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-accent-gold/30 bg-accent-gold/10 text-accent-gold dark:border-accent-champagne/20 dark:text-accent-champagne">
+        <Icon size={15} />
+      </span>
+      <div className="min-w-0">
+        <p className="text-[10px] uppercase tracking-[0.18em] text-ink-600 dark:text-ink-400">
           {label}
         </p>
+        <p className="text-xs font-semibold text-ink-900 dark:text-ink-100">{value}</p>
       </div>
-      <p className="mt-3 text-sm font-semibold text-ink-100">{value}</p>
     </div>
   );
 }

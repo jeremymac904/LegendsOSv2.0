@@ -1,12 +1,12 @@
-import { Sparkles } from "lucide-react";
-
-import { CreateSharedResourceForm } from "@/components/shared/CreateSharedResourceForm";
-import { EmptyState } from "@/components/ui/EmptyState";
+import { SharedWorkspace } from "@/components/shared/SharedWorkspace";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { isOwner } from "@/lib/permissions";
 import { getCurrentProfile, getSupabaseServerClient } from "@/lib/supabase/server";
-import { formatRelative } from "@/lib/utils";
+import {
+  SHARED_REVIEW_RESOURCE_TYPE,
+  reviewItemFromShared,
+} from "@/lib/teamResources";
 import type { SharedResource } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -15,85 +15,52 @@ export default async function SharedResourcesPage() {
   const profile = await getCurrentProfile();
   if (!profile) return null;
   const supabase = getSupabaseServerClient();
+  const owner = isOwner(profile);
 
-  const { data } = await supabase
+  // Team-facing list: published, active resources (review items are excluded —
+  // they live in the owner's review queue until published).
+  const { data: activeData } = await supabase
     .from("shared_resources")
     .select("*")
     .eq("is_active", true)
+    .neq("resource_type", SHARED_REVIEW_RESOURCE_TYPE)
     .order("updated_at", { ascending: false });
 
-  const resources = (data ?? []) as SharedResource[];
-  const owner = isOwner(profile);
+  const activeResources = ((activeData ?? []) as SharedResource[]).map((r) => ({
+    id: r.id,
+    title: r.title,
+    description: r.description,
+    resource_type: r.resource_type,
+    updated_at: r.updated_at,
+  }));
+
+  // Owner-only review queue: intake drafts (inactive review_item rows). RLS
+  // already scopes by org; non-owners never query this.
+  let reviewItems: ReturnType<typeof reviewItemFromShared>[] = [];
+  if (owner) {
+    const { data: reviewData } = await supabase
+      .from("shared_resources")
+      .select("*")
+      .eq("resource_type", SHARED_REVIEW_RESOURCE_TYPE)
+      .order("updated_at", { ascending: false });
+    reviewItems = ((reviewData ?? []) as SharedResource[]).map(reviewItemFromShared);
+  }
 
   return (
     <div className="space-y-6">
       <SectionHeader
         eyebrow="Shared Resources"
         title="Owner-curated team assets"
-        description="Prompts, templates, files, and brand assets Jeremy makes available to every team member. Read-only for the team; owner-managed."
+        description="Paste content or upload a file, let an AI step recommend the title, summary, audience, sanitized + Legends-voice versions, and compliance notes, then publish what passes review. Read-only for the team; owner-managed."
         action={
           <StatusPill status={owner ? "ok" : "info"} label={owner ? "owner" : "viewer"} />
         }
       />
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[2fr_1fr]">
-        <section className="card-padded">
-          <div className="section-title">
-            <div>
-              <h2>Active resources</h2>
-              <p>What every member of the org can use today.</p>
-            </div>
-          </div>
-          <div className="mt-4 grid gap-2">
-            {resources.length === 0 ? (
-              <EmptyState
-                icon={Sparkles}
-                title="No shared resources yet"
-                description={
-                  owner
-                    ? "Add prompts, copy templates, and PDFs on the right. They become available to every team member."
-                    : "Jeremy has not shared any resources yet. Check back later."
-                }
-              />
-            ) : (
-              resources.map((r) => (
-                <article
-                  key={r.id}
-                  className="rounded-xl border border-ink-800 bg-ink-900/40 p-4"
-                >
-                  <header className="flex items-center justify-between gap-3">
-                    <h3 className="text-sm font-medium text-ink-100">
-                      {r.title}
-                    </h3>
-                    <span className="chip">{r.resource_type}</span>
-                  </header>
-                  {r.description && (
-                    <p className="mt-1 text-xs text-ink-300">{r.description}</p>
-                  )}
-                  <p className="mt-3 text-[10px] uppercase tracking-[0.18em] text-ink-400">
-                    Updated {formatRelative(r.updated_at)}
-                  </p>
-                </article>
-              ))
-            )}
-          </div>
-        </section>
-        <aside className="space-y-4">
-          {owner ? (
-            <CreateSharedResourceForm
-              organizationId={profile.organization_id}
-              userId={profile.id}
-            />
-          ) : (
-            <div className="card-padded text-xs text-ink-300">
-              <p className="label">Adding resources</p>
-              <p className="mt-2">
-                Only the owner can add or remove shared resources. Suggest
-                additions to Jeremy directly.
-              </p>
-            </div>
-          )}
-        </aside>
-      </div>
+      <SharedWorkspace
+        owner={owner}
+        activeResources={activeResources}
+        reviewItems={reviewItems}
+      />
     </div>
   );
 }

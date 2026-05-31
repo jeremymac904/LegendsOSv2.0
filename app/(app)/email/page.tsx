@@ -101,17 +101,23 @@ export default async function EmailStudioPage({
         }
       />
 
-      <section className="card-padded">
-        <div className="section-title">
-          <div>
-            <h2>Campaign workflow</h2>
-            <p>Daily-use newsletter drafting, audience counts, preview, owner test send, and safe queueing.</p>
+      <details className="card-padded group">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold text-ink-900 dark:text-ink-100">
+              Campaign workflow
+            </h2>
+            <p className="mt-0.5 text-xs text-ink-600 dark:text-ink-400">
+              Daily-use newsletter drafting, audience counts, preview, owner test send, and safe queueing.
+            </p>
           </div>
-          <Link href="/settings" className="btn-ghost text-xs">
-            <ExternalLink size={13} />
-            Setup
-          </Link>
-        </div>
+          <span className="shrink-0 text-[10px] uppercase tracking-[0.18em] text-ink-500 dark:text-ink-400 group-open:hidden">
+            Show
+          </span>
+          <span className="hidden shrink-0 text-[10px] uppercase tracking-[0.18em] text-ink-500 dark:text-ink-400 group-open:inline">
+            Hide
+          </span>
+        </summary>
         <div className="mt-3 grid gap-2 md:grid-cols-3">
           <EmailSetupCard
             title="Owner send flag"
@@ -129,7 +135,11 @@ export default async function EmailStudioPage({
             ready={audiences.length > 0}
           />
         </div>
-      </section>
+        <Link href="/settings" className="btn-ghost mt-3 w-fit text-xs">
+          <ExternalLink size={13} />
+          Open Settings
+        </Link>
+      </details>
 
       {/* Starter templates panel — visible only when the org has zero
           campaigns (no drafts, no sends, nothing). Once the owner picks
@@ -185,13 +195,15 @@ export default async function EmailStudioPage({
                     className={`block rounded-lg border px-3 py-2 text-xs transition ${
                       isActive
                         ? "border-accent-gold/40 bg-accent-gold/10"
-                        : "border-ink-800 bg-ink-900/40 hover:border-ink-600"
+                        : "border-ink-200 bg-white/60 hover:border-ink-300 dark:border-ink-800 dark:bg-ink-900/40 dark:hover:border-ink-600"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <p
                         className={`truncate font-medium ${
-                          isActive ? "text-accent-gold" : "text-ink-100"
+                          isActive
+                            ? "text-accent-gold"
+                            : "text-ink-900 dark:text-ink-100"
                         }`}
                       >
                         {truncate(c.subject, 50)}
@@ -199,11 +211,11 @@ export default async function EmailStudioPage({
                       <StatusPill status={c.status as never} />
                     </div>
                     {c.preview_text && (
-                      <p className="line-clamp-1 text-[11px] text-ink-300">
+                      <p className="line-clamp-1 text-[11px] text-ink-600 dark:text-ink-300">
                         {c.preview_text}
                       </p>
                     )}
-                    <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-ink-400">
+                    <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-ink-500 dark:text-ink-400">
                       Updated {formatRelative(c.updated_at)}
                     </p>
                   </Link>
@@ -212,7 +224,7 @@ export default async function EmailStudioPage({
             )}
           </div>
           {campaigns.length > 0 && (
-            <div className="mt-3 border-t border-ink-800 pt-3">
+            <div className="mt-3 border-t border-ink-200 pt-3 dark:border-ink-800">
               <Link href="/email" scroll={false} className="btn-ghost text-xs">
                 Start a new draft
               </Link>
@@ -234,15 +246,15 @@ function EmailSetupCard({
   ready: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-ink-800 bg-ink-900/30 p-3">
+    <div className="rounded-xl border border-ink-200 bg-white/50 p-3 dark:border-ink-800 dark:bg-ink-900/30">
       <div className="flex items-center justify-between gap-2">
         <span className="grid h-8 w-8 place-items-center rounded-lg border border-accent-gold/20 bg-accent-gold/10 text-accent-gold">
           <PlugZap size={14} />
         </span>
         <StatusPill status={ready ? "ok" : "warn"} label={ready ? "ready" : "setup needed"} />
       </div>
-      <p className="mt-3 text-sm font-medium text-ink-100">{title}</p>
-      <p className="mt-1 text-[11px] text-ink-400">{detail}</p>
+      <p className="mt-3 text-sm font-medium text-ink-900 dark:text-ink-100">{title}</p>
+      <p className="mt-1 text-[11px] text-ink-600 dark:text-ink-400">{detail}</p>
     </div>
   );
 }

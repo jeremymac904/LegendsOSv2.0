@@ -74,23 +74,24 @@ export function SettingsConnectionSetup({ guides }: Props) {
                 type="button"
                 onClick={() => setSelectedId(guide.id)}
                 className={cn(
-                  "rounded-2xl border border-accent-champagne/10 bg-ink-950/30 p-4 text-left backdrop-blur-sm transition hover:border-accent-champagne/30",
-                  active && "border-accent-champagne/30 bg-accent-gold/5"
+                  "rounded-2xl border border-ink-200 bg-white p-4 text-left transition hover:border-accent-champagne/40 dark:border-accent-champagne/10 dark:bg-ink-950/30 dark:backdrop-blur-sm dark:hover:border-accent-champagne/30",
+                  active &&
+                    "border-accent-champagne/40 bg-accent-gold/5 dark:border-accent-champagne/30"
                 )}
               >
                 <div className="flex items-start justify-between gap-3">
-                  <div className="grid h-9 w-9 place-items-center rounded-lg border border-accent-champagne/20 bg-accent-gold/10 text-accent-champagne">
+                  <div className="grid h-9 w-9 place-items-center rounded-lg border border-ink-200 bg-ink-50 text-ink-700 dark:border-accent-champagne/20 dark:bg-accent-gold/10 dark:text-accent-champagne">
                     <Icon size={16} />
                   </div>
                   <StatusPill
                     status={guide.configured ? "ok" : "warn"}
-                    label={guide.configured ? "ready" : "setup needed"}
+                    label={guide.configured ? "configured" : "setup needed"}
                   />
                 </div>
-                <p className="mt-3 text-sm font-medium text-ink-100">
+                <p className="mt-3 text-sm font-medium text-ink-900 dark:text-ink-100">
                   {guide.title}
                 </p>
-                <p className="mt-1 text-xs leading-relaxed text-ink-300">
+                <p className="mt-1 text-xs leading-relaxed text-ink-600 dark:text-ink-300">
                   {guide.detail}
                 </p>
                 <div className="mt-3 flex flex-wrap gap-1.5">
@@ -111,21 +112,21 @@ export function SettingsConnectionSetup({ guides }: Props) {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="label">Selected setup</p>
-                <h3 className="mt-1 text-lg font-semibold text-ink-100">
+                <h3 className="mt-1 text-lg font-semibold text-ink-900 dark:text-ink-100">
                   {selected.title}
                 </h3>
-                <p className="mt-1 text-sm leading-relaxed text-ink-300">
+                <p className="mt-1 text-sm leading-relaxed text-ink-600 dark:text-ink-300">
                   {selected.detail}
                 </p>
               </div>
               <StatusPill
                 status={selected.configured ? "ok" : "warn"}
-                label={selected.configured ? "ready" : "setup needed"}
+                label={selected.configured ? "configured" : "setup needed"}
               />
             </div>
 
-            <div className="mt-4 rounded-2xl border border-accent-champagne/10 bg-ink-950/30 p-3">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-400">
+            <div className="mt-4 rounded-2xl border border-ink-200 bg-ink-50/60 p-3 dark:border-accent-champagne/10 dark:bg-ink-950/30">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-600 dark:text-ink-400">
                 Required names
               </p>
               <div className="mt-2 flex flex-wrap gap-1.5">
@@ -138,13 +139,16 @@ export function SettingsConnectionSetup({ guides }: Props) {
             </div>
 
             <div className="mt-4">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-400">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-600 dark:text-ink-400">
                 Setup steps
               </p>
               <ol className="mt-2 space-y-2">
                 {selected.steps.map((step, index) => (
-                  <li key={step} className="flex gap-2 text-sm leading-relaxed text-ink-300">
-                    <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border border-accent-champagne/20 bg-accent-gold/10 text-[10px] text-accent-champagne">
+                  <li
+                    key={step}
+                    className="flex gap-2 text-sm leading-relaxed text-ink-700 dark:text-ink-300"
+                  >
+                    <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border border-ink-200 bg-ink-50 text-[10px] text-ink-700 dark:border-accent-champagne/20 dark:bg-accent-gold/10 dark:text-accent-champagne">
                       {index + 1}
                     </span>
                     <span>{step}</span>
@@ -156,29 +160,33 @@ export function SettingsConnectionSetup({ guides }: Props) {
             {(selected.ownerAction || selected.teamAction) && (
               <div className="mt-4 grid gap-2">
                 {selected.ownerAction && (
-                  <p className="rounded-xl border border-accent-champagne/10 bg-ink-950/30 p-3 text-xs leading-relaxed text-ink-300">
-                    <span className="font-semibold text-ink-100">Owner: </span>
+                  <p className="rounded-xl border border-ink-200 bg-ink-50/60 p-3 text-xs leading-relaxed text-ink-700 dark:border-accent-champagne/10 dark:bg-ink-950/30 dark:text-ink-300">
+                    <span className="font-semibold text-ink-900 dark:text-ink-100">
+                      Owner:{" "}
+                    </span>
                     {selected.ownerAction}
                   </p>
                 )}
                 {selected.teamAction && (
-                  <p className="rounded-xl border border-accent-champagne/10 bg-ink-950/30 p-3 text-xs leading-relaxed text-ink-300">
-                    <span className="font-semibold text-ink-100">Team: </span>
+                  <p className="rounded-xl border border-ink-200 bg-ink-50/60 p-3 text-xs leading-relaxed text-ink-700 dark:border-accent-champagne/10 dark:bg-ink-950/30 dark:text-ink-300">
+                    <span className="font-semibold text-ink-900 dark:text-ink-100">
+                      Team:{" "}
+                    </span>
                     {selected.teamAction}
                   </p>
                 )}
               </div>
             )}
 
-            <div className="mt-4 overflow-hidden rounded-2xl border border-accent-champagne/10 bg-ink-950/40">
-              <div className="grid aspect-video place-items-center border-b border-accent-champagne/10">
-                <Video size={22} className="text-accent-champagne/80" />
+            <div className="mt-4 overflow-hidden rounded-2xl border border-ink-200 bg-ink-50/60 dark:border-accent-champagne/10 dark:bg-ink-950/40">
+              <div className="grid aspect-video place-items-center border-b border-ink-200 dark:border-accent-champagne/10">
+                <Video size={22} className="text-ink-400 dark:text-accent-champagne/80" />
               </div>
               <div className="p-3">
-                <p className="text-sm font-medium text-ink-100">
+                <p className="text-sm font-medium text-ink-900 dark:text-ink-100">
                   {selected.videoPlaceholder}
                 </p>
-                <p className="mt-1 text-xs text-ink-400">
+                <p className="mt-1 text-xs text-ink-600 dark:text-ink-400">
                   Tutorial placeholder. Add the approved walkthrough video when ready.
                 </p>
               </div>

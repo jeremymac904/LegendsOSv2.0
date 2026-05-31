@@ -216,7 +216,7 @@ export default async function CalendarPage({ searchParams }: PageProps) {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <SectionHeader
         eyebrow="Calendar"
         title="Content & campaign planning"
@@ -229,33 +229,39 @@ export default async function CalendarPage({ searchParams }: PageProps) {
         }
       />
 
-      {view === "agenda" && (
-        <section className="card-padded">
-          <div className="section-title">
-            <div>
-              <h2>Agenda</h2>
-              <p>Chronological planning list across social, email, and calendar items.</p>
-            </div>
-          </div>
-          <AgendaList entries={monthEntries} />
-        </section>
-      )}
-
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[2fr_1fr]">
-        <section className={view === "week" ? "" : "card-padded"}>
-          {view === "week" ? (
-            <WeekStrip upcoming={upcoming.length > 0 ? upcoming : monthEntries} />
-          ) : (
+        <section className={view === "month" ? "card-padded" : ""}>
+          {view === "month" && (
             <CalendarMonthGrid
               month={month}
               entries={monthEntries}
               focusId={focusId}
             />
           )}
+          {view === "week" && (
+            <WeekStrip upcoming={upcoming.length > 0 ? upcoming : monthEntries} />
+          )}
+          {view === "agenda" && (
+            <div className="card-padded">
+              <div className="section-title">
+                <div>
+                  <h2>Agenda</h2>
+                  <p>
+                    Chronological planning list across social, email, and
+                    calendar items.
+                  </p>
+                </div>
+              </div>
+              <AgendaList entries={monthEntries} />
+            </div>
+          )}
         </section>
 
         <aside className="space-y-4">
-          <WeekStrip upcoming={upcoming} />
+          {/* The aside week strip is the "at a glance" companion to the month
+              and agenda views. In week view the main column already IS the week
+              strip, so we drop the duplicate to keep the page compact. */}
+          {view !== "week" && <WeekStrip upcoming={upcoming} />}
           {upcoming.length > 0 && (
             <section className="card-padded">
               <div className="section-title">
@@ -269,13 +275,13 @@ export default async function CalendarPage({ searchParams }: PageProps) {
                   <Link
                     key={`${row.kind}-${row.id}`}
                     href={row.link}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-ink-800 bg-ink-900/40 p-3 hover:border-accent-gold/30 hover:bg-ink-900/70"
+                    className="flex items-center justify-between gap-3 rounded-xl border border-ink-200 bg-ink-50 p-3 hover:border-accent-gold/30 hover:bg-ink-100 dark:border-ink-800 dark:bg-ink-900/40 dark:hover:bg-ink-900/70"
                   >
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-ink-100">
+                      <p className="truncate text-sm font-medium text-ink-900 dark:text-ink-100">
                         {row.title}
                       </p>
-                      <p className="mt-0.5 text-[11px] uppercase tracking-[0.18em] text-ink-400">
+                      <p className="mt-0.5 text-[11px] uppercase tracking-[0.18em] text-ink-600 dark:text-ink-400">
                         {formatDate(row.whenIso)} · {row.kind}
                       </p>
                     </div>
@@ -316,7 +322,7 @@ function CalendarViewTabs({
   current: "month" | "week" | "agenda";
 }) {
   return (
-    <div className="flex rounded-xl border border-ink-800 bg-ink-900/50 p-1">
+    <div className="flex rounded-xl border border-ink-200 bg-white p-1 dark:border-ink-800 dark:bg-ink-900/50">
       {(["month", "week", "agenda"] as const).map((view) => (
         <Link
           key={view}
@@ -325,7 +331,7 @@ function CalendarViewTabs({
             "rounded-lg px-2.5 py-1 text-[11px] capitalize transition",
             current === view
               ? "bg-accent-gold/15 text-accent-gold"
-              : "text-ink-300 hover:bg-ink-800 hover:text-ink-100",
+              : "text-ink-600 hover:bg-ink-100 hover:text-ink-900 dark:text-ink-300 dark:hover:bg-ink-800 dark:hover:text-ink-100",
           ].join(" ")}
         >
           {view}
@@ -341,7 +347,7 @@ function AgendaList({ entries }: { entries: CalendarEntry[] }) {
   );
   if (sorted.length === 0) {
     return (
-      <p className="mt-3 rounded-xl border border-dashed border-ink-700 bg-ink-900/30 p-4 text-sm text-ink-300">
+      <p className="mt-3 rounded-xl border border-dashed border-ink-300 bg-ink-50 p-4 text-sm text-ink-600 dark:border-ink-700 dark:bg-ink-900/30 dark:text-ink-300">
         No items in this month. Create a calendar item or schedule a campaign to fill the agenda.
       </p>
     );
@@ -352,13 +358,15 @@ function AgendaList({ entries }: { entries: CalendarEntry[] }) {
         <Link
           key={`${entry.kind}-${entry.id}`}
           href={entry.link}
-          className="flex items-center justify-between gap-3 rounded-xl border border-ink-800 bg-ink-900/40 p-3 hover:border-accent-gold/30"
+          className="flex items-center justify-between gap-3 rounded-xl border border-ink-200 bg-ink-50 p-3 hover:border-accent-gold/30 hover:bg-ink-100 dark:border-ink-800 dark:bg-ink-900/40 dark:hover:bg-ink-900/70"
         >
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-ink-100">
+            <p className="truncate text-sm font-medium text-ink-900 dark:text-ink-100">
               {entry.title}
             </p>
-            <p className="text-xs text-ink-300">{formatDate(entry.whenIso)}</p>
+            <p className="text-xs text-ink-600 dark:text-ink-300">
+              {formatDate(entry.whenIso)}
+            </p>
           </div>
           <span className="chip">{entry.kind}</span>
         </Link>
@@ -422,47 +430,53 @@ function WeekStrip({ upcoming }: { upcoming: CalendarEntry[] }) {
             <div
               key={b.key}
               className={[
-                "rounded-xl border bg-ink-900/40 p-2.5",
+                "rounded-xl border bg-ink-50 p-2.5 dark:bg-ink-900/40",
                 isToday
                   ? "border-accent-gold/40 ring-1 ring-inset ring-accent-gold/25"
-                  : "border-ink-800",
+                  : "border-ink-200 dark:border-ink-800",
               ].join(" ")}
             >
               <div className="mb-1.5 flex items-baseline justify-between gap-2">
                 <p
                   className={[
                     "text-[10px] font-semibold uppercase tracking-[0.18em]",
-                    isToday ? "text-accent-gold" : "text-ink-300",
+                    isToday
+                      ? "text-accent-gold"
+                      : "text-ink-600 dark:text-ink-300",
                   ].join(" ")}
                 >
                   {isToday ? "Today" : weekday}{" "}
                   <span
                     className={[
                       "ml-0.5 font-normal tabular-nums",
-                      isToday ? "text-accent-gold" : "text-ink-400",
+                      isToday
+                        ? "text-accent-gold"
+                        : "text-ink-500 dark:text-ink-400",
                     ].join(" ")}
                   >
                     {day}
                   </span>
                 </p>
                 {b.entries.length > 0 && (
-                  <span className="text-[9.5px] uppercase tracking-[0.18em] text-ink-500">
+                  <span className="text-[9.5px] uppercase tracking-[0.18em] text-ink-500 dark:text-ink-500/90">
                     {b.entries.length} item
                     {b.entries.length === 1 ? "" : "s"}
                   </span>
                 )}
               </div>
               {b.entries.length === 0 ? (
-                <p className="text-[11px] italic text-ink-500">No items</p>
+                <p className="text-[11px] italic text-ink-400 dark:text-ink-500">
+                  No items
+                </p>
               ) : (
                 <div className="flex flex-col gap-1">
                   {b.entries.map((row) => (
                     <Link
                       key={`${row.kind}-${row.id}`}
                       href={row.link}
-                      className="flex items-center justify-between gap-2 rounded-lg px-1.5 py-1 hover:bg-ink-800/70"
+                      className="flex items-center justify-between gap-2 rounded-lg px-1.5 py-1 hover:bg-ink-100 dark:hover:bg-ink-800/70"
                     >
-                      <span className="min-w-0 flex-1 truncate text-[11.5px] text-ink-100">
+                      <span className="min-w-0 flex-1 truncate text-[11.5px] text-ink-800 dark:text-ink-100">
                         {new Date(row.whenIso).toLocaleTimeString(undefined, {
                           hour: "numeric",
                           minute: "2-digit",

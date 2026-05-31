@@ -42,7 +42,7 @@ export function ModuleListItem({ module, trackSlug }: ModuleListItemProps) {
         </div>
         <ArrowRight
           size={16}
-          className="mt-1 shrink-0 text-ink-400 transition-colors group-hover:text-accent-champagne"
+          className="mt-1 shrink-0 text-ink-500 transition-colors group-hover:text-accent-champagne dark:text-ink-400"
         />
       </div>
       <p className="mt-2 text-sm leading-relaxed text-ink-700 dark:text-ink-200">

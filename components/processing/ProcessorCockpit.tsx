@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ClipboardList, FileText, FolderOpen, Inbox } from "lucide-react";
 
 import { GeneratorPanel } from "@/components/loanbrain/GeneratorPanel";
@@ -16,7 +16,10 @@ const ASHLEY_KINDS = [
   "condition_plan",
 ] as const;
 
-const COLUMNS: { key: string; title: string; match: (r: BoardRow) => boolean }[] = [
+// Status filters replace the old 3-column Kanban wall. Each is a compact tab
+// over the same queue, so the whole pipeline stays above the fold.
+const FILTERS: { key: string; title: string; match: (r: BoardRow) => boolean }[] = [
+  { key: "all", title: "All", match: () => true },
   { key: "needs", title: "Needs Ashley", match: (r) => r.stageStatus === "blocked" },
   { key: "progress", title: "In progress", match: (r) => r.stageStatus === "working" },
   { key: "done", title: "Done / submitted", match: (r) => r.stageStatus === "done" || r.stageStatus === "seen" },
@@ -24,7 +27,22 @@ const COLUMNS: { key: string; title: string; match: (r: BoardRow) => boolean }[]
 
 export function ProcessorCockpit({ rows }: { rows: BoardRow[] }) {
   const [selected, setSelected] = useState<BoardRow | null>(rows[0] ?? null);
+  const [filter, setFilter] = useState<string>("all");
   const [notes, setNotes] = useState("");
+
+  const counts = useMemo(
+    () =>
+      FILTERS.reduce<Record<string, number>>((acc, f) => {
+        acc[f.key] = rows.filter(f.match).length;
+        return acc;
+      }, {}),
+    [rows]
+  );
+
+  const visible = useMemo(() => {
+    const active = FILTERS.find((f) => f.key === filter) ?? FILTERS[0];
+    return rows.filter(active.match);
+  }, [rows, filter]);
 
   if (rows.length === 0) {
     return (
@@ -37,55 +55,106 @@ export function ProcessorCockpit({ rows }: { rows: BoardRow[] }) {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_1.3fr]">
-      {/* Board */}
-      <div className="space-y-3">
-        {COLUMNS.map((col) => {
-          const items = rows.filter(col.match);
-          return (
-            <div key={col.key} className="card-padded">
-              <div className="mb-2 flex items-center justify-between">
-                <p className="label">{col.title}</p>
-                <span className="chip">{items.length}</span>
-              </div>
-              {items.length === 0 ? (
-                <p className="text-xs text-ink-400">Nothing here.</p>
-              ) : (
-                <ul className="space-y-1.5">
-                  {items.map((r) => (
-                    <li key={r.folderId}>
-                      <button
-                        type="button"
-                        onClick={() => setSelected(r)}
-                        className={cn(
-                          "w-full rounded-xl border px-3 py-2.5 text-left transition-colors",
-                          selected?.folderId === r.folderId
-                            ? "border-accent-champagne/30 bg-ink-800/40"
-                            : "border-ink-800 bg-ink-900/40 hover:border-accent-champagne/20"
-                        )}
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="truncate text-sm font-medium text-ink-100">
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_1.25fr]">
+      {/* Queue — compact table with a sticky status filter bar */}
+      <div className="card flex min-h-0 flex-col overflow-hidden">
+        <div className="sticky top-0 z-10 flex flex-wrap items-center gap-1.5 border-b border-ink-200 bg-white/85 px-3 py-2.5 backdrop-blur-sm dark:border-ink-800 dark:bg-ink-950/60">
+          {FILTERS.map((f) => (
+            <button
+              key={f.key}
+              type="button"
+              onClick={() => setFilter(f.key)}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors",
+                filter === f.key
+                  ? "bg-accent-gold/15 text-ink-900 dark:text-ink-100"
+                  : "text-ink-600 hover:text-ink-900 dark:text-ink-400 dark:hover:text-ink-100"
+              )}
+            >
+              {f.title}
+              <span
+                className={cn(
+                  "rounded-full px-1.5 text-[10px] tabular-nums",
+                  filter === f.key
+                    ? "bg-accent-gold/20 text-ink-900 dark:text-ink-100"
+                    : "bg-ink-100 text-ink-600 dark:bg-ink-800 dark:text-ink-400"
+                )}
+              >
+                {counts[f.key] ?? 0}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {visible.length === 0 ? (
+          <p className="px-4 py-6 text-xs text-ink-600 dark:text-ink-400">
+            Nothing in this view.
+          </p>
+        ) : (
+          <div className="max-h-[60vh] overflow-y-auto scrollbar-thin">
+            <table className="w-full border-collapse text-left text-sm">
+              <thead className="sticky top-0 z-[1] bg-white/90 backdrop-blur-sm dark:bg-ink-950/70">
+                <tr className="border-b border-ink-200 dark:border-ink-800">
+                  <th className="px-3 py-2 text-[10px] font-medium uppercase tracking-[0.16em] text-ink-500 dark:text-ink-400">
+                    Borrower
+                  </th>
+                  <th className="hidden px-2 py-2 text-[10px] font-medium uppercase tracking-[0.16em] text-ink-500 sm:table-cell dark:text-ink-400">
+                    Program
+                  </th>
+                  <th className="px-2 py-2 text-right text-[10px] font-medium uppercase tracking-[0.16em] text-ink-500 dark:text-ink-400">
+                    Status
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {visible.map((r) => {
+                  const isActive = selected?.folderId === r.folderId;
+                  return (
+                    <tr
+                      key={r.folderId}
+                      onClick={() => setSelected(r)}
+                      className={cn(
+                        "cursor-pointer border-b border-ink-100 transition-colors last:border-0 dark:border-ink-800/60",
+                        isActive
+                          ? "bg-accent-gold/10"
+                          : "hover:bg-ink-50 dark:hover:bg-ink-900/50"
+                      )}
+                    >
+                      <td className="px-3 py-2 align-top">
+                        <div className="flex items-center gap-2">
+                          <span className="truncate font-medium text-ink-900 dark:text-ink-100">
                             {r.borrowerName}
                           </span>
-                          <StageStatusPill status={r.stageStatus} />
+                          {r.missingCount > 0 && (
+                            <span className="chip-warn shrink-0">{r.missingCount} missing</span>
+                          )}
                         </div>
-                        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-ink-300">
+                        <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-ink-600 sm:hidden dark:text-ink-400">
                           <span>{r.loanProgram ?? "Program TBD"}</span>
                           {r.loanNumber && <span>· #{r.loanNumber}</span>}
-                          {r.missingCount > 0 && (
-                            <span className="chip-warn">{r.missingCount} missing</span>
-                          )}
+                        </div>
+                      </td>
+                      <td className="hidden px-2 py-2 align-top text-[12px] text-ink-700 sm:table-cell dark:text-ink-300">
+                        <span>{r.loanProgram ?? "Program TBD"}</span>
+                        {r.loanNumber && (
+                          <span className="block text-[11px] text-ink-500 dark:text-ink-400">
+                            #{r.loanNumber}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-2 py-2 align-top">
+                        <div className="flex flex-wrap items-center justify-end gap-1.5">
+                          <StageStatusPill status={r.stageStatus} />
                           <PriorityPill priority={r.priority} />
                         </div>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          );
-        })}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Detail */}
@@ -94,7 +163,7 @@ export function ProcessorCockpit({ rows }: { rows: BoardRow[] }) {
           <EmptyState
             icon={ClipboardList}
             title="Pick a file"
-            description="Select a loan from your board to see the handoff, documents, and draft tools."
+            description="Select a loan from your queue to see the handoff, documents, and draft tools."
           />
         ) : (
           <>

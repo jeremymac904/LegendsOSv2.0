@@ -9,11 +9,14 @@ import {
   SettingsConnectionSetup,
   type ConnectionSetupGuide,
 } from "@/components/settings/SettingsConnectionSetup";
+import { SettingsTabs } from "@/components/settings/SettingsTabs";
+import { SystemStatusGrid } from "@/components/settings/SystemStatusGrid";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatusPill } from "@/components/ui/StatusPill";
 import {
   getAIProviderStatuses,
   getServerEnv,
+  isSupabaseConfigured,
   maskedKeyPreview,
   PUBLIC_ENV,
 } from "@/lib/env";
@@ -26,7 +29,7 @@ import type { ProviderCredentialPublic } from "@/types/database";
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
-  const { profile } = await getEffectiveProfile();
+  const { profile, realProfile, impersonating } = await getEffectiveProfile();
   if (!profile) return null;
   const supabase = getSupabaseServerClient();
   const env = getServerEnv();
@@ -221,13 +224,16 @@ export default async function SettingsPage() {
     {
       id: "zapier-mcp",
       title: "Zapier MCP",
-      detail: "Personal or team MCP endpoints can be saved below",
+      // Honest state: there is no server-detected Zapier MCP credential. These
+      // endpoints are user-saved in the MCP tab, so this card is always "setup
+      // needed" until a connection is added — never a hardcoded "ready".
+      detail: "Save a personal or team MCP endpoint in the MCP tab to connect.",
       envNames: ["Zapier MCP URL", "Zapier MCP token"],
-      configured: true,
+      configured: false,
       icon: "plug",
       scope: "Personal",
-      href: "#mcp-connections",
-      buttonLabel: "Open MCP Connections",
+      href: "/settings",
+      buttonLabel: "Open MCP tab",
       steps: [
         "Create the MCP endpoint in Zapier.",
         "Save the endpoint URL and token in the MCP Connections panel.",
@@ -261,13 +267,16 @@ export default async function SettingsPage() {
     {
       id: "mcp-apps",
       title: "MCP app connections",
-      detail: "User-managed endpoints live below this panel",
+      // Honest state: user-managed endpoints are saved in the MCP tab. There is
+      // no server-detected credential, so this stays "setup needed" until the
+      // user adds one — no hardcoded "ready".
+      detail: "Add a personal or team MCP endpoint in the MCP tab to connect apps.",
       envNames: ["MCP URL", "MCP token"],
-      configured: true,
+      configured: false,
       icon: "mail",
       scope: "Personal",
-      href: "#mcp-connections",
-      buttonLabel: "Open MCP Connections",
+      href: "/settings",
+      buttonLabel: "Open MCP tab",
       steps: [
         "Choose whether the connection is personal or team scoped.",
         "Save the endpoint and token in the MCP Connections panel.",
@@ -292,8 +301,8 @@ export default async function SettingsPage() {
       configured: merged.some((p) => p.configured),
       icon: "key",
       scope: "Owner",
-      href: "#ai-provider-gateway",
-      buttonLabel: "Open Provider Gateway",
+      href: "/settings",
+      buttonLabel: "Open AI Providers tab",
       steps: [
         "Choose the provider and model lane needed by Atlas or Image Studio.",
         "Set provider keys only in secure server environment variables.",
@@ -307,6 +316,81 @@ export default async function SettingsPage() {
     },
   ];
 
+  // ---------------------------------------------------------------------------
+  // Honest, server-computed status overview. Every tone/pill below reflects a
+  // real signal — none are hardcoded "ready". Desktop-shell and theme are
+  // resolved client-side in <SystemStatusGrid> because the server can't see
+  // them. Drive Loan Brain has its own live tab.
+  // ---------------------------------------------------------------------------
+  const supabaseReady = isSupabaseConfigured();
+  const configuredProviderCount = merged.filter((p) => p.configured).length;
+  const enabledProviderCount = merged.filter((p) => p.effectiveEnabled).length;
+  const n8nConfigured = Boolean(env.N8N_BASE_URL || n8nWebhookCount > 0);
+  const googleOAuthConfigured = Boolean(
+    process.env.GOOGLE_OAUTH_CLIENT_ID && process.env.GOOGLE_OAUTH_CLIENT_SECRET
+  );
+  // Email intake (Gmail AI intake) is dormant: it needs the Google OAuth client
+  // AND an email-send webhook before it can run. We report exactly that — never
+  // a fake "connected".
+  const emailIntakeConfigured =
+    googleOAuthConfigured && Boolean(env.N8N_WEBHOOKS.email_send);
+
+  const systemStatusItems = [
+    {
+      key: "supabase",
+      label: "Supabase",
+      detail: supabaseReady
+        ? "Project URL and publishable key are configured."
+        : "Missing NEXT_PUBLIC_SUPABASE_URL or publishable key.",
+      tone: (supabaseReady ? "ok" : "missing") as "ok" | "missing",
+      pill: supabaseReady ? "configured" : "missing",
+    },
+    {
+      key: "providers",
+      label: "AI providers",
+      detail:
+        configuredProviderCount > 0
+          ? `${enabledProviderCount} of ${configuredProviderCount} configured provider${configuredProviderCount === 1 ? "" : "s"} enabled. Full table in the AI Providers tab.`
+          : "No provider keys detected. Add them in the host environment.",
+      tone: (configuredProviderCount > 0
+        ? enabledProviderCount > 0
+          ? "ok"
+          : "off"
+        : "missing") as "ok" | "off" | "missing",
+      pill:
+        configuredProviderCount > 0
+          ? `${configuredProviderCount} configured`
+          : "missing",
+    },
+    {
+      key: "n8n",
+      label: "n8n workflow broker",
+      detail: n8nConfigured
+        ? `${n8nWebhookCount} webhook${n8nWebhookCount === 1 ? "" : "s"} configured. Live actions stay off until owner flags are on.`
+        : "No base URL or webhooks set. Workflow actions are unavailable.",
+      tone: (n8nConfigured ? "ok" : "missing") as "ok" | "missing",
+      pill: n8nConfigured ? "configured" : "setup needed",
+    },
+    {
+      key: "role",
+      label: "Role preview",
+      detail: impersonating
+        ? `Viewing as ${profile.email} (${profile.role}). Your real account is ${realProfile?.email ?? "the owner"}.`
+        : `Viewing as yourself — ${profile.role}. No impersonation active.`,
+      tone: (impersonating ? "warn" : "info") as "warn" | "info",
+      pill: impersonating ? "previewing" : "self",
+    },
+    {
+      key: "email",
+      label: "Email intake",
+      detail: emailIntakeConfigured
+        ? "Google OAuth and the email-send webhook are configured."
+        : "Dormant — needs the Google OAuth client and an email-send webhook.",
+      tone: (emailIntakeConfigured ? "ok" : "off") as "ok" | "off",
+      pill: emailIntakeConfigured ? "configured" : "coming soon",
+    },
+  ];
+
   return (
     <div className="space-y-6">
       <SectionHeader
@@ -316,230 +400,270 @@ export default async function SettingsPage() {
       />
       <LegendsOSHelpCoaches />
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <section className="card-padded">
-          <div className="section-title">
-            <div>
-              <h2>Profile</h2>
-              <p>Your identity in {PUBLIC_ENV.APP_NAME}.</p>
-            </div>
-          </div>
-          <dl className="mt-4 grid grid-cols-3 gap-2 text-xs">
-            <dt className="text-ink-300">Email</dt>
-            <dd className="col-span-2 text-ink-100">{profile.email}</dd>
-            <dt className="text-ink-300">Full name</dt>
-            <dd className="col-span-2 text-ink-100">
-              {profile.full_name ?? "—"}
-            </dd>
-            <dt className="text-ink-300">Role</dt>
-            <dd className="col-span-2">
-              <StatusPill status="info" label={profile.role} />
-            </dd>
-            <dt className="text-ink-300">Organization</dt>
-            <dd className="col-span-2 text-ink-100">{PUBLIC_ENV.TEAM_NAME}</dd>
-            <dt className="text-ink-300">Active since</dt>
-            <dd className="col-span-2 text-ink-100">
-              {formatRelative(profile.created_at)}
-            </dd>
-          </dl>
-        </section>
-        <section className="card-padded">
-          <div className="section-title">
-            <div>
-              <h2>External actions</h2>
-              <p>Owner-controlled toggles for outbound publishing and sending.</p>
-            </div>
-          </div>
-          <ul className="mt-4 space-y-2 text-sm">
-            {externalToggles.map((s) => (
-              <li
-                key={s.env_var}
-                className="flex items-center justify-between rounded-lg border border-accent-champagne/10 bg-ink-950/30 px-3 py-2 backdrop-blur-sm"
-              >
+      <SettingsTabs
+        overview={
+          <div className="space-y-5">
+            <section className="card-padded">
+              <div className="section-title">
                 <div>
-                  <p className="text-ink-100">{s.label}</p>
-                  <p className="text-[11px] text-ink-300">{s.env_var}</p>
+                  <h2>System status</h2>
+                  <p>
+                    Live, honest snapshot of every integration. Nothing reads
+                    &ldquo;connected&rdquo; unless it actually is.
+                  </p>
                 </div>
-                <StatusPill
-                  status={s.on ? "ok" : "warn"}
-                  label={s.on ? "enabled" : "disabled"}
-                />
-              </li>
-            ))}
-          </ul>
-          {!owner && (
-            <p className="mt-3 text-[11px] text-ink-300">
-              Only the owner can change these toggles.
-            </p>
-          )}
-        </section>
-      </div>
-
-      <SettingsConnectionSetup guides={connectionGuides} />
-
-      <DriveLoanBrainSetup />
-
-      <section className="card-padded">
-        <div className="section-title">
-          <div>
-            <h2>Setup tutorials</h2>
-            <p>Video lanes for owner, team, and personal connector onboarding.</p>
-          </div>
-        </div>
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
-          {[
-            ["Owner broker setup", "n8n, provider keys, live action flags"],
-            ["Team connector setup", "MCP, Google, Gmail, Calendar, Drive"],
-            ["Personal workspace setup", "Per-user providers and project knowledge"],
-          ].map(([title, detail]) => (
-            <div
-              key={title}
-              className="overflow-hidden rounded-xl border border-accent-champagne/10 bg-ink-950/30 backdrop-blur-sm"
-            >
-              <div className="grid aspect-video place-items-center border-b border-accent-champagne/10 bg-ink-950/50">
-                <Video size={22} className="text-accent-champagne/80" />
               </div>
-              <div className="p-3">
-                <p className="text-sm font-medium text-ink-100">{title}</p>
-                <p className="mt-1 text-xs text-ink-300">{detail}</p>
+              <div className="mt-4">
+                <SystemStatusGrid serverItems={systemStatusItems} />
+              </div>
+            </section>
+
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+              <section className="card-padded">
+                <div className="section-title">
+                  <div>
+                    <h2>Profile</h2>
+                    <p>Your identity in {PUBLIC_ENV.APP_NAME}.</p>
+                  </div>
+                </div>
+                <dl className="mt-4 grid grid-cols-3 gap-2 text-xs">
+                  <dt className="text-ink-600 dark:text-ink-300">Email</dt>
+                  <dd className="col-span-2 text-ink-900 dark:text-ink-100">
+                    {profile.email}
+                  </dd>
+                  <dt className="text-ink-600 dark:text-ink-300">Full name</dt>
+                  <dd className="col-span-2 text-ink-900 dark:text-ink-100">
+                    {profile.full_name ?? "—"}
+                  </dd>
+                  <dt className="text-ink-600 dark:text-ink-300">Role</dt>
+                  <dd className="col-span-2">
+                    <StatusPill status="info" label={profile.role} />
+                  </dd>
+                  <dt className="text-ink-600 dark:text-ink-300">Organization</dt>
+                  <dd className="col-span-2 text-ink-900 dark:text-ink-100">
+                    {PUBLIC_ENV.TEAM_NAME}
+                  </dd>
+                  <dt className="text-ink-600 dark:text-ink-300">Active since</dt>
+                  <dd className="col-span-2 text-ink-900 dark:text-ink-100">
+                    {formatRelative(profile.created_at)}
+                  </dd>
+                </dl>
+              </section>
+              <section className="card-padded">
+                <div className="section-title">
+                  <div>
+                    <h2>External actions</h2>
+                    <p>Owner-controlled toggles for outbound publishing and sending.</p>
+                  </div>
+                </div>
+                <ul className="mt-4 space-y-2 text-sm">
+                  {externalToggles.map((s) => (
+                    <li
+                      key={s.env_var}
+                      className="flex items-center justify-between rounded-lg border border-ink-200 bg-white px-3 py-2 dark:border-accent-champagne/10 dark:bg-ink-950/30 dark:backdrop-blur-sm"
+                    >
+                      <div>
+                        <p className="text-ink-900 dark:text-ink-100">{s.label}</p>
+                        <p className="text-[11px] text-ink-600 dark:text-ink-300">
+                          {s.env_var}
+                        </p>
+                      </div>
+                      <StatusPill
+                        status={s.on ? "ok" : "warn"}
+                        label={s.on ? "enabled" : "disabled"}
+                      />
+                    </li>
+                  ))}
+                </ul>
+                {!owner && (
+                  <p className="mt-3 text-[11px] text-ink-600 dark:text-ink-300">
+                    Only the owner can change these toggles.
+                  </p>
+                )}
+              </section>
+            </div>
+          </div>
+        }
+        connections={<SettingsConnectionSetup guides={connectionGuides} />}
+        providers={
+          <section id="ai-provider-gateway" className="card-padded">
+            <div className="section-title">
+              <div>
+                <h2>AI Provider Gateway</h2>
+                <p>
+                  Server-side credential status detected from environment
+                  variables. Secrets never leave the server — only masked
+                  previews shown below.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-[11px] text-ink-600 dark:text-ink-300">
+                <span className="uppercase tracking-[0.18em] text-[10px]">
+                  Atlas default:
+                </span>
+                <span className="rounded-full border border-accent-gold/40 bg-accent-gold/10 px-2 py-0.5 text-accent-gold">
+                  {env.AI_DEFAULT_TEXT_PROVIDER || "openrouter"}
+                </span>
+                <span className="text-ink-500 dark:text-ink-400">·</span>
+                <span className="uppercase tracking-[0.18em] text-[10px]">
+                  Image:
+                </span>
+                <span className="rounded-full border border-accent-gold/40 bg-accent-gold/10 px-2 py-0.5 text-accent-gold">
+                  {env.AI_DEFAULT_IMAGE_PROVIDER || "fal"}
+                </span>
               </div>
             </div>
-          ))}
-        </div>
-      </section>
-
-      <section id="ai-provider-gateway" className="card-padded">
-        <div className="section-title">
-          <div>
-            <h2>AI Provider Gateway</h2>
-            <p>
-              Server-side credential status detected from environment variables.
-              Secrets never leave the server — only masked previews shown below.
+            <div className="mt-4 overflow-x-auto rounded-xl border border-ink-200 dark:border-accent-champagne/10">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-ink-50 text-[10px] uppercase tracking-[0.18em] text-ink-600 dark:bg-ink-950/50 dark:text-ink-300">
+                  <tr>
+                    <th className="px-3 py-2">Provider</th>
+                    <th className="px-3 py-2">Env var(s)</th>
+                    <th className="px-3 py-2">Masked preview</th>
+                    <th className="px-3 py-2">Models</th>
+                    <th className="px-3 py-2">Status</th>
+                    <th className="px-3 py-2">Test</th>
+                    <th className="px-3 py-2 text-right">Toggle</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {merged.map((p) => {
+                    const isTextDefault =
+                      p.id === env.AI_DEFAULT_TEXT_PROVIDER &&
+                      ["openrouter", "deepseek", "nvidia"].includes(p.id);
+                    const isImageDefault =
+                      p.id === env.AI_DEFAULT_IMAGE_PROVIDER && p.id === "fal";
+                    return (
+                      <tr
+                        key={p.id}
+                        className="border-t border-ink-200 dark:border-accent-champagne/10"
+                      >
+                        <td className="px-3 py-2 text-ink-900 dark:text-ink-100">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span>{p.label}</span>
+                            {(isTextDefault || isImageDefault) && (
+                              <span className="rounded-full border border-accent-gold/40 bg-accent-gold/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-accent-gold">
+                                {isTextDefault ? "default chat" : "default image"}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 text-ink-600 dark:text-ink-300">
+                          {p.envVarNames.join(" / ")}
+                        </td>
+                        <td className="px-3 py-2 font-mono text-[11px] text-ink-600 dark:text-ink-300">
+                          {p.preview || "—"}
+                        </td>
+                        <td className="px-3 py-2 text-[11px] text-ink-600 dark:text-ink-300">
+                          {modelLookup[p.id]?.length
+                            ? modelLookup[p.id].slice(0, 2).join(" / ")
+                            : "—"}
+                        </td>
+                        <td className="px-3 py-2">
+                          <StatusPill
+                            status={
+                              p.configured
+                                ? p.effectiveEnabled
+                                  ? "ok"
+                                  : "off"
+                                : "missing"
+                            }
+                            label={
+                              p.configured
+                                ? p.effectiveEnabled
+                                  ? "connected"
+                                  : "disabled"
+                                : "missing"
+                            }
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <Link
+                            href="/api/ai/status"
+                            className="btn-ghost h-7 px-2 text-[11px]"
+                          >
+                            Test status
+                          </Link>
+                        </td>
+                        <td className="px-3 py-2">
+                          <div className="flex justify-end">
+                            <ProviderToggle
+                              provider={p.id}
+                              initialEnabled={p.ownerToggleOn}
+                              canEdit={owner}
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-3 text-[11px] text-ink-600 dark:text-ink-300">
+              The toggle disables the provider for everyone in the org without
+              touching the env var. To <em>add</em> a new provider key, set its
+              env var (e.g. <code>OPENROUTER_API_KEY</code>) on the hosting
+              platform and redeploy — keys never travel through the browser.
             </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 text-[11px] text-ink-300">
-            <span className="uppercase tracking-[0.18em] text-[10px]">
-              Atlas default:
-            </span>
-            <span className="rounded-full border border-accent-gold/40 bg-accent-gold/10 px-2 py-0.5 text-accent-gold">
-              {env.AI_DEFAULT_TEXT_PROVIDER || "openrouter"}
-            </span>
-            <span className="text-ink-400">·</span>
-            <span className="uppercase tracking-[0.18em] text-[10px]">
-              Image:
-            </span>
-            <span className="rounded-full border border-accent-gold/40 bg-accent-gold/10 px-2 py-0.5 text-accent-gold">
-              {env.AI_DEFAULT_IMAGE_PROVIDER || "fal"}
-            </span>
-          </div>
-        </div>
-          <div className="mt-4 overflow-hidden rounded-xl border border-accent-champagne/10">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-ink-950/50 text-[10px] uppercase tracking-[0.18em] text-ink-300">
-              <tr>
-                <th className="px-3 py-2">Provider</th>
-                <th className="px-3 py-2">Env var(s)</th>
-                <th className="px-3 py-2">Masked preview</th>
-                <th className="px-3 py-2">Models</th>
-                <th className="px-3 py-2">Status</th>
-                <th className="px-3 py-2">Test</th>
-                <th className="px-3 py-2 text-right">Toggle</th>
-              </tr>
-            </thead>
-            <tbody>
-              {merged.map((p) => {
-                const isTextDefault =
-                  p.id === env.AI_DEFAULT_TEXT_PROVIDER &&
-                  ["openrouter", "deepseek", "nvidia"].includes(p.id);
-                const isImageDefault =
-                  p.id === env.AI_DEFAULT_IMAGE_PROVIDER && p.id === "fal";
-                return (
-                <tr key={p.id} className="border-t border-accent-champagne/10">
-                  <td className="px-3 py-2 text-ink-100">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span>{p.label}</span>
-                      {(isTextDefault || isImageDefault) && (
-                        <span className="rounded-full border border-accent-gold/40 bg-accent-gold/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-accent-gold">
-                          {isTextDefault ? "default chat" : "default image"}
-                        </span>
-                      )}
+          </section>
+        }
+        loanbrain={<DriveLoanBrainSetup />}
+        mcp={<MCPConnections />}
+        tutorials={
+          <div className="space-y-5">
+            <section className="card-padded">
+              <div className="section-title">
+                <div>
+                  <h2>Setup tutorials</h2>
+                  <p>Video lanes for owner, team, and personal connector onboarding.</p>
+                </div>
+              </div>
+              <div className="mt-4 grid gap-3 md:grid-cols-3">
+                {[
+                  ["Owner broker setup", "n8n, provider keys, live action flags"],
+                  ["Team connector setup", "MCP, Google, Gmail, Calendar, Drive"],
+                  [
+                    "Personal workspace setup",
+                    "Per-user providers and project knowledge",
+                  ],
+                ].map(([title, detail]) => (
+                  <div
+                    key={title}
+                    className="overflow-hidden rounded-xl border border-ink-200 bg-white dark:border-accent-champagne/10 dark:bg-ink-950/30 dark:backdrop-blur-sm"
+                  >
+                    <div className="grid aspect-video place-items-center border-b border-ink-200 bg-ink-50 dark:border-accent-champagne/10 dark:bg-ink-950/50">
+                      <Video size={22} className="text-ink-400 dark:text-accent-champagne/80" />
                     </div>
-                  </td>
-                  <td className="px-3 py-2 text-ink-300">
-                    {p.envVarNames.join(" / ")}
-                  </td>
-                  <td className="px-3 py-2 font-mono text-[11px] text-ink-300">
-                    {p.preview || "—"}
-                  </td>
-                  <td className="px-3 py-2 text-[11px] text-ink-300">
-                    {modelLookup[p.id]?.length
-                      ? modelLookup[p.id].slice(0, 2).join(" / ")
-                      : "—"}
-                  </td>
-                  <td className="px-3 py-2">
-                    <StatusPill
-                      status={
-                        p.configured
-                          ? p.effectiveEnabled
-                            ? "ok"
-                            : "off"
-                          : "missing"
-                      }
-                      label={
-                        p.configured
-                          ? p.effectiveEnabled
-                            ? "connected"
-                            : "disabled"
-                          : "missing"
-                      }
-                    />
-                  </td>
-                  <td className="px-3 py-2">
-                    <Link href="/api/ai/status" className="btn-ghost h-7 px-2 text-[11px]">
-                      Test status
-                    </Link>
-                  </td>
-                  <td className="px-3 py-2">
-                    <div className="flex justify-end">
-                      <ProviderToggle
-                        provider={p.id}
-                        initialEnabled={p.ownerToggleOn}
-                        canEdit={owner}
-                      />
+                    <div className="p-3">
+                      <p className="text-sm font-medium text-ink-900 dark:text-ink-100">
+                        {title}
+                      </p>
+                      <p className="mt-1 text-xs text-ink-600 dark:text-ink-300">
+                        {detail}
+                      </p>
                     </div>
-                  </td>
-                </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-        <p className="mt-3 text-[11px] text-ink-300">
-          The toggle disables the provider for everyone in the org without
-          touching the env var. To <em>add</em> a new provider key, set its
-          env var (e.g. <code>OPENROUTER_API_KEY</code>) on the hosting
-          platform and redeploy — keys never travel through the browser.
-        </p>
-      </section>
+                  </div>
+                ))}
+              </div>
+            </section>
 
-      <div id="mcp-connections">
-        <MCPConnections />
-      </div>
-
-      <section className="card-padded">
-        <div className="section-title">
-          <div>
-            <h2>Branding</h2>
-            <p>
-              Team identity line. Atlas auto-includes this when drafting outbound
-              marketing copy.
-            </p>
-          </div>
-        </div>
-        <pre className="mt-3 whitespace-pre-wrap rounded-xl border border-accent-champagne/10 bg-ink-950/30 p-3 text-xs text-ink-200">
+            <section className="card-padded">
+              <div className="section-title">
+                <div>
+                  <h2>Branding</h2>
+                  <p>
+                    Team identity line. Atlas auto-includes this when drafting
+                    outbound marketing copy.
+                  </p>
+                </div>
+              </div>
+              <pre className="mt-3 whitespace-pre-wrap rounded-xl border border-ink-200 bg-ink-50/60 p-3 text-xs text-ink-700 dark:border-accent-champagne/10 dark:bg-ink-950/30 dark:text-ink-200">
 {PUBLIC_ENV.BRAND_LINE}
-        </pre>
-      </section>
+              </pre>
+            </section>
+          </div>
+        }
+      />
     </div>
   );
 }

@@ -70,7 +70,7 @@ function MediaVisual({
     return (
       <video
         src={media.preview_url ?? undefined}
-        className={cn("bg-ink-950", className)}
+        className={cn("bg-ink-100 dark:bg-ink-950", className)}
         controls
         muted
         playsInline
@@ -106,7 +106,7 @@ export function PostPreview({
   return (
     <aside className="space-y-3">
       <header className="flex items-center justify-between gap-2">
-        <p className="text-[10px] uppercase tracking-[0.2em] text-ink-300">
+        <p className="text-[10px] uppercase tracking-[0.2em] text-ink-600 dark:text-ink-300">
           Live preview
         </p>
         <StatusChips
@@ -119,7 +119,7 @@ export function PostPreview({
 
       <div className="space-y-3">
         {channels.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-ink-700 bg-ink-900/30 p-6 text-center text-xs text-ink-300">
+          <div className="rounded-2xl border border-dashed border-ink-300 bg-ink-50 p-6 text-center text-xs text-ink-600 dark:border-ink-700 dark:bg-ink-900/30 dark:text-ink-300">
             Pick at least one channel to see the live preview.
           </div>
         )}
@@ -179,7 +179,7 @@ function CharacterCount({
         "rounded-lg border px-3 py-1.5 text-[11px]",
         over
           ? "border-status-err/40 bg-status-err/10 text-status-err"
-          : "border-ink-800 bg-ink-900/40 text-ink-300"
+          : "border-ink-200 bg-white/60 text-ink-600 dark:border-ink-800 dark:bg-ink-900/40 dark:text-ink-300"
       )}
     >
       {len.toLocaleString()} chars / {tightest.toLocaleString()} limit
@@ -208,7 +208,7 @@ function StatusChips({
       ? "bg-status-ok/15 text-status-ok border-status-ok/30"
       : postStatus === "scheduled"
       ? "bg-status-warn/15 text-status-warn border-status-warn/30"
-      : "bg-ink-800/60 text-ink-200 border-ink-700";
+      : "bg-ink-100 text-ink-700 border-ink-200 dark:bg-ink-800/60 dark:text-ink-200 dark:border-ink-700";
   return (
     <span
       className={cn(
@@ -241,15 +241,15 @@ function FacebookPreview({
           LM
         </div>
         <div className="min-w-0">
-          <p className="truncate text-[11px] font-medium text-ink-100">
+          <p className="truncate text-[11px] font-medium text-ink-900 dark:text-ink-100">
             {brandName}
           </p>
-          <p className="text-[9px] text-ink-300">Just now · 🌐</p>
+          <p className="text-[9px] text-ink-500 dark:text-ink-300">Just now · 🌐</p>
         </div>
       </div>
-      <p className="px-3 pb-2 text-[12px] leading-relaxed text-ink-100 whitespace-pre-wrap">
+      <p className="px-3 pb-2 text-[12px] leading-relaxed text-ink-800 whitespace-pre-wrap dark:text-ink-100">
         {body || (
-          <span className="text-ink-400">Your post body will appear here.</span>
+          <span className="text-ink-500 dark:text-ink-400">Your post body will appear here.</span>
         )}
       </p>
       {primary?.preview_url ? (
@@ -260,7 +260,7 @@ function FacebookPreview({
       ) : (
         <PlaceholderImage />
       )}
-      <div className="flex items-center justify-around border-t border-ink-800 px-2 py-1.5 text-[10px] text-ink-300">
+      <div className="flex items-center justify-around border-t border-ink-200 px-2 py-1.5 text-[10px] text-ink-500 dark:border-ink-800 dark:text-ink-300">
         <span>👍 Like</span>
         <span>💬 Comment</span>
         <span>↗ Share</span>
@@ -288,11 +288,11 @@ function InstagramPreview({
         <div className="grid h-7 w-7 place-items-center rounded-full bg-gradient-to-br from-pink-500 via-rose-500 to-amber-400 text-[10px] font-semibold text-white">
           LM
         </div>
-        <p className="truncate text-[11px] font-medium text-ink-100">
+        <p className="truncate text-[11px] font-medium text-ink-900 dark:text-ink-100">
           legends.mortgage
         </p>
       </div>
-      <div className="aspect-square w-full bg-ink-950">
+      <div className="aspect-square w-full bg-ink-100 dark:bg-ink-950">
         {primary?.preview_url ? (
           <MediaVisual
             media={primary}
@@ -302,15 +302,15 @@ function InstagramPreview({
           <PlaceholderImage square />
         )}
       </div>
-      <div className="flex items-center gap-3 px-3 py-1.5 text-ink-200">
+      <div className="flex items-center gap-3 px-3 py-1.5 text-ink-700 dark:text-ink-200">
         <span>♡</span>
         <span>💬</span>
         <span>↗</span>
       </div>
-      <p className="px-3 pb-3 text-[11px] leading-snug text-ink-100 whitespace-pre-wrap">
+      <p className="px-3 pb-3 text-[11px] leading-snug text-ink-800 whitespace-pre-wrap dark:text-ink-100">
         <span className="font-semibold">legends.mortgage</span>{" "}
         {body || (
-          <span className="text-ink-400">
+          <span className="text-ink-500 dark:text-ink-400">
             Your caption will appear here. {brandName} branding always applies.
           </span>
         )}
@@ -334,13 +334,13 @@ function GBPPreview({
       label="Google Business"
       tint="from-[#1A73E8]/10"
     >
-      <div className="flex items-center gap-2 border-b border-ink-800 px-3 py-2">
+      <div className="flex items-center gap-2 border-b border-ink-200 px-3 py-2 dark:border-ink-800">
         <div className="grid h-7 w-7 place-items-center rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 text-[10px] font-semibold text-white">
           G
         </div>
         <div>
-          <p className="text-[11px] font-medium text-ink-100">{brandName}</p>
-          <p className="text-[9px] text-ink-300">Update · Google</p>
+          <p className="text-[11px] font-medium text-ink-900 dark:text-ink-100">{brandName}</p>
+          <p className="text-[9px] text-ink-500 dark:text-ink-300">Update · Google</p>
         </div>
       </div>
       {primary?.preview_url ? (
@@ -351,9 +351,9 @@ function GBPPreview({
       ) : (
         <PlaceholderImage />
       )}
-      <p className="px-3 py-2 text-[12px] leading-relaxed text-ink-100 whitespace-pre-wrap">
+      <p className="px-3 py-2 text-[12px] leading-relaxed text-ink-800 whitespace-pre-wrap dark:text-ink-100">
         {body || (
-          <span className="text-ink-400">
+          <span className="text-ink-500 dark:text-ink-400">
             Your business update will appear here.
           </span>
         )}
@@ -381,7 +381,7 @@ function YouTubePreview({
       label="YouTube"
       tint="from-[#FF0000]/15"
     >
-      <div className="relative aspect-video w-full bg-ink-950">
+      <div className="relative aspect-video w-full bg-ink-100 dark:bg-ink-950">
         {primary?.preview_url ? (
           <MediaVisual
             media={primary}
@@ -397,19 +397,19 @@ function YouTubePreview({
         )}
       </div>
       <div className="px-3 pb-3 pt-2">
-        <p className="text-[12px] font-semibold text-ink-100 line-clamp-2">
+        <p className="text-[12px] font-semibold text-ink-900 line-clamp-2 dark:text-ink-100">
           {title || (
-            <span className="text-ink-400">
+            <span className="text-ink-500 dark:text-ink-400">
               Video title goes here — fill in the YouTube title field.
             </span>
           )}
         </p>
-        <p className="mt-0.5 text-[10px] text-ink-300">
+        <p className="mt-0.5 text-[10px] text-ink-500 dark:text-ink-300">
           {brandName} · 0 views · just now
         </p>
-        <p className="mt-2 line-clamp-3 text-[11px] leading-snug text-ink-200 whitespace-pre-wrap">
+        <p className="mt-2 line-clamp-3 text-[11px] leading-snug text-ink-700 whitespace-pre-wrap dark:text-ink-200">
           {body || (
-            <span className="text-ink-400">
+            <span className="text-ink-500 dark:text-ink-400">
               Video description will appear here.
             </span>
           )}
@@ -431,10 +431,10 @@ function PreviewFrame({
   children: React.ReactNode;
 }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-ink-800 bg-ink-950 shadow-card">
+    <div className="overflow-hidden rounded-2xl border border-ink-200 bg-white shadow-card dark:border-ink-800 dark:bg-ink-950">
       <div
         className={cn(
-          "flex items-center gap-1.5 border-b border-ink-800 bg-gradient-to-r to-transparent px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-ink-200",
+          "flex items-center gap-1.5 border-b border-ink-200 bg-gradient-to-r to-transparent px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-ink-700 dark:border-ink-800 dark:text-ink-200",
           tint
         )}
       >
@@ -456,7 +456,7 @@ function PlaceholderImage({
   return (
     <div
       className={cn(
-        "grid w-full place-items-center bg-ink-900 text-ink-400",
+        "grid w-full place-items-center bg-ink-100 text-ink-500 dark:bg-ink-900 dark:text-ink-400",
         square ? "aspect-square" : video ? "aspect-video" : "h-40"
       )}
     >

@@ -1,7 +1,8 @@
 import { cn } from "@/lib/utils";
 
 // Map the blocked/working/done/seen status model (borrowed concept from herdr)
-// onto the existing LegendsOS status palette. Dark-first, gold/champagne theme.
+// onto the existing LegendsOS status palette. Uses the theme-aware chip-*
+// helpers so pills read correctly in both light and dark mode.
 const MAP: Record<
   string,
   { cls: string; dot: string; label: string }

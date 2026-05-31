@@ -197,13 +197,13 @@ export function CreateKnowledgeItem({
             {files.map((f, i) => (
               <li
                 key={i}
-                className="flex items-center justify-between rounded border border-ink-800 bg-ink-900/40 px-2 py-1 text-ink-200"
+                className="flex items-center justify-between rounded border border-ink-200 bg-ink-50/60 px-2 py-1 text-ink-700 dark:border-ink-800 dark:bg-ink-900/40 dark:text-ink-200"
               >
                 <span>{truncate(f.name, 40)} · {Math.round(f.size / 1024)} KB</span>
                 <button
                   type="button"
                   onClick={() => setFiles((prev) => prev.filter((_, idx) => idx !== i))}
-                  className="text-ink-300 hover:text-status-err"
+                  className="text-ink-500 hover:text-status-err dark:text-ink-300"
                 >
                   <X size={10} />
                 </button>
@@ -234,7 +234,7 @@ export function CreateKnowledgeItem({
           ? `Upload ${files.length} file(s)`
           : "Add to collection"}
       </button>
-      <p className="text-[11px] text-ink-300">
+      <p className="text-[11px] text-ink-600 dark:text-ink-300">
         Files upload to the <code>knowledge</code> bucket. Each file creates an{" "}
         <code>uploaded_files</code> row and a <code>knowledge_items</code> row.
       </p>

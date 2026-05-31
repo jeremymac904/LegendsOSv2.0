@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Image as ImageIcon, Search, X } from "lucide-react";
 
+import { AdminNav } from "@/components/admin/AdminNav";
 import { AssetCard } from "@/components/admin/AssetCard";
 import { AssetUploadCard } from "@/components/admin/AssetUploadCard";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -171,6 +172,17 @@ export default async function AssetLibraryPage({ searchParams }: PageProps) {
     other: 0,
   };
 
+  // Honest source breakdown — every asset is exactly one of these three real
+  // states. We never label media a "sample"; the only fabricated-looking
+  // state is "missing", which is a manifest row with no servable public path.
+  const uploadedCount = merged.filter((a) => a.is_uploaded).length;
+  const indexedCount = merged.filter(
+    (a) => !a.is_uploaded && a.public_path
+  ).length;
+  const missingCount = merged.filter(
+    (a) => !a.is_uploaded && !a.public_path
+  ).length;
+
   function buildHref(next: {
     q?: string | null;
     cat?: AssetCategory | null;
@@ -188,7 +200,7 @@ export default async function AssetLibraryPage({ searchParams }: PageProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <SectionHeader
         eyebrow="Admin · Asset Library"
         title="Brand & content assets"
@@ -204,6 +216,8 @@ export default async function AssetLibraryPage({ searchParams }: PageProps) {
           />
         }
       />
+
+      <AdminNav />
 
       <AssetUploadCard />
 
@@ -237,7 +251,7 @@ export default async function AssetLibraryPage({ searchParams }: PageProps) {
         </form>
 
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[10px] uppercase tracking-[0.18em] text-ink-300">
+          <span className="text-[10px] uppercase tracking-[0.18em] text-ink-500 dark:text-ink-300">
             Type
           </span>
           {(Object.keys(KIND_LABEL) as KindFilter[]).map((k) => (
@@ -252,7 +266,7 @@ export default async function AssetLibraryPage({ searchParams }: PageProps) {
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[10px] uppercase tracking-[0.18em] text-ink-300">
+          <span className="text-[10px] uppercase tracking-[0.18em] text-ink-500 dark:text-ink-300">
             Category
           </span>
           <CategoryChip
@@ -275,7 +289,7 @@ export default async function AssetLibraryPage({ searchParams }: PageProps) {
           {activeCat && (
             <Link
               href={buildHref({ cat: null })}
-              className="inline-flex items-center gap-1 rounded-full border border-ink-700 px-2 py-1 text-[11px] text-ink-300 transition hover:border-status-err/40 hover:text-status-err"
+              className="inline-flex items-center gap-1 rounded-full border border-ink-300 px-2 py-1 text-[11px] text-ink-600 transition hover:border-status-err/40 hover:text-status-err dark:border-ink-700 dark:text-ink-300"
               title="Clear category filter"
             >
               <X size={10} />
@@ -285,12 +299,25 @@ export default async function AssetLibraryPage({ searchParams }: PageProps) {
         </div>
       </div>
 
-      <p className="text-[11px] text-ink-300">
-        Showing {assets.length} of {merged.length} assets
-        {activeKind !== "all" && ` · type: ${KIND_LABEL[activeKind]}`}
-        {activeCat && ` · category: ${CATEGORY_LABEL[activeCat as AssetCategory] ?? activeCat}`}
-        {q && ` · search: "${q}"`}
-      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-[11px] text-ink-600 dark:text-ink-300">
+          Showing {assets.length} of {merged.length} assets
+          {activeKind !== "all" && ` · type: ${KIND_LABEL[activeKind]}`}
+          {activeCat && ` · category: ${CATEGORY_LABEL[activeCat as AssetCategory] ?? activeCat}`}
+          {q && ` · search: "${q}"`}
+        </p>
+        <span className="text-ink-300 dark:text-ink-600">·</span>
+        <span className="chip-ok text-[10px]">{uploadedCount} uploaded</span>
+        <span className="chip-info text-[10px]">{indexedCount} indexed</span>
+        {missingCount > 0 && (
+          <span
+            className="chip-warn text-[10px]"
+            title="Indexed in the manifest but not publicly served — can't render until re-indexed."
+          >
+            {missingCount} missing file{missingCount === 1 ? "" : "s"}
+          </span>
+        )}
+      </div>
 
       {assets.length === 0 ? (
         <EmptyState
@@ -340,15 +367,15 @@ function CategoryChip({
       className={
         active
           ? "inline-flex items-center gap-1 rounded-full border border-accent-gold/50 bg-accent-gold/10 px-2.5 py-1 text-[11px] font-medium text-accent-gold"
-          : "inline-flex items-center gap-1 rounded-full border border-ink-700 bg-ink-900/40 px-2.5 py-1 text-[11px] text-ink-200 transition hover:border-ink-500 hover:text-ink-100"
+          : "inline-flex items-center gap-1 rounded-full border border-ink-200 bg-white px-2.5 py-1 text-[11px] text-ink-700 transition hover:border-ink-400 hover:text-ink-900 dark:border-ink-700 dark:bg-ink-900/40 dark:text-ink-200 dark:hover:text-ink-100"
       }
     >
       {label}
       <span
         className={
           active
-            ? "rounded-full bg-accent-gold/20 px-1.5 text-[10px] tabular-nums"
-            : "rounded-full bg-ink-800 px-1.5 text-[10px] tabular-nums text-ink-300"
+            ? "rounded-full bg-accent-gold/20 px-1.5 text-[10px] tabular-nums text-accent-gold"
+            : "rounded-full bg-ink-100 px-1.5 text-[10px] tabular-nums text-ink-600 dark:bg-ink-800 dark:text-ink-300"
         }
       >
         {count}

@@ -18,6 +18,9 @@ import {
   Video,
 } from "lucide-react";
 
+import { AdminNav } from "@/components/admin/AdminNav";
+import { AdminOverviewTabs } from "@/components/admin/AdminOverviewTabs";
+import { RolePreviewMatrix } from "@/components/admin/RolePreviewMatrix";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatCard } from "@/components/ui/StatCard";
 import { StatusPill } from "@/components/ui/StatusPill";
@@ -198,8 +201,314 @@ export default async function AdminCenterPage() {
     return m?.full_name ?? m?.email ?? userId.slice(0, 8);
   }
 
+  // ── Tab panes ──────────────────────────────────────────────────────
+  const jobsPane = (
+    <div className="space-y-3">
+      <div className="section-title">
+        <div>
+          <h2 className="text-ink-900 dark:text-ink-100">Recent automation jobs</h2>
+          <p className="text-ink-600 dark:text-ink-300">n8n queue status, last 10.</p>
+        </div>
+        <Link href="/admin/usage" className="btn-ghost text-xs">
+          <ChartLine size={14} />
+          All usage
+        </Link>
+      </div>
+      <div className="overflow-hidden rounded-xl border border-ink-200 dark:border-ink-800">
+        <table className="w-full text-left text-xs">
+          <thead className="bg-ink-50 text-[10px] uppercase tracking-[0.18em] text-ink-600 dark:bg-ink-900/70 dark:text-ink-300">
+            <tr>
+              <th className="px-3 py-2">Job</th>
+              <th className="px-3 py-2">Status</th>
+              <th className="px-3 py-2">Attempts</th>
+              <th className="px-3 py-2">Last update</th>
+              <th className="px-3 py-2">Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            {jobList.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-3 py-6 text-center text-ink-500 dark:text-ink-300">
+                  No jobs yet.
+                </td>
+              </tr>
+            ) : (
+              jobList.map((j) => (
+                <tr key={j.id} className="border-t border-ink-200 dark:border-ink-800">
+                  <td className="px-3 py-2 text-ink-900 dark:text-ink-100">{j.job_type}</td>
+                  <td className="px-3 py-2">
+                    <StatusPill status={j.status as never} />
+                  </td>
+                  <td className="px-3 py-2 text-ink-600 dark:text-ink-300">{j.attempts}</td>
+                  <td className="px-3 py-2 text-ink-600 dark:text-ink-300">
+                    {formatRelative(j.updated_at)}
+                  </td>
+                  <td className="px-3 py-2 text-ink-600 dark:text-ink-300">
+                    {j.last_error ?? "—"}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  const providersPane = (
+    <div className="space-y-3">
+      <div className="section-title">
+        <div>
+          <h2 className="text-ink-900 dark:text-ink-100">Providers</h2>
+          <p className="text-ink-600 dark:text-ink-300">
+            Live env detection + stored placeholder.
+          </p>
+        </div>
+        <Link href="/settings#ai-provider-gateway" className="btn-ghost text-xs">
+          <KeyRound size={14} />
+          Settings
+        </Link>
+      </div>
+      <ul className="grid gap-2 text-sm sm:grid-cols-2">
+        {liveStatuses.map((p) => {
+          const stored = storedByProvider.get(p.id);
+          const preview =
+            maskedKeyPreview(previewLookup[p.id] ?? "") ||
+            stored?.masked_preview ||
+            "";
+          return (
+            <li
+              key={p.id}
+              className="flex items-center justify-between rounded-lg border border-ink-200 bg-white px-3 py-2 dark:border-ink-800 dark:bg-ink-900/50"
+            >
+              <div>
+                <p className="text-ink-900 dark:text-ink-100">{p.label}</p>
+                <p className="text-[11px] text-ink-600 dark:text-ink-300">
+                  {p.envVarNames.join(" / ")}
+                </p>
+                {preview && (
+                  <p className="font-mono text-[10px] text-ink-500 dark:text-ink-400">
+                    {preview}
+                  </p>
+                )}
+              </div>
+              <StatusPill
+                status={p.configured ? (p.enabled ? "ok" : "off") : "missing"}
+                label={
+                  p.configured ? (p.enabled ? "connected" : "disabled") : "missing"
+                }
+              />
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+
+  const activityPane = (
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div>
+        <div className="section-title">
+          <div>
+            <h2 className="text-ink-900 dark:text-ink-100">Recent chats</h2>
+            <p className="text-ink-600 dark:text-ink-300">
+              Cross-team thread activity (owner read).
+            </p>
+          </div>
+          <Link href="/atlas" className="btn-ghost text-xs">
+            <MessageCircle size={14} />
+            Atlas
+          </Link>
+        </div>
+        <div className="mt-3 grid gap-2">
+          {recentChats.length === 0 ? (
+            <p className="text-xs text-ink-500 dark:text-ink-300">No chats yet.</p>
+          ) : (
+            recentChats.map((t) => (
+              <div
+                key={t.id}
+                className="flex items-center justify-between rounded-lg border border-ink-200 bg-white px-3 py-2 text-xs dark:border-ink-800 dark:bg-ink-900/40"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-ink-900 dark:text-ink-100">
+                    {truncate(t.title, 60)}
+                  </p>
+                  <p className="text-ink-600 dark:text-ink-300">{nameFor(t.user_id)}</p>
+                </div>
+                <span className="text-ink-500 dark:text-ink-300">
+                  {formatRelative(t.last_message_at ?? t.updated_at)}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      <div>
+        <div className="section-title">
+          <div>
+            <h2 className="text-ink-900 dark:text-ink-100">Recent social drafts</h2>
+            <p className="text-ink-600 dark:text-ink-300">Across all users (owner read).</p>
+          </div>
+          <Link href="/social" className="btn-ghost text-xs">
+            <Share2 size={14} />
+            Social
+          </Link>
+        </div>
+        <div className="mt-3 grid gap-2">
+          {recentSocial.length === 0 ? (
+            <p className="text-xs text-ink-500 dark:text-ink-300">No social drafts yet.</p>
+          ) : (
+            recentSocial.map((s) => (
+              <div
+                key={s.id}
+                className="rounded-lg border border-ink-200 bg-white px-3 py-2 text-xs dark:border-ink-800 dark:bg-ink-900/40"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <p className="truncate text-ink-900 dark:text-ink-100">
+                    {s.title ?? truncate(s.body, 40)}
+                  </p>
+                  <StatusPill status={s.status as never} />
+                </div>
+                <p className="text-ink-600 dark:text-ink-300">
+                  {nameFor(s.user_id)} · {formatRelative(s.updated_at)}
+                </p>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      <div>
+        <div className="section-title">
+          <div>
+            <h2 className="text-ink-900 dark:text-ink-100">Recent email drafts</h2>
+            <p className="text-ink-600 dark:text-ink-300">Across all users (owner read).</p>
+          </div>
+          <Link href="/email" className="btn-ghost text-xs">
+            <Mail size={14} />
+            Email
+          </Link>
+        </div>
+        <div className="mt-3 grid gap-2">
+          {recentEmail.length === 0 ? (
+            <p className="text-xs text-ink-500 dark:text-ink-300">No email drafts yet.</p>
+          ) : (
+            recentEmail.map((e) => (
+              <div
+                key={e.id}
+                className="rounded-lg border border-ink-200 bg-white px-3 py-2 text-xs dark:border-ink-800 dark:bg-ink-900/40"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <p className="truncate text-ink-900 dark:text-ink-100">
+                    {truncate(e.subject, 50)}
+                  </p>
+                  <StatusPill status={e.status as never} />
+                </div>
+                <p className="text-ink-600 dark:text-ink-300">
+                  {nameFor(e.user_id)} · {formatRelative(e.updated_at)}
+                </p>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      <div>
+        <div className="section-title">
+          <div>
+            <h2 className="text-ink-900 dark:text-ink-100">Recent generated media</h2>
+            <p className="text-ink-600 dark:text-ink-300">Image Studio activity.</p>
+          </div>
+          <Link href="/images" className="btn-ghost text-xs">
+            <ImageIcon size={14} />
+            Images
+          </Link>
+        </div>
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          {recentMedia.length === 0 ? (
+            <p className="col-span-3 text-xs text-ink-500 dark:text-ink-300">
+              No generated images yet.
+            </p>
+          ) : (
+            recentMedia.map((m) => (
+              <div
+                key={m.id}
+                className="overflow-hidden rounded-lg border border-ink-200 bg-checker text-[10px] dark:border-ink-800"
+                title={m.prompt}
+              >
+                {m.preview_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={m.preview_url}
+                    alt={m.prompt}
+                    className="aspect-square w-full object-cover"
+                  />
+                ) : (
+                  <div className="grid aspect-square place-items-center text-ink-500 dark:text-ink-300">
+                    {m.status}
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  const auditPane = (
+    <div className="space-y-3">
+      <div className="section-title">
+        <div>
+          <h2 className="text-ink-900 dark:text-ink-100">Audit log</h2>
+          <p className="text-ink-600 dark:text-ink-300">
+            Last 15 security-relevant actions.
+          </p>
+        </div>
+      </div>
+      <div className="overflow-hidden rounded-xl border border-ink-200 dark:border-ink-800">
+        <table className="w-full text-left text-xs">
+          <thead className="bg-ink-50 text-[10px] uppercase tracking-[0.18em] text-ink-600 dark:bg-ink-900/70 dark:text-ink-300">
+            <tr>
+              <th className="px-3 py-2">Action</th>
+              <th className="px-3 py-2">Target</th>
+              <th className="px-3 py-2">Actor</th>
+              <th className="px-3 py-2">When</th>
+            </tr>
+          </thead>
+          <tbody>
+            {auditList.length === 0 ? (
+              <tr>
+                <td colSpan={4} className="px-3 py-6 text-center text-ink-500 dark:text-ink-300">
+                  No audit entries yet.
+                </td>
+              </tr>
+            ) : (
+              auditList.map((a) => (
+                <tr key={a.id} className="border-t border-ink-200 dark:border-ink-800">
+                  <td className="px-3 py-2 text-ink-900 dark:text-ink-100">{a.action}</td>
+                  <td className="px-3 py-2 text-ink-600 dark:text-ink-300">
+                    {a.target_type ?? "—"}{" "}
+                    {a.target_id ? `· ${a.target_id.slice(0, 8)}` : ""}
+                  </td>
+                  <td className="px-3 py-2 text-ink-600 dark:text-ink-300">
+                    {nameFor(a.actor_user_id)}
+                  </td>
+                  <td className="px-3 py-2 text-ink-600 dark:text-ink-300">
+                    {formatRelative(a.created_at)}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <SectionHeader
         eyebrow="Admin Center"
         title="Owner-only overview"
@@ -207,11 +516,24 @@ export default async function AdminCenterPage() {
         action={<StatusPill status="ok" label="owner" />}
       />
 
+      <AdminNav />
+
+      <RolePreviewMatrix
+        ownerProfileId={profile.id}
+        members={membersList.map((m) => ({
+          id: m.id,
+          full_name: m.full_name,
+          email: m.email,
+          role: m.role,
+          is_active: m.is_active,
+        }))}
+      />
+
       <section className="card-padded">
         <div className="section-title">
           <div>
-            <h2>Connection command board</h2>
-            <p>
+            <h2 className="text-ink-900 dark:text-ink-100">Connection command board</h2>
+            <p className="text-ink-600 dark:text-ink-300">
               Owner-facing setup status for the external services Atlas, Social,
               Email, Calendar, and the login experience depend on.
             </p>
@@ -228,7 +550,7 @@ export default async function AdminCenterPage() {
               <Link
                 key={card.title}
                 href={card.href}
-                className="rounded-xl border border-ink-800 bg-ink-900/40 p-3 transition hover:border-accent-gold/30"
+                className="rounded-xl border border-ink-200 bg-white p-3 transition hover:border-accent-gold/30 dark:border-ink-800 dark:bg-ink-900/40"
               >
                 <div className="flex items-center justify-between gap-2">
                   <div className="grid h-9 w-9 place-items-center rounded-lg border border-accent-gold/20 bg-accent-gold/10 text-accent-gold">
@@ -239,10 +561,10 @@ export default async function AdminCenterPage() {
                     label={card.configured ? "ready" : "setup"}
                   />
                 </div>
-                <p className="mt-3 text-sm font-medium text-ink-100">
+                <p className="mt-3 text-sm font-medium text-ink-900 dark:text-ink-100">
                   {card.title}
                 </p>
-                <p className="mt-1 text-xs text-ink-300">{card.detail}</p>
+                <p className="mt-1 text-xs text-ink-600 dark:text-ink-300">{card.detail}</p>
               </Link>
             );
           })}
@@ -276,307 +598,20 @@ export default async function AdminCenterPage() {
         />
       </section>
 
-      <LiveUsageCard
-        usageList={usageList}
-        jobList={jobList}
-        recentSocial={recentSocial}
-        recentEmail={recentEmail}
+      <AdminOverviewTabs
+        live={
+          <LiveUsageCard
+            usageList={usageList}
+            jobList={jobList}
+            recentSocial={recentSocial}
+            recentEmail={recentEmail}
+          />
+        }
+        jobs={jobsPane}
+        providers={providersPane}
+        activity={activityPane}
+        audit={auditPane}
       />
-
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[2fr_1fr]">
-        <section className="card-padded">
-          <div className="section-title">
-            <div>
-              <h2>Recent automation jobs</h2>
-              <p>n8n queue status, last 10.</p>
-            </div>
-            <Link href="/admin/usage" className="btn-ghost text-xs">
-              <ChartLine size={14} />
-              All usage
-            </Link>
-          </div>
-          <div className="mt-4 overflow-hidden rounded-xl border border-ink-800">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-ink-900/70 text-[10px] uppercase tracking-[0.18em] text-ink-300">
-                <tr>
-                  <th className="px-3 py-2">Job</th>
-                  <th className="px-3 py-2">Status</th>
-                  <th className="px-3 py-2">Attempts</th>
-                  <th className="px-3 py-2">Last update</th>
-                  <th className="px-3 py-2">Notes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {jobList.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-3 py-6 text-center text-ink-300">
-                      No jobs yet.
-                    </td>
-                  </tr>
-                ) : (
-                  jobList.map((j) => (
-                    <tr key={j.id} className="border-t border-ink-800">
-                      <td className="px-3 py-2 text-ink-100">{j.job_type}</td>
-                      <td className="px-3 py-2">
-                        <StatusPill status={j.status as never} />
-                      </td>
-                      <td className="px-3 py-2 text-ink-300">{j.attempts}</td>
-                      <td className="px-3 py-2 text-ink-300">
-                        {formatRelative(j.updated_at)}
-                      </td>
-                      <td className="px-3 py-2 text-ink-300">
-                        {j.last_error ?? "—"}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
-        <section className="card-padded">
-          <div className="section-title">
-            <div>
-              <h2>Providers</h2>
-              <p>Live env detection + stored placeholder.</p>
-            </div>
-          </div>
-          <ul className="mt-4 space-y-2 text-sm">
-            {liveStatuses.map((p) => {
-              const stored = storedByProvider.get(p.id);
-              const preview =
-                maskedKeyPreview(previewLookup[p.id] ?? "") ||
-                stored?.masked_preview ||
-                "";
-              return (
-                <li
-                  key={p.id}
-                  className="flex items-center justify-between rounded-lg border border-ink-800 bg-ink-900/50 px-3 py-2"
-                >
-                  <div>
-                    <p className="text-ink-100">{p.label}</p>
-                    <p className="text-[11px] text-ink-300">
-                      {p.envVarNames.join(" / ")}
-                    </p>
-                    {preview && (
-                      <p className="font-mono text-[10px] text-ink-400">
-                        {preview}
-                      </p>
-                    )}
-                  </div>
-                  <StatusPill
-                    status={
-                      p.configured
-                        ? p.enabled
-                          ? "ok"
-                          : "off"
-                        : "missing"
-                    }
-                    label={
-                      p.configured
-                        ? p.enabled
-                          ? "connected"
-                          : "disabled"
-                        : "missing"
-                    }
-                  />
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      </div>
-
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <section className="card-padded">
-          <div className="section-title">
-            <div>
-              <h2>Recent chats</h2>
-              <p>Cross-team thread activity (owner read).</p>
-            </div>
-            <Link href="/atlas" className="btn-ghost text-xs">
-              <MessageCircle size={14} />
-              Open Atlas
-            </Link>
-          </div>
-          <div className="mt-3 grid gap-2">
-            {recentChats.length === 0 ? (
-              <p className="text-xs text-ink-300">No chats yet.</p>
-            ) : (
-              recentChats.map((t) => (
-                <div
-                  key={t.id}
-                  className="flex items-center justify-between rounded-lg border border-ink-800 bg-ink-900/40 px-3 py-2 text-xs"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-ink-100">
-                      {truncate(t.title, 60)}
-                    </p>
-                    <p className="text-ink-300">{nameFor(t.user_id)}</p>
-                  </div>
-                  <span className="text-ink-300">
-                    {formatRelative(t.last_message_at ?? t.updated_at)}
-                  </span>
-                </div>
-              ))
-            )}
-          </div>
-        </section>
-
-        <section className="card-padded">
-          <div className="section-title">
-            <div>
-              <h2>Recent social drafts</h2>
-              <p>Across all users (owner read).</p>
-            </div>
-            <Link href="/social" className="btn-ghost text-xs">
-              <Share2 size={14} />
-              Open Social
-            </Link>
-          </div>
-          <div className="mt-3 grid gap-2">
-            {recentSocial.length === 0 ? (
-              <p className="text-xs text-ink-300">No social drafts yet.</p>
-            ) : (
-              recentSocial.map((s) => (
-                <div
-                  key={s.id}
-                  className="rounded-lg border border-ink-800 bg-ink-900/40 px-3 py-2 text-xs"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="truncate text-ink-100">
-                      {s.title ?? truncate(s.body, 40)}
-                    </p>
-                    <StatusPill status={s.status as never} />
-                  </div>
-                  <p className="text-ink-300">
-                    {nameFor(s.user_id)} · {formatRelative(s.updated_at)}
-                  </p>
-                </div>
-              ))
-            )}
-          </div>
-        </section>
-
-        <section className="card-padded">
-          <div className="section-title">
-            <div>
-              <h2>Recent email drafts</h2>
-              <p>Across all users (owner read).</p>
-            </div>
-            <Link href="/email" className="btn-ghost text-xs">
-              <Mail size={14} />
-              Open Email
-            </Link>
-          </div>
-          <div className="mt-3 grid gap-2">
-            {recentEmail.length === 0 ? (
-              <p className="text-xs text-ink-300">No email drafts yet.</p>
-            ) : (
-              recentEmail.map((e) => (
-                <div
-                  key={e.id}
-                  className="rounded-lg border border-ink-800 bg-ink-900/40 px-3 py-2 text-xs"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="truncate text-ink-100">{truncate(e.subject, 50)}</p>
-                    <StatusPill status={e.status as never} />
-                  </div>
-                  <p className="text-ink-300">
-                    {nameFor(e.user_id)} · {formatRelative(e.updated_at)}
-                  </p>
-                </div>
-              ))
-            )}
-          </div>
-        </section>
-
-        <section className="card-padded">
-          <div className="section-title">
-            <div>
-              <h2>Recent generated media</h2>
-              <p>Image Studio activity.</p>
-            </div>
-            <Link href="/images" className="btn-ghost text-xs">
-              <ImageIcon size={14} />
-              Open Images
-            </Link>
-          </div>
-          <div className="mt-3 grid grid-cols-3 gap-2">
-            {recentMedia.length === 0 ? (
-              <p className="col-span-3 text-xs text-ink-300">
-                No generated images yet.
-              </p>
-            ) : (
-              recentMedia.map((m) => (
-                <div
-                  key={m.id}
-                  className="overflow-hidden rounded-lg border border-ink-800 bg-checker text-[10px]"
-                  title={m.prompt}
-                >
-                  {m.preview_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={m.preview_url}
-                      alt={m.prompt}
-                      className="aspect-square w-full object-cover"
-                    />
-                  ) : (
-                    <div className="grid aspect-square place-items-center text-ink-300">
-                      {m.status}
-                    </div>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-        </section>
-      </div>
-
-      <section className="card-padded">
-        <div className="section-title">
-          <div>
-            <h2>Audit log</h2>
-            <p>Last 15 security-relevant actions.</p>
-          </div>
-        </div>
-        <div className="mt-4 overflow-hidden rounded-xl border border-ink-800">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-ink-900/70 text-[10px] uppercase tracking-[0.18em] text-ink-300">
-              <tr>
-                <th className="px-3 py-2">Action</th>
-                <th className="px-3 py-2">Target</th>
-                <th className="px-3 py-2">Actor</th>
-                <th className="px-3 py-2">When</th>
-              </tr>
-            </thead>
-            <tbody>
-              {auditList.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="px-3 py-6 text-center text-ink-300">
-                    No audit entries yet.
-                  </td>
-                </tr>
-              ) : (
-                auditList.map((a) => (
-                  <tr key={a.id} className="border-t border-ink-800">
-                    <td className="px-3 py-2 text-ink-100">{a.action}</td>
-                    <td className="px-3 py-2 text-ink-300">
-                      {a.target_type ?? "—"} {a.target_id ? `· ${a.target_id.slice(0, 8)}` : ""}
-                    </td>
-                    <td className="px-3 py-2 text-ink-300">
-                      {nameFor(a.actor_user_id)}
-                    </td>
-                    <td className="px-3 py-2 text-ink-300">
-                      {formatRelative(a.created_at)}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
     </div>
   );
 }
@@ -673,14 +708,14 @@ function LiveUsageCard({
   ];
 
   return (
-    <section className="card-padded">
+    <div className="space-y-3">
       <div className="section-title">
         <div>
-          <h2 className="flex items-center gap-2">
+          <h2 className="flex items-center gap-2 text-ink-900 dark:text-ink-100">
             <Sparkles size={14} className="text-accent-gold" />
             Live usage (24h)
           </h2>
-          <p>
+          <p className="text-ink-600 dark:text-ink-300">
             Single-pane snapshot pulled from <code>usage_events</code> and{" "}
             <code>automation_jobs</code>. Mirrors the dashboard numbers so
             admins can spot anomalies without bouncing tabs.
@@ -691,22 +726,22 @@ function LiveUsageCard({
           7-day breakdown
         </Link>
       </div>
-      <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
         {tiles.map((t) => (
           <div
             key={t.label}
-            className="rounded-xl border border-ink-800 bg-ink-900/40 p-3"
+            className="rounded-xl border border-ink-200 bg-white p-3 dark:border-ink-800 dark:bg-ink-900/40"
           >
-            <p className="text-[10px] uppercase tracking-[0.18em] text-ink-400">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-ink-500 dark:text-ink-400">
               {t.label}
             </p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums text-ink-100">
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-ink-900 dark:text-ink-100">
               {t.value}
             </p>
-            <p className="mt-0.5 text-[10px] text-ink-300">{t.hint}</p>
+            <p className="mt-0.5 text-[10px] text-ink-600 dark:text-ink-300">{t.hint}</p>
           </div>
         ))}
       </div>
-    </section>
+    </div>
   );
 }

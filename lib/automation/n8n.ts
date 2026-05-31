@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 
 import { getServerEnv } from "@/lib/env";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
@@ -174,15 +174,53 @@ export async function enqueueAutomationJob(args: EnqueueArgs): Promise<EnqueueRe
 }
 
 /**
- * Inbound n8n callback verification. The simplified n8n workflows no longer
- * sign callbacks. We still accept an HMAC signature if N8N_WEBHOOK_SECRET is
- * configured (forward-compat), but if no secret is set, we accept the
- * callback as-is. Production-side trust is provided by the path being
- * server-only + the job_id being a UUID we issued.
+ * Inbound n8n callback verification — HMAC-SHA256, constant-time, fail-closed.
+ *
+ * The callback route uses the service-role client to flip job / social / email
+ * status, so an unauthenticated POST must NEVER be trusted. We require the
+ * caller to prove possession of the shared secret named `N8N_WEBHOOK_SECRET`
+ * by sending an HMAC-SHA256 of the EXACT raw request body in a signature
+ * header. We recompute that HMAC here and compare with `timingSafeEqual`.
+ *
+ * Fail closed in every ambiguous case:
+ *   - secret env var unset / empty            -> false
+ *   - signature header missing / empty        -> false
+ *   - signature not valid hex of expected len -> false
+ *   - digests differ                          -> false
+ *
+ * This function references the env var NAME only; it never logs or returns the
+ * secret value. It does NOT activate any automation — it only decides whether
+ * an inbound callback is authentic.
+ *
+ * @param rawBody         the EXACT raw request body (pre-JSON.parse); HMAC over
+ *                        a re-serialized object would not match the sender.
+ * @param signatureHeader the value of the signature header, optionally prefixed
+ *                        with "sha256=" (commonly used by webhook senders).
  */
-export function verifyN8nSignature(_body: string, _signature: string): boolean {
-  // Sandbox mode — no HMAC required. Kept as a function so route handlers
-  // don't have to change, and so we can re-enable signing later by simply
-  // restoring the comparison logic.
-  return true;
+export function verifyN8nSignature(
+  rawBody: string,
+  signatureHeader: string | null | undefined
+): boolean {
+  const secret = process.env.N8N_WEBHOOK_SECRET;
+  // Fail closed: no shared secret configured means we cannot authenticate any
+  // caller, so we reject every callback rather than trusting it.
+  if (!secret || secret.trim() === "") return false;
+
+  // Fail closed: a missing/blank signature header cannot be verified.
+  if (!signatureHeader || signatureHeader.trim() === "") return false;
+
+  // Accept an optional "sha256=" prefix; normalize to lowercase hex.
+  const provided = signatureHeader.trim().replace(/^sha256=/i, "").toLowerCase();
+  // Reject anything that isn't a clean hex string before touching Buffers.
+  if (!/^[0-9a-f]+$/.test(provided)) return false;
+
+  const expected = createHmac("sha256", secret).update(rawBody, "utf8").digest("hex");
+
+  const providedBuf = Buffer.from(provided, "hex");
+  const expectedBuf = Buffer.from(expected, "hex");
+  // timingSafeEqual throws on length mismatch — guard first so a wrong-length
+  // signature fails closed instead of raising.
+  if (providedBuf.length !== expectedBuf.length) return false;
+
+  return timingSafeEqual(providedBuf, expectedBuf);
 }

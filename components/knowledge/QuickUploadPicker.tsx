@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight, Upload } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
 import { KnowledgeUploadCard } from "@/components/knowledge/KnowledgeUploadCard";
 
@@ -29,33 +29,13 @@ export function QuickUploadPicker({
   const [pickedId, setPickedId] = useState<string>(uniqueCollections[0]?.id ?? "");
   if (uniqueCollections.length === 0) {
     return (
-      <section className="card-padded">
-        <div className="section-title">
-          <div>
-            <h2>Upload knowledge</h2>
-            <p>
-              Create your first collection (right column), then drop files
-              into it.
-            </p>
-          </div>
-        </div>
-      </section>
+      <p className="text-sm text-ink-700 dark:text-ink-300">
+        Create your first collection (right column), then drop files into it.
+      </p>
     );
   }
   return (
-    <section className="card-padded space-y-4">
-      <div className="section-title">
-        <div>
-          <h2 className="flex items-center gap-2">
-            <Upload size={16} className="text-accent-gold" />
-            Quick upload
-          </h2>
-          <p>
-            Drop files straight into any collection without navigating in.
-            Atlas indexes the text and picks them up on its next reply.
-          </p>
-        </div>
-      </div>
+    <div className="space-y-4">
       <label className="block">
         <span className="label">Collection</span>
         <select
@@ -87,6 +67,6 @@ export function QuickUploadPicker({
           </a>
         </>
       )}
-    </section>
+    </div>
   );
 }

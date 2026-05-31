@@ -73,18 +73,18 @@ export default async function AudiencesIndexPage() {
                   <Link
                     key={a.id}
                     href={`/email/audiences/${a.id}`}
-                    className="flex items-start justify-between gap-3 rounded-xl border border-ink-800 bg-ink-900/40 p-3 transition hover:border-accent-gold/30"
+                    className="flex items-start justify-between gap-3 rounded-xl border border-ink-200 bg-white/60 p-3 transition hover:border-accent-gold/30 dark:border-ink-800 dark:bg-ink-900/40"
                   >
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-ink-100">{a.name}</p>
+                      <p className="text-sm font-medium text-ink-900 dark:text-ink-100">{a.name}</p>
                       {a.description && (
-                        <p className="text-xs text-ink-300">{a.description}</p>
+                        <p className="text-xs text-ink-600 dark:text-ink-300">{a.description}</p>
                       )}
-                      <p className="mt-1 text-[11px] text-ink-300">
+                      <p className="mt-1 text-[11px] text-ink-600 dark:text-ink-300">
                         {t.total} contact{t.total === 1 ? "" : "s"} · {t.active} active
                       </p>
                     </div>
-                    <div className="text-right text-[11px] text-ink-300">
+                    <div className="text-right text-[11px] text-ink-600 dark:text-ink-300">
                       <StatusPill
                         status={a.is_active ? "ok" : "off"}
                         label={a.is_active ? "active" : "inactive"}
@@ -99,8 +99,10 @@ export default async function AudiencesIndexPage() {
         </section>
         <aside>
           <CreateAudienceForm />
-          <div className="card-padded mt-4 text-[11px] text-ink-300">
-            <p className="label">Realtor CSV format</p>
+          <details className="card-padded mt-4 text-[11px] text-ink-600 dark:text-ink-300">
+            <summary className="label cursor-pointer list-none select-none">
+              Realtor CSV format — recognised columns
+            </summary>
             <p className="mt-2">
               The importer auto-recognises columns named:
               <br />
@@ -110,7 +112,7 @@ export default async function AudiencesIndexPage() {
               Other Links, Transaction Count, Total Volume, Buyer Volume,
               Buyer Units.
             </p>
-          </div>
+          </details>
         </aside>
       </div>
     </div>

@@ -180,44 +180,23 @@ export function ResourceLibrary({
   }
 
   return (
-    <div className="space-y-4">
-      <section className="card-padded">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="label flex items-center gap-2">
-              <Filter size={12} />
-              Library filters
-            </p>
-            <p className="mt-1 text-xs text-ink-300">
-              Search title, tags, category, audience, department, or usage notes.
-            </p>
-          </div>
-          {owner && (
-            <button
-              type="button"
-              className="btn-primary"
-              onClick={() => setShowAdd((value) => !value)}
-            >
-              {showAdd ? <X size={14} /> : <Plus size={14} />}
-              {showAdd ? "Close" : labels.add}
-            </button>
-          )}
-        </div>
-        <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_260px]">
-          <label className="relative">
+    <div className="space-y-3">
+      <section className="card p-3">
+        <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center">
+          <label className="relative min-w-0 flex-1">
             <Search
               size={15}
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-400"
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-600 dark:text-ink-400"
             />
             <input
               className="input pl-9"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder={`Search ${labels.source.toLowerCase()}s...`}
+              placeholder={`Search ${labels.source.toLowerCase()}s by title, tag, audience, or notes...`}
             />
           </label>
           <select
-            className="input"
+            className="input lg:w-60"
             value={category}
             onChange={(event) => setCategory(event.target.value)}
           >
@@ -227,7 +206,24 @@ export function ResourceLibrary({
               </option>
             ))}
           </select>
+          {owner && (
+            <button
+              type="button"
+              className="btn-primary shrink-0"
+              onClick={() => setShowAdd((value) => !value)}
+            >
+              {showAdd ? <X size={14} /> : <Plus size={14} />}
+              {showAdd ? "Close" : labels.add}
+            </button>
+          )}
         </div>
+        <p className="mt-2 flex items-center gap-1.5 text-[11px] text-ink-600 dark:text-ink-400">
+          <Filter size={11} />
+          {filtered.length} {labels.source.toLowerCase()}
+          {filtered.length === 1 ? "" : "s"}
+          {category === "All" ? "" : ` in ${category}`}
+          {query ? ` matching "${query}"` : ""}
+        </p>
       </section>
 
       {showAdd && owner && (
@@ -287,114 +283,106 @@ export function ResourceLibrary({
         </form>
       )}
 
-      <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
-        {filtered.length === 0 ? (
-          <div className="card-padded md:col-span-2 2xl:col-span-3">
-            <div className="rounded-2xl border border-dashed border-accent-champagne/20 bg-ink-950/30 p-6 text-center">
-              <FileText className="mx-auto text-accent-gold" size={26} />
-              <h2 className="mt-3 text-base font-semibold text-ink-100">
-                {emptyTitle}
-              </h2>
-              <p className="mx-auto mt-1 max-w-xl text-sm text-ink-300">
-                {emptyDescription}
-              </p>
-            </div>
+      {filtered.length === 0 ? (
+        <div className="card-padded">
+          <div className="rounded-2xl border border-dashed border-ink-300 bg-ink-50 p-6 text-center dark:border-accent-champagne/20 dark:bg-ink-950/30">
+            <FileText className="mx-auto text-accent-gold" size={26} />
+            <h2 className="mt-3 text-base font-semibold text-ink-900 dark:text-ink-100">
+              {emptyTitle}
+            </h2>
+            <p className="mx-auto mt-1 max-w-xl text-sm text-ink-700 dark:text-ink-300">
+              {emptyDescription}
+            </p>
           </div>
-        ) : (
-          filtered.map((item) => {
+        </div>
+      ) : (
+        <ul className="card divide-y divide-ink-200 overflow-hidden dark:divide-ink-800">
+          {filtered.map((item) => {
             const hasEmbed = Boolean(item.embedUrl);
             const detailHref = routeForResource(mode, item.id);
+            const canCopy =
+              mode === "marketing" || Boolean(item.instructions);
+            const copyLabel = mode === "marketing" ? "Copy instructions" : "Copy notes";
             return (
-              <article
+              <li
                 key={item.id}
-                className="card-padded overflow-hidden transition"
+                className="group flex flex-col gap-3 p-3.5 transition-colors hover:bg-ink-50 dark:hover:bg-ink-800/30 sm:flex-row sm:items-center sm:gap-4"
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="chip-active">{item.category}</span>
-                      <span className="chip">{item.format ?? item.resourceType}</span>
-                      {item.source === "shared" && <span className="chip">team shared</span>}
-                    </div>
-                    <h2 className="mt-3 text-base font-semibold text-ink-100">
-                      {item.title}
-                    </h2>
-                    <p className="mt-1 text-sm leading-relaxed text-ink-300">
-                      {item.description}
-                    </p>
-                  </div>
-                  {hasEmbed ? (
-                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-accent-gold/25 bg-accent-gold/10 text-accent-gold">
-                      <PlayCircle size={18} />
-                    </span>
-                  ) : (
-                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-accent-champagne/10 bg-ink-950/40 text-ink-300">
-                      <FileText size={18} />
-                    </span>
+                <span
+                  className={cn(
+                    "grid h-9 w-9 shrink-0 place-items-center rounded-lg border",
+                    hasEmbed
+                      ? "border-accent-gold/25 bg-accent-gold/10 text-accent-gold"
+                      : "border-ink-200 bg-ink-50 text-ink-600 dark:border-accent-champagne/10 dark:bg-ink-950/40 dark:text-ink-300"
                   )}
-                </div>
+                >
+                  {hasEmbed ? <PlayCircle size={17} /> : <FileText size={17} />}
+                </span>
 
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  {item.audience && <span className="chip">Audience: {item.audience}</span>}
-                  {item.department && <span className="chip">{item.department}</span>}
-                  {item.durationMinutes && <span className="chip">{item.durationMinutes} min</span>}
-                  {item.tags.slice(0, 4).map((tag) => (
-                    <span key={tag} className="chip">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-
-                <div className="mt-4 flex flex-wrap items-center gap-2">
-                  <Link href={detailHref} className="btn-primary h-9 px-3 text-xs">
-                    {labels.primary}
+                <div className="min-w-0 flex-1">
+                  <Link
+                    href={detailHref}
+                    className="block truncate text-sm font-semibold text-ink-900 hover:text-accent-gold dark:text-ink-100 dark:hover:text-accent-champagne"
+                  >
+                    {item.title}
                   </Link>
-                  <Link href={detailHref} className="btn-secondary h-9 px-3 text-xs">
-                    {labels.secondary}
+                  <p className="mt-0.5 truncate text-xs text-ink-600 dark:text-ink-400">
+                    {item.description}
+                  </p>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                    <span className="chip-active">{item.category}</span>
+                    <span className="chip">{item.format ?? item.resourceType}</span>
+                    {item.source === "shared" && <span className="chip">team shared</span>}
+                    {item.audience && <span className="chip">{item.audience}</span>}
+                    {item.department && <span className="chip">{item.department}</span>}
+                    {item.durationMinutes ? (
+                      <span className="chip">{item.durationMinutes} min</span>
+                    ) : null}
+                    {item.tags.slice(0, 2).map((tag) => (
+                      <span key={tag} className="chip">
+                        {tag}
+                      </span>
+                    ))}
+                    {item.updatedAt && (
+                      <span className="text-[10px] uppercase tracking-[0.16em] text-ink-600 dark:text-ink-500">
+                        Updated {truncate(item.updatedAt, 10)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+                  <Link href={detailHref} className="btn-primary h-8 px-3 text-xs">
+                    {labels.primary}
                   </Link>
                   {item.url && (
                     <a
                       href={item.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="btn-ghost h-9 px-3 text-xs"
+                      className="btn-secondary h-8 px-3 text-xs"
+                      title={labels.open}
                     >
                       {labels.open}
                       <ExternalLink size={13} />
                     </a>
                   )}
-                  {mode === "marketing" && (
+                  {canCopy && (
                     <button
                       type="button"
-                      className="btn-ghost h-9 px-3 text-xs"
+                      className="btn-ghost h-8 px-3 text-xs"
                       onClick={() => copyInstructions(item)}
                     >
                       {copiedId === item.id ? <Check size={13} /> : <Copy size={13} />}
-                      {copiedId === item.id ? "Copied" : "Copy instructions"}
-                    </button>
-                  )}
-                  {mode !== "marketing" && item.instructions && (
-                    <button
-                      type="button"
-                      className="btn-ghost h-9 px-3 text-xs"
-                      onClick={() => copyInstructions(item)}
-                    >
-                      {copiedId === item.id ? <Check size={13} /> : <Copy size={13} />}
-                      {copiedId === item.id ? "Copied" : "Copy notes"}
+                      {copiedId === item.id ? "Copied" : copyLabel}
                     </button>
                   )}
                 </div>
-
-                {item.updatedAt && (
-                  <p className="mt-3 text-[10px] uppercase tracking-[0.18em] text-ink-500">
-                    Updated {truncate(item.updatedAt, 10)}
-                  </p>
-                )}
-              </article>
+              </li>
             );
-          })
-        )}
-      </div>
+          })}
+        </ul>
+      )}
     </div>
   );
 }

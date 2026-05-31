@@ -193,7 +193,7 @@ export function KnowledgeUploadCard({ collectionId, userId, organizationId }: Pr
     <div className="card-padded space-y-3">
       <div>
         <p className="label">Upload files</p>
-        <p className="mt-1 text-[11px] text-ink-300">
+        <p className="mt-1 text-[11px] text-ink-600 dark:text-ink-300">
           PDF, DOCX, PPTX, TXT, MD, CSV, JSON, PNG, JPG, JPEG, WEBP. Up to
           15 MB each. Text from .md / .txt / .csv / .json is indexed for
           Atlas keyword retrieval; binaries stay searchable by filename.
@@ -207,17 +207,17 @@ export function KnowledgeUploadCard({ collectionId, userId, organizationId }: Pr
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
         className={cn(
-          "flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed bg-ink-900/40 p-6 text-center transition",
+          "flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed bg-ink-50/60 p-6 text-center transition dark:bg-ink-900/40",
           dragOver
             ? "border-accent-gold/60 bg-accent-gold/10 text-accent-gold"
-            : "border-ink-700 text-ink-300 hover:border-ink-500"
+            : "border-ink-300 text-ink-600 hover:border-ink-400 dark:border-ink-700 dark:text-ink-300 dark:hover:border-ink-500"
         )}
       >
         <CloudUpload size={22} />
-        <p className="mt-2 text-sm font-medium text-ink-100">
+        <p className="mt-2 text-sm font-medium text-ink-900 dark:text-ink-100">
           Drop files here or click to choose
         </p>
-        <p className="text-[11px] text-ink-300">
+        <p className="text-[11px] text-ink-600 dark:text-ink-300">
           Multiple files supported.
         </p>
         <input
@@ -234,19 +234,19 @@ export function KnowledgeUploadCard({ collectionId, userId, organizationId }: Pr
           {files.map((f, i) => (
             <li
               key={`${f.name}-${i}`}
-              className="flex items-center justify-between rounded-lg border border-ink-800 bg-ink-900/40 px-2 py-1.5"
+              className="flex items-center justify-between rounded-lg border border-ink-200 bg-ink-50/60 px-2 py-1.5 dark:border-ink-800 dark:bg-ink-900/40"
             >
               <span className="flex items-center gap-2">
-                <FileText size={12} className="text-ink-300" />
-                <span className="text-ink-100">{truncate(f.name, 40)}</span>
-                <span className="text-[10px] text-ink-300">
+                <FileText size={12} className="text-ink-500 dark:text-ink-300" />
+                <span className="text-ink-900 dark:text-ink-100">{truncate(f.name, 40)}</span>
+                <span className="text-[10px] text-ink-600 dark:text-ink-300">
                   {Math.round(f.size / 1024)} KB
                 </span>
               </span>
               <button
                 type="button"
                 onClick={() => setFiles((prev) => prev.filter((_, idx) => idx !== i))}
-                className="text-ink-300 hover:text-status-err"
+                className="text-ink-500 hover:text-status-err dark:text-ink-300"
               >
                 <Trash2 size={10} />
               </button>
@@ -281,7 +281,7 @@ export function KnowledgeUploadCard({ collectionId, userId, organizationId }: Pr
         {isPending ? "Uploading…" : `Upload ${files.length || ""} file(s)`}
       </button>
 
-      <p className="text-[11px] text-ink-300">
+      <p className="text-[11px] text-ink-600 dark:text-ink-300">
         Retrieval indexing (embeddings, vector search) is coming next pass. For
         now the file content is browseable but not yet embedded.
       </p>

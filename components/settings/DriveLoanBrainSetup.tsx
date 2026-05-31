@@ -71,19 +71,21 @@ export function DriveLoanBrainSetup() {
       </div>
 
       {loading ? (
-        <p className="mt-4 flex items-center gap-2 text-xs text-ink-300">
+        <p className="mt-4 flex items-center gap-2 text-xs text-ink-600 dark:text-ink-300">
           <Loader2 size={14} className="animate-spin" /> Checking connection…
         </p>
       ) : status ? (
         <>
           <dl className="mt-4 grid grid-cols-3 gap-2 text-xs">
-            <dt className="text-ink-300">Status</dt>
-            <dd className="col-span-2 text-ink-100">{status.reason}</dd>
-            <dt className="text-ink-300">Identity needed</dt>
-            <dd className="col-span-2 text-ink-100">{status.identityNeeded}</dd>
-            <dt className="text-ink-300">Scope needed</dt>
-            <dd className="col-span-2 text-ink-100">{status.scopeNeeded}</dd>
-            <dt className="text-ink-300">Pipeline folder</dt>
+            <dt className="text-ink-600 dark:text-ink-300">Status</dt>
+            <dd className="col-span-2 text-ink-900 dark:text-ink-100">{status.reason}</dd>
+            <dt className="text-ink-600 dark:text-ink-300">Identity needed</dt>
+            <dd className="col-span-2 text-ink-900 dark:text-ink-100">
+              {status.identityNeeded}
+            </dd>
+            <dt className="text-ink-600 dark:text-ink-300">Scope needed</dt>
+            <dd className="col-span-2 text-ink-900 dark:text-ink-100">{status.scopeNeeded}</dd>
+            <dt className="text-ink-600 dark:text-ink-300">Pipeline folder</dt>
             <dd className="col-span-2">
               {status.rootFolderUrl ? (
                 <a
@@ -95,7 +97,7 @@ export function DriveLoanBrainSetup() {
                   {status.rootFolderLabel} <ExternalLink size={11} />
                 </a>
               ) : (
-                <span className="text-ink-400">Not set</span>
+                <span className="text-ink-600 dark:text-ink-400">Not set</span>
               )}
             </dd>
           </dl>
@@ -104,11 +106,14 @@ export function DriveLoanBrainSetup() {
             <p className="label mb-2">Setup checklist</p>
             <ul className="space-y-1.5">
               {status.checklist.map((item, i) => (
-                <li key={i} className="flex items-center gap-2 text-xs text-ink-200">
+                <li
+                  key={i}
+                  className="flex items-center gap-2 text-xs text-ink-700 dark:text-ink-200"
+                >
                   {item.done ? (
                     <CheckCircle2 size={14} className="shrink-0 text-status-ok" />
                   ) : (
-                    <Circle size={14} className="shrink-0 text-ink-500" />
+                    <Circle size={14} className="shrink-0 text-ink-400 dark:text-ink-500" />
                   )}
                   {item.label}
                 </li>
@@ -127,7 +132,7 @@ export function DriveLoanBrainSetup() {
               Test connection
             </button>
             {!status.connected && (
-              <span className="text-[11px] text-ink-400">
+              <span className="text-[11px] text-ink-600 dark:text-ink-400">
                 Disabled features stay off until all checklist items are green.
               </span>
             )}

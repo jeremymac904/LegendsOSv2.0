@@ -69,7 +69,7 @@ export default async function AcademyLandingPage() {
               <span className="chip">No rate, fee, or approval claims</span>
             </div>
           </div>
-          <div className="rounded-2xl border border-accent-champagne/15 bg-ink-950/30 p-5 dark:bg-ink-950/30">
+          <div className="glass-panel rounded-2xl p-5">
             <p className="label">Sprint status</p>
             <ul className="mt-3 space-y-2 text-[13px] text-ink-700 dark:text-ink-200">
               <li className="flex items-center gap-2">
@@ -110,33 +110,33 @@ export default async function AcademyLandingPage() {
           <h2>Supporting libraries</h2>
           <p>Catalog entries — wired in a later sprint.</p>
         </div>
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="card overflow-hidden divide-y divide-ink-200 dark:divide-ink-800">
           {SIDE_LINKS.map((link) => {
             const Icon = link.icon;
             return (
               <Link
                 key={link.href}
                 href={link.href}
-                className="glass-card-padded group block transition-transform hover:-translate-y-0.5"
+                className="group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-ink-50 dark:hover:bg-ink-800/40"
               >
-                <div className="flex items-start justify-between gap-3">
-                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-accent-champagne/20 bg-ink-950/40 text-accent-champagne dark:bg-ink-950/40">
-                    <Icon size={16} />
-                  </span>
-                  <ArrowRight
-                    size={16}
-                    className="text-ink-400 transition-colors group-hover:text-accent-champagne"
-                  />
+                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-ink-200 bg-ink-50 text-ink-700 dark:border-accent-champagne/20 dark:bg-accent-gold/10 dark:text-accent-champagne">
+                  <Icon size={16} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="truncate text-sm font-semibold text-ink-900 dark:text-ink-100">
+                      {link.label}
+                    </h3>
+                    <span className="chip-off shrink-0">Catalog only</span>
+                  </div>
+                  <p className="mt-0.5 truncate text-[12px] leading-relaxed text-ink-600 dark:text-ink-300">
+                    {link.description}
+                  </p>
                 </div>
-                <h3 className="mt-3 text-sm font-semibold text-ink-900 dark:text-ink-100">
-                  {link.label}
-                </h3>
-                <p className="mt-1 text-[12px] leading-relaxed text-ink-600 dark:text-ink-300">
-                  {link.description}
-                </p>
-                <div className="mt-3">
-                  <span className="chip-off">Catalog only</span>
-                </div>
+                <ArrowRight
+                  size={16}
+                  className="shrink-0 text-ink-500 transition-colors group-hover:text-accent-champagne dark:text-ink-400"
+                />
               </Link>
             );
           })}

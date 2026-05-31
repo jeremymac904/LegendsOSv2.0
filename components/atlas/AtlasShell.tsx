@@ -116,6 +116,31 @@ export function AtlasShell({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Prompt bridge — same contract as AtlasWorkspace. A composing surface
+  // (Builder / Vibe) writes the prompt to sessionStorage under
+  // 'atlas:pendingPrompt' then navigates here; we also honor ?prompt= as a
+  // fallback. Inject into the composer, focus, and clear the key so it never
+  // re-fires. We do NOT auto-submit.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let pending = "";
+    try {
+      pending = window.sessionStorage.getItem("atlas:pendingPrompt") ?? "";
+      if (pending) window.sessionStorage.removeItem("atlas:pendingPrompt");
+    } catch {}
+    if (!pending) {
+      try {
+        pending = new URLSearchParams(window.location.search).get("prompt") ?? "";
+      } catch {}
+    }
+    if (pending.trim()) {
+      setInput(pending);
+      setTimeout(() => composerRef.current?.focus(), 0);
+    }
+    // Run once on mount — the bridge is a hand-off, not a live binding.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Persist provider/model selection.
   useEffect(() => {
     if (typeof window === "undefined") return;

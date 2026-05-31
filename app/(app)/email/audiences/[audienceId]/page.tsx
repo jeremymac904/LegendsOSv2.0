@@ -121,15 +121,15 @@ export default async function AudienceDetailPage({ params }: PageProps) {
             </div>
             <ul className="mt-3 space-y-1 text-xs">
               {topCities.length === 0 ? (
-                <li className="text-ink-300">No city data yet.</li>
+                <li className="text-ink-600 dark:text-ink-300">No city data yet.</li>
               ) : (
                 topCities.map(([city, n]) => (
                   <li
                     key={city}
-                    className="flex items-center justify-between rounded-md border border-ink-800 bg-ink-900/40 px-2 py-1"
+                    className="flex items-center justify-between rounded-md border border-ink-200 bg-white/60 px-2 py-1 dark:border-ink-800 dark:bg-ink-900/40"
                   >
-                    <span className="truncate text-ink-100">{city}</span>
-                    <span className="text-ink-300">{n}</span>
+                    <span className="truncate text-ink-900 dark:text-ink-100">{city}</span>
+                    <span className="text-ink-600 dark:text-ink-300">{n}</span>
                   </li>
                 ))
               )}
@@ -147,15 +147,15 @@ export default async function AudienceDetailPage({ params }: PageProps) {
             </div>
             <ul className="mt-3 space-y-1 text-xs">
               {topOffices.length === 0 ? (
-                <li className="text-ink-300">No office data yet.</li>
+                <li className="text-ink-600 dark:text-ink-300">No office data yet.</li>
               ) : (
                 topOffices.map(([office, n]) => (
                   <li
                     key={office}
-                    className="flex items-center justify-between rounded-md border border-ink-800 bg-ink-900/40 px-2 py-1"
+                    className="flex items-center justify-between rounded-md border border-ink-200 bg-white/60 px-2 py-1 dark:border-ink-800 dark:bg-ink-900/40"
                   >
-                    <span className="truncate text-ink-100">{office}</span>
-                    <span className="text-ink-300">{n}</span>
+                    <span className="truncate text-ink-900 dark:text-ink-100">{office}</span>
+                    <span className="text-ink-600 dark:text-ink-300">{n}</span>
                   </li>
                 ))
               )}
@@ -171,9 +171,9 @@ export default async function AudienceDetailPage({ params }: PageProps) {
             <p>Showing up to 25 most recent. Total stored: {total}.</p>
           </div>
         </div>
-        <div className="mt-3 overflow-hidden rounded-xl border border-ink-800">
+        <div className="mt-3 overflow-hidden rounded-xl border border-ink-200 dark:border-ink-800">
           <table className="w-full text-left text-xs">
-            <thead className="bg-ink-900/70 text-[10px] uppercase tracking-[0.18em] text-ink-300">
+            <thead className="bg-ink-100/70 text-[10px] uppercase tracking-[0.18em] text-ink-600 dark:bg-ink-900/70 dark:text-ink-300">
               <tr>
                 <th className="px-3 py-2">Name</th>
                 <th className="px-3 py-2">Email</th>
@@ -186,7 +186,7 @@ export default async function AudienceDetailPage({ params }: PageProps) {
             <tbody>
               {contactRows.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-3 py-6 text-center text-ink-300">
+                  <td colSpan={6} className="px-3 py-6 text-center text-ink-600 dark:text-ink-300">
                     <EmptyState
                       icon={Users2}
                       title="No contacts yet"
@@ -196,21 +196,24 @@ export default async function AudienceDetailPage({ params }: PageProps) {
                 </tr>
               ) : (
                 contactRows.slice(0, 25).map((c) => (
-                  <tr key={c.id} className="border-t border-ink-800">
-                    <td className="px-3 py-2 text-ink-100">
+                  <tr
+                    key={c.id}
+                    className="border-t border-ink-200 dark:border-ink-800"
+                  >
+                    <td className="px-3 py-2 text-ink-900 dark:text-ink-100">
                       {c.full_name ?? "—"}
                     </td>
-                    <td className="px-3 py-2 text-ink-300">{c.email ?? "—"}</td>
-                    <td className="px-3 py-2 text-ink-300">
+                    <td className="px-3 py-2 text-ink-600 dark:text-ink-300">{c.email ?? "—"}</td>
+                    <td className="px-3 py-2 text-ink-600 dark:text-ink-300">
                       {truncate(c.office_name ?? "—", 28)}
                     </td>
-                    <td className="px-3 py-2 text-ink-300">
+                    <td className="px-3 py-2 text-ink-600 dark:text-ink-300">
                       {c.city ? `${c.city}${c.state ? `, ${c.state}` : ""}` : "—"}
                     </td>
                     <td className="px-3 py-2">
                       <StatusPill status={c.status as never} />
                     </td>
-                    <td className="px-3 py-2 text-ink-300">
+                    <td className="px-3 py-2 text-ink-600 dark:text-ink-300">
                       {formatRelative(c.created_at)}
                     </td>
                   </tr>

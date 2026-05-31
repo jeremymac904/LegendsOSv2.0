@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { AdminNav } from "@/components/admin/AdminNav";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatCard } from "@/components/ui/StatCard";
@@ -44,12 +45,13 @@ export default async function AdminUsagePage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <SectionHeader
         eyebrow="Admin · Usage"
         title="Team activity (7 days)"
         description="Counts pulled live from usage_events. Drill into any module to see per-user breakdowns."
       />
+      <AdminNav />
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         {(["atlas", "images", "social", "email", "knowledge"] as const).map(
           (m) => (
@@ -66,8 +68,10 @@ export default async function AdminUsagePage() {
       <section className="card-padded">
         <div className="section-title">
           <div>
-            <h2>Per-user activity</h2>
-            <p>Counts events from all modules in the last 7 days.</p>
+            <h2 className="text-ink-900 dark:text-ink-100">Per-user activity</h2>
+            <p className="text-ink-600 dark:text-ink-300">
+              Counts events from all modules in the last 7 days.
+            </p>
           </div>
         </div>
         {members.length === 0 ? (
@@ -76,9 +80,9 @@ export default async function AdminUsagePage() {
             description="Invite users via Supabase Auth — profiles auto-populate on sign-up."
           />
         ) : (
-          <div className="mt-4 overflow-hidden rounded-xl border border-ink-800">
+          <div className="mt-4 overflow-hidden rounded-xl border border-ink-200 dark:border-ink-800">
             <table className="w-full text-left text-sm">
-              <thead className="bg-ink-900/70 text-[10px] uppercase tracking-[0.18em] text-ink-300">
+              <thead className="bg-ink-50 text-[10px] uppercase tracking-[0.18em] text-ink-600 dark:bg-ink-900/70 dark:text-ink-300">
                 <tr>
                   <th className="px-3 py-2">User</th>
                   <th className="px-3 py-2">Role</th>
@@ -91,12 +95,17 @@ export default async function AdminUsagePage() {
                     (a, b) => (byUser.get(b.id) ?? 0) - (byUser.get(a.id) ?? 0)
                   )
                   .map((m) => (
-                    <tr key={m.id} className="border-t border-ink-800">
-                      <td className="px-3 py-2 text-ink-100">
+                    <tr
+                      key={m.id}
+                      className="border-t border-ink-200 dark:border-ink-800"
+                    >
+                      <td className="px-3 py-2 text-ink-900 dark:text-ink-100">
                         {m.full_name ?? m.email}
                       </td>
-                      <td className="px-3 py-2 text-ink-300">{m.role}</td>
-                      <td className="px-3 py-2 text-ink-100">
+                      <td className="px-3 py-2 text-ink-600 dark:text-ink-300">
+                        {m.role}
+                      </td>
+                      <td className="px-3 py-2 text-ink-900 dark:text-ink-100">
                         {byUser.get(m.id) ?? 0}
                       </td>
                     </tr>
@@ -110,13 +119,13 @@ export default async function AdminUsagePage() {
       <section className="card-padded">
         <div className="section-title">
           <div>
-            <h2>Recent events</h2>
-            <p>Last 25 usage records.</p>
+            <h2 className="text-ink-900 dark:text-ink-100">Recent events</h2>
+            <p className="text-ink-600 dark:text-ink-300">Last 25 usage records.</p>
           </div>
         </div>
-        <div className="mt-4 overflow-hidden rounded-xl border border-ink-800">
+        <div className="mt-4 overflow-hidden rounded-xl border border-ink-200 dark:border-ink-800">
           <table className="w-full text-left text-xs">
-            <thead className="bg-ink-900/70 text-[10px] uppercase tracking-[0.18em] text-ink-300">
+            <thead className="bg-ink-50 text-[10px] uppercase tracking-[0.18em] text-ink-600 dark:bg-ink-900/70 dark:text-ink-300">
               <tr>
                 <th className="px-3 py-2">Module</th>
                 <th className="px-3 py-2">Event</th>
@@ -126,11 +135,15 @@ export default async function AdminUsagePage() {
             </thead>
             <tbody>
               {usage.slice(0, 25).map((e) => (
-                <tr key={e.id} className="border-t border-ink-800">
-                  <td className="px-3 py-2 text-ink-100">{e.module}</td>
-                  <td className="px-3 py-2 text-ink-300">{e.event_type}</td>
-                  <td className="px-3 py-2 text-ink-300">{e.provider ?? "—"}</td>
-                  <td className="px-3 py-2 text-ink-300">
+                <tr key={e.id} className="border-t border-ink-200 dark:border-ink-800">
+                  <td className="px-3 py-2 text-ink-900 dark:text-ink-100">{e.module}</td>
+                  <td className="px-3 py-2 text-ink-600 dark:text-ink-300">
+                    {e.event_type}
+                  </td>
+                  <td className="px-3 py-2 text-ink-600 dark:text-ink-300">
+                    {e.provider ?? "—"}
+                  </td>
+                  <td className="px-3 py-2 text-ink-600 dark:text-ink-300">
                     {formatRelative(e.created_at)}
                   </td>
                 </tr>

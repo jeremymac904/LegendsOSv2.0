@@ -117,7 +117,7 @@ function MediaThumb({
       <span className={cn("relative block overflow-hidden", className)}>
         <video
           src={media.preview_url}
-          className="h-full w-full bg-ink-950 object-cover"
+          className="h-full w-full bg-ink-100 object-cover dark:bg-ink-950"
           muted
           playsInline
           preload="metadata"
@@ -532,15 +532,15 @@ export function SocialComposer({
         onChange={(e) => setBody(e.target.value)}
         maxLength={8000}
       />
-      <p className="text-[11px] text-ink-300">
+      <p className="text-[11px] text-ink-600 dark:text-ink-300">
         {body.length.toLocaleString()} chars
       </p>
 
       {showYouTubeTitleField && (
         <div className="rounded-xl border border-[#FF0000]/30 bg-[#FF0000]/5 p-3">
-          <p className="label flex items-center gap-1 text-[#ff8484]">
+          <p className="label flex items-center gap-1 text-[#c81d1d] dark:text-[#ff8484]">
             YouTube video title{" "}
-            <span className="text-[10px] uppercase tracking-[0.18em] text-ink-300">
+            <span className="text-[10px] uppercase tracking-[0.18em] text-ink-600 dark:text-ink-300">
               (required for YouTube)
             </span>
           </p>
@@ -551,7 +551,7 @@ export function SocialComposer({
             onChange={(e) => setYoutubeTitle(e.target.value)}
             maxLength={100}
           />
-          <p className="mt-1 text-[10px] text-ink-300">
+          <p className="mt-1 text-[10px] text-ink-600 dark:text-ink-300">
             {youtubeTitle.length}/100 — YouTube limits titles to 100 characters.
           </p>
         </div>
@@ -596,7 +596,7 @@ export function SocialComposer({
               {selectedMedia.map((m) => (
                 <div
                   key={m.id}
-                  className="group relative h-16 w-16 overflow-hidden rounded-lg border border-ink-800 bg-checker"
+                  className="group relative h-16 w-16 overflow-hidden rounded-lg border border-ink-200 bg-checker dark:border-ink-800"
                   title={m.prompt ?? ""}
                 >
                   {m.preview_url ? (
@@ -605,14 +605,14 @@ export function SocialComposer({
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <div className="grid h-full w-full place-items-center text-[9px] text-ink-300">
+                    <div className="grid h-full w-full place-items-center text-[9px] text-ink-600 dark:text-ink-300">
                       {m.status}
                     </div>
                   )}
                   <button
                     type="button"
                     onClick={() => toggleMedia(m.id)}
-                    className="absolute right-0.5 top-0.5 rounded-full bg-ink-950/80 p-0.5 text-ink-100 opacity-0 transition group-hover:opacity-100"
+                    className="absolute right-0.5 top-0.5 rounded-full bg-ink-950/80 p-0.5 text-white opacity-0 transition group-hover:opacity-100"
                     aria-label="Remove"
                   >
                     <X size={10} />
@@ -621,17 +621,17 @@ export function SocialComposer({
               ))}
             </div>
           ) : (
-            <p className="self-center text-[11px] text-ink-300">
+            <p className="self-center text-[11px] text-ink-600 dark:text-ink-300">
               No media attached yet. Attach generated images or upload your own.
             </p>
           )}
         </div>
 
         {showLibrary && (
-          <div className="mt-3 rounded-xl border border-ink-800 bg-ink-900/40 p-3">
-            <p className="text-xs font-medium text-ink-100">Generated library</p>
+          <div className="mt-3 rounded-xl border border-ink-200 bg-white/60 p-3 dark:border-ink-800 dark:bg-ink-900/40">
+            <p className="text-xs font-medium text-ink-900 dark:text-ink-100">Generated library</p>
             {library.length === 0 ? (
-              <p className="mt-2 text-[11px] text-ink-300">
+              <p className="mt-2 text-[11px] text-ink-600 dark:text-ink-300">
                 No generated images yet. Open Image Studio to make one.
               </p>
             ) : (
@@ -648,7 +648,7 @@ export function SocialComposer({
                         "group relative overflow-hidden rounded-lg border bg-checker transition",
                         picked
                           ? "border-accent-gold/60 ring-2 ring-accent-gold/30"
-                          : "border-ink-800 hover:border-ink-600"
+                          : "border-ink-200 hover:border-ink-300 dark:border-ink-800 dark:hover:border-ink-600"
                       )}
                       title={
                         usedCount > 0
@@ -662,7 +662,7 @@ export function SocialComposer({
                           className="aspect-square w-full object-cover"
                         />
                       ) : (
-                        <div className="grid aspect-square place-items-center text-[10px] text-ink-300">
+                        <div className="grid aspect-square place-items-center text-[10px] text-ink-600 dark:text-ink-300">
                           <ImageIcon size={14} />
                         </div>
                       )}
@@ -672,14 +672,15 @@ export function SocialComposer({
                         </span>
                       )}
                       {/* Usage chip — accent-gold when used at least once,
-                          muted ink-300 when never used. Server-computed by
-                          loadSocialAssetUsageCounts to keep this cheap. */}
+                          muted when never used. Server-computed by
+                          loadSocialAssetUsageCounts to keep this cheap. Chip sits
+                          on a dark scrim regardless of theme (over imagery). */}
                       <span
                         className={cn(
                           "absolute bottom-1 left-1 rounded-full border px-1.5 py-0.5 text-[9px] font-medium tracking-tight",
                           usedCount > 0
                             ? "border-accent-gold/40 bg-ink-950/80 text-accent-gold"
-                            : "border-ink-800 bg-ink-950/70 text-ink-300"
+                            : "border-white/20 bg-ink-950/70 text-white/80"
                         )}
                       >
                         {usedCount > 0
@@ -706,7 +707,7 @@ export function SocialComposer({
                 "rounded-xl border px-3 py-1.5 text-xs transition",
                 selected.includes(c.id)
                   ? "border-accent-gold/40 bg-accent-gold/10 text-accent-gold"
-                  : "border-ink-700 text-ink-200 hover:border-ink-500"
+                  : "border-ink-300 text-ink-700 hover:border-ink-400 dark:border-ink-700 dark:text-ink-200 dark:hover:border-ink-500"
               )}
               onClick={() => toggleChannel(c.id)}
             >
@@ -725,7 +726,7 @@ export function SocialComposer({
             onChange={(e) => setScheduledAt(e.target.value)}
           />
         </div>
-        <div className="self-end text-[11px] text-ink-300">
+        <div className="self-end text-[11px] text-ink-600 dark:text-ink-300">
           Drafts always save. External publishing only runs when the owner
           enables it AND n8n is configured.
         </div>
@@ -773,7 +774,7 @@ export function SocialComposer({
           <CalendarPlus size={14} />
           Schedule
         </button>
-        <span className="ml-auto inline-flex items-center gap-1 text-[11px] text-ink-300">
+        <span className="ml-auto inline-flex items-center gap-1 text-[11px] text-ink-600 dark:text-ink-300">
           <Send size={12} />
           External publishing only fires when the owner enables it.
         </span>

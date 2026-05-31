@@ -53,16 +53,16 @@ export default async function TrainingPage() {
       />
 
       <section className="card-padded overflow-hidden">
-        <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+        <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
           <div>
             <p className="label flex items-center gap-2">
               <GraduationCap size={13} />
               Learning paths
             </p>
-            <h2 className="mt-2 text-2xl font-semibold text-ink-100">
+            <h2 className="mt-2 text-2xl font-semibold text-ink-900 dark:text-ink-100">
               Build repeatable loan officer execution.
             </h2>
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-300">
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-700 dark:text-ink-300">
               Organize videos, quick tutorials, technology walkthroughs,
               mortgage coaching, sales coaching, AI training, n8n training,
               LegendsOS training, and Loan Factory workflow training in one
@@ -84,25 +84,25 @@ export default async function TrainingPage() {
             <HeroStat icon={Sparkles} label="Nuggets" value="Quick lessons" />
           </div>
         </div>
-      </section>
 
-      <section className="card-padded">
-        <div className="section-title">
-          <div>
-            <h2>Training nuggets</h2>
-            <p>Short standards for making every training item useful.</p>
+        <details className="group mt-5 border-t border-ink-200 pt-4 dark:border-ink-800">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2">
+            <span className="label">Training nuggets — standards for useful items</span>
+            <span className="text-[11px] text-ink-600 transition-transform group-open:rotate-180 dark:text-ink-400">
+              ▾
+            </span>
+          </summary>
+          <div className="mt-3 grid gap-2 md:grid-cols-2">
+            {TRAINING_NUGGETS.map((nugget) => (
+              <div
+                key={nugget}
+                className="glass-panel p-3 text-sm text-ink-700 dark:text-ink-200"
+              >
+                {nugget}
+              </div>
+            ))}
           </div>
-        </div>
-        <div className="mt-4 grid gap-2 md:grid-cols-2">
-          {TRAINING_NUGGETS.map((nugget) => (
-            <div
-              key={nugget}
-              className="rounded-xl border border-accent-champagne/10 bg-ink-950/30 p-3 text-sm text-ink-200 backdrop-blur-sm"
-            >
-              {nugget}
-            </div>
-          ))}
-        </div>
+        </details>
       </section>
 
       <LegendsOSHelpCoaches
@@ -139,16 +139,16 @@ function HeroStat({
   value: string;
 }) {
   return (
-    <div className="rounded-xl border border-accent-champagne/10 bg-ink-950/30 p-3 backdrop-blur-sm">
+    <div className="glass-panel p-3">
       <div className="flex items-center gap-2">
-        <span className="grid h-8 w-8 place-items-center rounded-lg border border-accent-champagne/20 bg-accent-gold/10 text-accent-champagne">
+        <span className="grid h-8 w-8 place-items-center rounded-lg border border-ink-200 bg-ink-50 text-ink-700 dark:border-accent-champagne/20 dark:bg-accent-gold/10 dark:text-accent-champagne">
           <Icon size={15} />
         </span>
-        <p className="text-[10px] uppercase tracking-[0.18em] text-ink-400">
+        <p className="text-[10px] uppercase tracking-[0.18em] text-ink-600 dark:text-ink-400">
           {label}
         </p>
       </div>
-      <p className="mt-3 text-sm font-semibold text-ink-100">{value}</p>
+      <p className="mt-3 text-sm font-semibold text-ink-900 dark:text-ink-100">{value}</p>
     </div>
   );
 }

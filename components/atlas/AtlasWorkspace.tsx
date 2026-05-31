@@ -10,6 +10,7 @@ import {
 import { useRouter } from "next/navigation";
 import {
   BookOpen,
+  Brain,
   Calendar as CalendarIcon,
   Check,
   ChevronDown,
@@ -17,6 +18,7 @@ import {
   ChevronsRight,
   Info,
   Layers3,
+  Lock,
   Mail,
   MonitorUp,
   PanelLeft,
@@ -383,6 +385,32 @@ function WorkspaceResourcePanel({
           </div>
         </div>
       )}
+      {/* Loan Memory — placeholder section reserved for the loan-brain memory
+          layer. It does NOT call any loan-brain API or fabricate recall; it is
+          an honest, clearly-labelled hook that lights up when the memory layer
+          is enabled. Keeping the slot here means the panel is already
+          structured to host real recall without a re-layout later. */}
+      <div className="border-t border-ink-200 dark:border-ink-800 p-3">
+        <div className="flex items-center gap-2">
+          <span className="grid h-6 w-6 shrink-0 place-items-center rounded-lg border border-ink-200 dark:border-ink-700 bg-white/50 dark:bg-ink-900/50 text-ink-500 dark:text-ink-400">
+            <Brain size={12} />
+          </span>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-600 dark:text-ink-300">
+            Loan Memory
+          </p>
+          <span className="ml-auto inline-flex items-center gap-1 rounded-full border border-ink-200 dark:border-ink-700 bg-white/50 dark:bg-ink-900/50 px-1.5 py-[1px] text-[9px] uppercase tracking-[0.14em] text-ink-500 dark:text-ink-400">
+            <Lock size={8} />
+            Off
+          </span>
+        </div>
+        <div className="mt-2 rounded-xl border border-dashed border-ink-200 dark:border-ink-700 bg-white/30 dark:bg-ink-900/30 p-3">
+          <p className="text-[10.5px] leading-snug text-ink-600 dark:text-ink-300">
+            Past-loan recall connects here when Loan Memory is enabled. Until
+            then Atlas answers from project knowledge and your message only — no
+            stored borrower history is read.
+          </p>
+        </div>
+      </div>
       <div className="border-t border-ink-200 dark:border-ink-800">
         <LOWorkspace onPrompt={onPrompt} />
       </div>
@@ -505,6 +533,33 @@ export function AtlasWorkspace({
   }, []);
   useEffect(() => { try { window.localStorage.setItem(LS_PROVIDER_KEY, provider); } catch {} }, [provider]);
   useEffect(() => { try { if (model) window.localStorage.setItem(LS_MODEL_KEY, model); } catch {} }, [model]);
+
+  // ── Prompt bridge ──────────────────────────────────────────────────────────
+  // Builder / Vibe / any other surface hands a composed prompt to Atlas by
+  // writing it to sessionStorage under 'atlas:pendingPrompt' then navigating
+  // here. We also honor a ?prompt= URL param as a fallback. On mount we inject
+  // the value into the controlled composer, focus it, and clear the
+  // sessionStorage key so it can't re-fire on the next render / navigation.
+  // We DO NOT auto-submit — the user reviews and presses Send.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let pending = "";
+    try {
+      pending = window.sessionStorage.getItem("atlas:pendingPrompt") ?? "";
+      if (pending) window.sessionStorage.removeItem("atlas:pendingPrompt");
+    } catch {
+      // sessionStorage can throw in locked-down browsers — fall through to the
+      // URL param so the bridge still works.
+    }
+    if (!pending) {
+      try {
+        pending = new URLSearchParams(window.location.search).get("prompt") ?? "";
+      } catch {}
+    }
+    if (pending.trim()) injectPrompt(pending);
+    // Run once on mount only; the bridge is a hand-off, not a live binding.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const models = useMemo(() => modelCatalog?.[provider] ?? [], [modelCatalog, provider]);
   useEffect(() => {

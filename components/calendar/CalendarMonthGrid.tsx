@@ -62,7 +62,7 @@ function kindClasses(kind: CalendarKind): string {
       return "border-accent-gold/50 bg-accent-gold/15 text-accent-gold hover:bg-accent-gold/25";
     case "calendar":
     default:
-      return "border-ink-600/70 bg-ink-800/80 text-ink-100 border-l-2 border-l-accent-gold/60 hover:bg-ink-700/80";
+      return "border-ink-200 bg-ink-50 text-ink-900 border-l-2 border-l-accent-gold/60 hover:bg-ink-100 dark:border-ink-600/70 dark:bg-ink-800/80 dark:text-ink-100 dark:hover:bg-ink-700/80";
   }
 }
 
@@ -200,7 +200,7 @@ export function CalendarMonthGrid({ month, entries, focusId }: Props) {
           >
             <ChevronLeft size={16} />
           </button>
-          <h2 className="min-w-[10ch] text-base font-semibold tracking-tight text-ink-100">
+          <h2 className="min-w-[10ch] text-base font-semibold tracking-tight text-ink-900 dark:text-ink-100">
             {monthLabel(month)}
           </h2>
           <button
@@ -219,7 +219,7 @@ export function CalendarMonthGrid({ month, entries, focusId }: Props) {
             Today
           </button>
         </div>
-        <div className="flex items-center gap-2 text-[11px] text-ink-300">
+        <div className="flex items-center gap-2 text-[11px] text-ink-600 dark:text-ink-300">
           <span className="inline-flex items-center gap-1">
             <span className="inline-block h-2 w-2 rounded-full bg-accent-gold/50" />
             Social
@@ -229,17 +229,17 @@ export function CalendarMonthGrid({ month, entries, focusId }: Props) {
             Email
           </span>
           <span className="inline-flex items-center gap-1">
-            <span className="inline-block h-2 w-2 rounded-sm border-l-2 border-l-accent-gold/70 bg-ink-700" />
+            <span className="inline-block h-2 w-2 rounded-sm border-l-2 border-l-accent-gold/70 bg-ink-200 dark:bg-ink-700" />
             Item
           </span>
         </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-px overflow-hidden rounded-2xl border border-ink-700/70 bg-ink-700/40">
+      <div className="grid grid-cols-7 gap-px overflow-hidden rounded-2xl border border-ink-200 bg-ink-200 dark:border-ink-700/70 dark:bg-ink-700/40">
         {DAY_LABELS.map((d) => (
           <div
             key={d}
-            className="bg-ink-900/80 px-2 py-1.5 text-[10px] font-medium uppercase tracking-wider text-ink-400"
+            className="bg-ink-50 px-2 py-1.5 text-[10px] font-medium uppercase tracking-wider text-ink-600 dark:bg-ink-900/80 dark:text-ink-400"
           >
             {d}
           </div>
@@ -259,8 +259,10 @@ export function CalendarMonthGrid({ month, entries, focusId }: Props) {
             <div
               key={key}
               className={[
-                "relative flex min-h-[104px] flex-col gap-1 p-1.5 transition-colors lg:min-h-[118px] xl:min-h-[132px]",
-                inMonth ? "bg-ink-900/60" : "bg-ink-900/20",
+                "relative flex min-h-[88px] flex-col gap-1 p-1.5 transition-colors lg:min-h-[100px] xl:min-h-[112px]",
+                inMonth
+                  ? "bg-white dark:bg-ink-900/60"
+                  : "bg-ink-50 dark:bg-ink-900/20",
                 isToday
                   ? "ring-1 ring-inset ring-accent-gold/50 bg-accent-gold/[0.06]"
                   : "",
@@ -270,14 +272,16 @@ export function CalendarMonthGrid({ month, entries, focusId }: Props) {
                 <span
                   className={[
                     "text-[11px] font-semibold tabular-nums",
-                    inMonth ? "text-ink-200" : "text-ink-500",
-                    isToday ? "text-accent-gold" : "",
+                    inMonth
+                      ? "text-ink-800 dark:text-ink-200"
+                      : "text-ink-400 dark:text-ink-500",
+                    isToday ? "text-accent-gold dark:text-accent-gold" : "",
                   ].join(" ")}
                 >
                   {d.getDate()}
                 </span>
                 {items.length > 0 && (
-                  <span className="text-[9px] uppercase tracking-wider text-ink-400">
+                  <span className="text-[9px] uppercase tracking-wider text-ink-500 dark:text-ink-400">
                     {items.length}
                   </span>
                 )}
@@ -327,7 +331,7 @@ export function CalendarMonthGrid({ month, entries, focusId }: Props) {
                           }}
                           disabled={isDeleting}
                           aria-label="Delete calendar item"
-                          className="absolute right-0.5 top-1/2 hidden -translate-y-1/2 items-center justify-center rounded-full bg-ink-950/80 p-0.5 text-ink-300 transition hover:bg-status-err/20 hover:text-status-err group-hover:flex"
+                          className="absolute right-0.5 top-1/2 hidden -translate-y-1/2 items-center justify-center rounded-full bg-white/90 p-0.5 text-ink-500 shadow-sm transition hover:bg-status-err/20 hover:text-status-err group-hover:flex dark:bg-ink-950/80 dark:text-ink-300"
                         >
                           <X size={10} />
                         </button>
@@ -336,7 +340,7 @@ export function CalendarMonthGrid({ month, entries, focusId }: Props) {
                   );
                 })}
                 {overflow > 0 && (
-                  <span className="inline-flex w-fit items-center rounded-full border border-ink-700 bg-ink-800/80 px-1.5 py-[1px] text-[9.5px] font-medium text-ink-300">
+                  <span className="inline-flex w-fit items-center rounded-full border border-ink-200 bg-ink-50 px-1.5 py-[1px] text-[9.5px] font-medium text-ink-600 dark:border-ink-700 dark:bg-ink-800/80 dark:text-ink-300">
                     +{overflow} more
                   </span>
                 )}

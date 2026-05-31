@@ -19,7 +19,7 @@ export default async function ProcessingPage() {
   const rows = sampleBoardRows().filter((r) => r.rootKind === "active_loans");
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <SectionHeader
         eyebrow="Processing · FLO"
         title="Processor cockpit"

@@ -171,8 +171,8 @@ export function AssetUploadCard() {
     <section className="card-padded space-y-3">
       <div className="section-title">
         <div>
-          <h2>Upload assets</h2>
-          <p>
+          <h2 className="text-ink-900 dark:text-ink-100">Upload assets</h2>
+          <p className="text-ink-600 dark:text-ink-300">
             Accepted: images (png · jpg · jpeg · webp), documents (pdf · docx ·
             pptx · md · txt · csv · json), and videos (mp4 · mov · webm). Up to
             50 MB per file. Drop multiple at once.
@@ -240,7 +240,7 @@ export function AssetUploadCard() {
           "relative cursor-pointer rounded-2xl border-2 border-dashed p-6 text-center transition",
           dragOver
             ? "border-accent-gold/60 bg-accent-gold/5"
-            : "border-ink-700 bg-ink-900/30 hover:border-ink-600"
+            : "border-ink-300 bg-ink-50 hover:border-ink-400 dark:border-ink-700 dark:bg-ink-900/30 dark:hover:border-ink-600"
         )}
         onDragOver={(e) => {
           e.preventDefault();
@@ -254,12 +254,12 @@ export function AssetUploadCard() {
         }}
         onClick={() => fileRef.current?.click()}
       >
-        <CloudUpload size={28} className="mx-auto text-ink-300" />
-        <p className="mt-2 text-sm text-ink-100">
+        <CloudUpload size={28} className="mx-auto text-ink-500 dark:text-ink-300" />
+        <p className="mt-2 text-sm text-ink-900 dark:text-ink-100">
           Drop files here, or{" "}
           <span className="text-accent-gold underline">browse</span>
         </p>
-        <p className="mt-0.5 text-[11px] text-ink-300">
+        <p className="mt-0.5 text-[11px] text-ink-600 dark:text-ink-300">
           Multi-file OK · up to 50 MB each
         </p>
         <input
@@ -288,7 +288,7 @@ export function AssetUploadCard() {
                   ? "border-status-err/30 bg-status-err/10 text-status-err"
                   : p.status === "uploading"
                   ? "border-accent-gold/30 bg-accent-gold/10 text-accent-gold"
-                  : "border-ink-700 bg-ink-900/40 text-ink-200"
+                  : "border-ink-200 bg-white text-ink-700 dark:border-ink-700 dark:bg-ink-900/40 dark:text-ink-200"
               )}
             >
               <span className="truncate">
@@ -301,7 +301,7 @@ export function AssetUploadCard() {
               {p.status === "queued" && (
                 <button
                   type="button"
-                  className="text-ink-300 hover:text-status-err"
+                  className="text-ink-500 hover:text-status-err dark:text-ink-300"
                   onClick={() =>
                     setPending((prev) => prev.filter((_, idx) => idx !== i))
                   }

@@ -364,54 +364,56 @@ export function ImageStudioClient({ falReadiness, referenceAssets }: Props) {
         <ReadinessChip state={falReadiness} />
       </div>
 
-      <ChipGroup
-        label="Image type"
-        options={IMAGE_TYPES}
-        value={type}
-        onChange={(v) => setType(v as ImageTypeId)}
-      />
-      <ChipGroup
-        label="Channel"
-        options={CHANNELS}
-        value={channel}
-        onChange={(v) => setChannel(v as ChannelId)}
-      />
-      <ChipGroup
-        label="Tone"
-        options={TONES}
-        value={tone}
-        onChange={(v) => setTone(v as ToneId)}
-      />
-      <ChipGroup
-        label="Style"
-        options={STYLES}
-        value={style}
-        onChange={(v) => setStyle(v as StyleId)}
-      />
-      <ChipGroup
-        label="Background"
-        options={BACKGROUNDS}
-        value={background}
-        onChange={(v) => setBackground(v as BackgroundId)}
-      />
-      <ChipGroup
-        label="Brand color emphasis"
-        options={COLOR_EMPHASES}
-        value={colorEmphasis}
-        onChange={(v) => setColorEmphasis(v as ColorEmphasisId)}
-      />
-      <ChipGroup
-        label="Subject"
-        options={SUBJECTS}
-        value={subject}
-        onChange={(v) => setSubject(v as SubjectId)}
-      />
-      <ChipGroup
-        label="Output size"
-        options={OUTPUT_SIZES}
-        value={outputSize}
-        onChange={(v) => setOutputSize(v as OutputSizeId)}
-      />
+      <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
+        <ChipGroup
+          label="Image type"
+          options={IMAGE_TYPES}
+          value={type}
+          onChange={(v) => setType(v as ImageTypeId)}
+        />
+        <ChipGroup
+          label="Channel"
+          options={CHANNELS}
+          value={channel}
+          onChange={(v) => setChannel(v as ChannelId)}
+        />
+        <ChipGroup
+          label="Tone"
+          options={TONES}
+          value={tone}
+          onChange={(v) => setTone(v as ToneId)}
+        />
+        <ChipGroup
+          label="Style"
+          options={STYLES}
+          value={style}
+          onChange={(v) => setStyle(v as StyleId)}
+        />
+        <ChipGroup
+          label="Background"
+          options={BACKGROUNDS}
+          value={background}
+          onChange={(v) => setBackground(v as BackgroundId)}
+        />
+        <ChipGroup
+          label="Brand color emphasis"
+          options={COLOR_EMPHASES}
+          value={colorEmphasis}
+          onChange={(v) => setColorEmphasis(v as ColorEmphasisId)}
+        />
+        <ChipGroup
+          label="Subject"
+          options={SUBJECTS}
+          value={subject}
+          onChange={(v) => setSubject(v as SubjectId)}
+        />
+        <ChipGroup
+          label="Output size"
+          options={OUTPUT_SIZES}
+          value={outputSize}
+          onChange={(v) => setOutputSize(v as OutputSizeId)}
+        />
+      </div>
 
       <div>
         <p className="label">Reference asset (optional)</p>
@@ -445,15 +447,15 @@ export function ImageStudioClient({ falReadiness, referenceAssets }: Props) {
           )}
         </select>
         {selectedReference?.public_path && (
-          <div className="mt-2 flex items-center gap-2 rounded-lg border border-ink-800 bg-ink-900/40 p-2">
+          <div className="mt-2 flex items-center gap-2 rounded-lg border border-ink-200 bg-white/60 p-2 dark:border-ink-800 dark:bg-ink-900/40">
             <img
               src={selectedReference.public_path}
               alt={selectedReference.label}
               className="h-12 w-12 rounded object-cover"
               loading="lazy"
             />
-            <p className="text-[11px] text-ink-300">
-              Using <span className="text-ink-100">{selectedReference.label}</span> as a style reference.
+            <p className="text-[11px] text-ink-600 dark:text-ink-300">
+              Using <span className="text-ink-900 dark:text-ink-100">{selectedReference.label}</span> as a style reference.
               Exact identity preservation is not guaranteed by the current FAL text-to-image flow.
             </p>
           </div>
@@ -475,7 +477,7 @@ export function ImageStudioClient({ falReadiness, referenceAssets }: Props) {
             Improve Prompt
           </button>
         </div>
-        <p className="mt-2 rounded-xl border border-ink-800 bg-ink-900/40 p-2 text-[11px] leading-snug text-ink-200">
+        <p className="mt-2 rounded-xl border border-ink-200 bg-white/60 p-2 text-[11px] leading-snug text-ink-700 dark:border-ink-800 dark:bg-ink-900/40 dark:text-ink-200">
           {effectivePrompt}
         </p>
       </div>
@@ -500,8 +502,8 @@ export function ImageStudioClient({ falReadiness, referenceAssets }: Props) {
         {isPending ? "Generating…" : "Generate image"}
       </button>
 
-      <details className="group rounded-xl border border-ink-800 bg-ink-900/30 p-2 text-xs">
-        <summary className="flex cursor-pointer list-none items-center gap-1.5 text-ink-200 [&::-webkit-details-marker]:hidden">
+      <details className="group rounded-xl border border-ink-200 bg-white/50 p-2 text-xs dark:border-ink-800 dark:bg-ink-900/30">
+        <summary className="flex cursor-pointer list-none items-center gap-1.5 text-ink-700 dark:text-ink-200 [&::-webkit-details-marker]:hidden">
           <ChevronDown
             size={12}
             className="transition group-open:rotate-180"
@@ -510,7 +512,7 @@ export function ImageStudioClient({ falReadiness, referenceAssets }: Props) {
           Advanced details
         </summary>
         <div className="mt-2 space-y-2">
-          <label className="flex items-center gap-2 text-[11px] text-ink-300">
+          <label className="flex items-center gap-2 text-[11px] text-ink-600 dark:text-ink-300">
             <input
               type="checkbox"
               checked={overrideOn}
@@ -523,7 +525,7 @@ export function ImageStudioClient({ falReadiness, referenceAssets }: Props) {
             />
             Override raw prompt
           </label>
-          <p className="text-[10px] text-ink-300">
+          <p className="text-[10px] text-ink-600 dark:text-ink-300">
             Overriding ignores the guided controls above. Edit the text below to
             send a fully custom prompt to FAL. Untick to return to the guided
             composer.
@@ -539,9 +541,9 @@ export function ImageStudioClient({ falReadiness, referenceAssets }: Props) {
       </details>
 
       {preview && (
-        <div className="overflow-hidden rounded-xl border border-ink-800 bg-checker">
+        <div className="overflow-hidden rounded-xl border border-ink-200 bg-checker dark:border-ink-800">
           <img src={preview} alt="Generated preview" className="w-full" />
-          <p className="border-t border-ink-800 p-2 text-[11px] text-ink-300">
+          <p className="border-t border-ink-200 p-2 text-[11px] text-ink-600 dark:border-ink-800 dark:text-ink-300">
             <ImageIcon className="inline" size={12} /> Preview
           </p>
         </div>
@@ -580,10 +582,10 @@ function ChipGroup({
             type="button"
             onClick={() => onChange(o.id)}
             className={cn(
-              "rounded-lg border px-2.5 py-1 text-xs",
+              "rounded-lg border px-2.5 py-1 text-xs transition-colors",
               value === o.id
                 ? "border-accent-gold/40 bg-accent-gold/10 text-accent-gold"
-                : "border-ink-700 text-ink-200 hover:border-ink-500"
+                : "border-ink-300 text-ink-700 hover:border-ink-400 dark:border-ink-700 dark:text-ink-200 dark:hover:border-ink-500"
             )}
           >
             {o.label}

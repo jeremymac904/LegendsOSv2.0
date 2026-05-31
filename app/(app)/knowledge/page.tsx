@@ -1,17 +1,16 @@
 import Link from "next/link";
 import {
-  BookOpen,
   ExternalLink,
   FolderTree,
-  Lock,
   PlayCircle,
   PlugZap,
-  Users2,
+  Upload,
 } from "lucide-react";
 
+import { CollapsibleSection } from "@/components/knowledge/CollapsibleSection";
 import { CreateCollectionForm } from "@/components/knowledge/CreateCollectionForm";
+import { KnowledgeBrowser } from "@/components/knowledge/KnowledgeBrowser";
 import { QuickUploadPicker } from "@/components/knowledge/QuickUploadPicker";
-import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { isOwner } from "@/lib/permissions";
@@ -95,21 +94,61 @@ export default async function KnowledgePage() {
       })),
   ];
 
+  const toRow = (c: KnowledgeCollection) => ({
+    id: c.id,
+    name: c.name,
+    description: c.description ?? null,
+    updatedLabel: formatRelative(c.updated_at),
+    itemCount: itemsByCollection.get(c.id) ?? 0,
+  });
+  const recentRows = recent.map((it) => ({
+    id: it.id,
+    title: it.title,
+    collectionId: it.collection_id ?? null,
+    sourceType: it.source_type ?? null,
+    createdLabel: formatRelative(it.created_at),
+  }));
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <SectionHeader
         eyebrow="Knowledge Sources"
         title="Reference material for Atlas"
         description="Upload files, paste text, and link sources. Private by default; team-shared when you flip the toggle."
       />
 
-      <QuickUploadPicker
-        userId={profile.id}
-        organizationId={profile.organization_id}
-        collections={writableCollections}
-      />
+      {/* Compact action row: upload (left, accordion) + create collection (right). */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
+        <CollapsibleSection
+          title="Quick upload"
+          description="Drop files straight into any collection — Atlas indexes the text on its next reply."
+          icon={Upload}
+          defaultOpen={writableCollections.length > 0}
+          badge={
+            <span className="chip-info">
+              {writableCollections.length} target(s)
+            </span>
+          }
+        >
+          <QuickUploadPicker
+            userId={profile.id}
+            organizationId={profile.organization_id}
+            collections={writableCollections}
+          />
+        </CollapsibleSection>
 
-      <KnowledgeSetupGuide tutorialUrl={tutorialUrl} />
+        <CreateCollectionForm
+          userId={profile.id}
+          organizationId={profile.organization_id}
+          canShare={profile.role === "owner"}
+        />
+      </div>
+
+      <KnowledgeBrowser
+        privateCollections={priv.map(toRow)}
+        teamCollections={team.map(toRow)}
+        recent={recentRows}
+      />
 
       {isOwner(profile) && imports.length > 0 && (
         <section className="card-padded">
@@ -128,30 +167,33 @@ export default async function KnowledgePage() {
               {imports.length} sources
             </span>
           </div>
-          <div className="mt-4 overflow-hidden rounded-xl border border-ink-800">
+          <div className="mt-4 overflow-hidden rounded-xl border border-ink-200 dark:border-ink-800">
             <table className="w-full text-left text-xs">
-              <thead className="bg-ink-900/70 text-[10px] uppercase tracking-[0.18em] text-ink-300">
+              <thead className="bg-ink-50 text-[10px] uppercase tracking-[0.18em] text-ink-600 dark:bg-ink-900/70 dark:text-ink-300">
                 <tr>
-                  <th className="px-3 py-2">Collection</th>
-                  <th className="px-3 py-2">Visibility</th>
-                  <th className="px-3 py-2">Items</th>
-                  <th className="px-3 py-2">Last imported</th>
+                  <th className="px-3 py-2 font-medium">Collection</th>
+                  <th className="px-3 py-2 font-medium">Visibility</th>
+                  <th className="px-3 py-2 font-medium">Items</th>
+                  <th className="px-3 py-2 font-medium">Last imported</th>
                 </tr>
               </thead>
               <tbody>
                 {imports.map((c) => {
                   const count = itemsByCollection.get(c.id) ?? 0;
                   return (
-                    <tr key={c.id} className="border-t border-ink-800">
+                    <tr
+                      key={c.id}
+                      className="border-t border-ink-200 dark:border-ink-800"
+                    >
                       <td className="px-3 py-2">
                         <Link
                           href={`/knowledge/${c.id}`}
-                          className="font-medium text-ink-100 hover:text-accent-gold"
+                          className="font-medium text-ink-900 hover:text-accent-gold dark:text-ink-100"
                         >
                           {c.name}
                         </Link>
                         {c.description && (
-                          <p className="line-clamp-1 text-[11px] text-ink-300">
+                          <p className="line-clamp-1 text-[11px] text-ink-600 dark:text-ink-300">
                             {c.description}
                           </p>
                         )}
@@ -162,8 +204,10 @@ export default async function KnowledgePage() {
                           label={c.visibility.replace("_", " ")}
                         />
                       </td>
-                      <td className="px-3 py-2 text-ink-100">{count}</td>
-                      <td className="px-3 py-2 text-ink-300">
+                      <td className="px-3 py-2 text-ink-900 dark:text-ink-100">
+                        {count}
+                      </td>
+                      <td className="px-3 py-2 text-ink-600 dark:text-ink-300">
                         {formatRelative(c.updated_at)}
                       </td>
                     </tr>
@@ -175,133 +219,18 @@ export default async function KnowledgePage() {
         </section>
       )}
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[2fr_1fr]">
-        <div className="space-y-5">
-          <section className="card-padded">
-            <div className="section-title">
-              <div>
-                <h2>My collections</h2>
-                <p>Only you can see these unless you mark them team-shared.</p>
-              </div>
-              <span className="chip-info">
-                <Lock size={12} />
-                private
-              </span>
-            </div>
-            <div className="mt-4 grid grid-cols-1 gap-2">
-              {priv.length === 0 ? (
-                <EmptyState
-                  icon={BookOpen}
-                  title="No private collections yet"
-                  description="Create one on the right to start uploading source material."
-                />
-              ) : (
-                priv.map((c) => (
-                  <Link
-                    key={c.id}
-                    href={`/knowledge/${c.id}`}
-                    className="flex items-center justify-between rounded-xl border border-ink-800 bg-ink-900/40 px-3 py-3 transition hover:border-accent-gold/30"
-                  >
-                    <div>
-                      <p className="text-sm font-medium text-ink-100">{c.name}</p>
-                      <p className="text-xs text-ink-300">{c.description}</p>
-                    </div>
-                    <span className="text-xs text-ink-300">
-                      {formatRelative(c.updated_at)}
-                    </span>
-                  </Link>
-                ))
-              )}
-            </div>
-          </section>
-          <section className="card-padded">
-            <div className="section-title">
-              <div>
-                <h2>Team-shared collections</h2>
-                <p>Visible to every member of the organization.</p>
-              </div>
-              <span className="chip-ok">
-                <Users2 size={12} />
-                team shared
-              </span>
-            </div>
-            <div className="mt-4 grid grid-cols-1 gap-2">
-              {team.length === 0 ? (
-                <EmptyState
-                  icon={Users2}
-                  title="No team-shared collections yet"
-                  description="Jeremy can promote any collection to team-shared visibility."
-                />
-              ) : (
-                team.map((c) => (
-                  <Link
-                    key={c.id}
-                    href={`/knowledge/${c.id}`}
-                    className="flex items-center justify-between rounded-xl border border-ink-800 bg-ink-900/40 px-3 py-3"
-                  >
-                    <div>
-                      <p className="text-sm font-medium text-ink-100">{c.name}</p>
-                      <p className="text-xs text-ink-300">{c.description}</p>
-                    </div>
-                    <StatusPill status="info" label="shared" />
-                  </Link>
-                ))
-              )}
-            </div>
-          </section>
-          <section className="card-padded">
-            <div className="section-title">
-              <div>
-                <h2>Recent items</h2>
-                <p>Across all collections you can read.</p>
-              </div>
-            </div>
-            <div className="mt-4 grid gap-2">
-              {recent.length === 0 ? (
-                <EmptyState
-                  icon={BookOpen}
-                  title="No items yet"
-                  description="Items appear as soon as you add them to a collection."
-                />
-              ) : (
-                recent.map((it) => (
-                  <Link
-                    key={it.id}
-                    href={`/knowledge/${it.collection_id}`}
-                    className="flex items-center justify-between rounded-xl border border-ink-800 bg-ink-900/40 px-3 py-2 text-sm"
-                  >
-                    <span className="truncate text-ink-100">{it.title}</span>
-                    <span className="flex items-center gap-2 text-xs text-ink-300">
-                      <span className="chip">{it.source_type ?? "note"}</span>
-                      {formatRelative(it.created_at)}
-                    </span>
-                  </Link>
-                ))
-              )}
-            </div>
-          </section>
-        </div>
-        <aside className="space-y-4">
-          <CreateCollectionForm
-            userId={profile.id}
-            organizationId={profile.organization_id}
-            canShare={profile.role === "owner"}
-          />
-          <div className="card-padded text-xs text-ink-300">
-            <p className="label">Privacy</p>
-            <p className="mt-2">
-              Source files and embeddings live in Supabase under your user
-              folder. RLS enforces who can read them. Owner ({profile.role === "owner" ? "you" : "Jeremy"})
-              has cross-team read access.
-            </p>
-          </div>
-        </aside>
-      </div>
+      <KnowledgeSetupGuide tutorialUrl={tutorialUrl} role={profile.role} />
     </div>
   );
 }
 
-function KnowledgeSetupGuide({ tutorialUrl }: { tutorialUrl: string }) {
+function KnowledgeSetupGuide({
+  tutorialUrl,
+  role,
+}: {
+  tutorialUrl: string;
+  role: string;
+}) {
   const steps = [
     {
       title: "Upload source files",
@@ -318,31 +247,27 @@ function KnowledgeSetupGuide({ tutorialUrl }: { tutorialUrl: string }) {
   ];
 
   return (
-    <section className="card-padded">
+    <CollapsibleSection
+      title="Knowledge setup guide"
+      description="Onboarding for source uploads, collection routing, and Atlas retrieval checks."
+      icon={PlugZap}
+      defaultOpen={false}
+    >
       <div className="grid gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
         <div>
-          <div className="section-title">
-            <div>
-              <h2>Knowledge setup guide</h2>
-              <p>
-                A visible onboarding lane for source uploads, collection
-                routing, and Atlas retrieval checks.
-              </p>
-            </div>
-          </div>
-          <div className="mt-4 grid gap-2">
+          <div className="grid gap-2">
             {steps.map((s, index) => (
               <div
                 key={s.title}
-                className="rounded-xl border border-ink-800 bg-ink-900/40 p-3"
+                className="rounded-xl border border-ink-200 bg-ink-50/60 p-3 dark:border-ink-800 dark:bg-ink-900/40"
               >
                 <p className="text-[10px] uppercase tracking-[0.18em] text-accent-gold">
                   Step {index + 1}
                 </p>
-                <p className="mt-1 text-sm font-medium text-ink-100">
+                <p className="mt-1 text-sm font-medium text-ink-900 dark:text-ink-100">
                   {s.title}
                 </p>
-                <p className="mt-1 text-xs leading-relaxed text-ink-300">
+                <p className="mt-1 text-xs leading-relaxed text-ink-700 dark:text-ink-300">
                   {s.body}
                 </p>
               </div>
@@ -352,8 +277,15 @@ function KnowledgeSetupGuide({ tutorialUrl }: { tutorialUrl: string }) {
             <PlugZap size={14} />
             Review connections
           </Link>
+          <p className="mt-4 text-xs text-ink-600 dark:text-ink-300">
+            <span className="label">Privacy</span>
+            <br />
+            Source files and embeddings live in Supabase under your user folder.
+            RLS enforces who can read them. Owner ({role === "owner" ? "you" : "Jeremy"})
+            has cross-team read access.
+          </p>
         </div>
-        <div className="overflow-hidden rounded-2xl border border-ink-800 bg-ink-950/80">
+        <div className="overflow-hidden rounded-2xl border border-ink-200 bg-ink-50/60 dark:border-ink-800 dark:bg-ink-950/80">
           {tutorialUrl ? (
             <iframe
               src={tutorialUrl}
@@ -363,16 +295,13 @@ function KnowledgeSetupGuide({ tutorialUrl }: { tutorialUrl: string }) {
               allowFullScreen
             />
           ) : (
-            <div className="grid aspect-video place-items-center bg-gradient-to-br from-ink-900 via-ink-950 to-black p-6 text-center">
+            <div className="grid aspect-video place-items-center bg-gradient-to-br from-ink-50 via-white to-ink-100 p-6 text-center dark:from-ink-900 dark:via-ink-950 dark:to-black">
               <div className="max-w-sm">
-                <PlayCircle
-                  size={38}
-                  className="mx-auto text-accent-gold/90"
-                />
-                <p className="mt-3 text-sm font-medium text-ink-100">
+                <PlayCircle size={38} className="mx-auto text-accent-gold/90" />
+                <p className="mt-3 text-sm font-medium text-ink-900 dark:text-ink-100">
                   Tutorial video slot
                 </p>
-                <p className="mt-1 text-xs leading-relaxed text-ink-300">
+                <p className="mt-1 text-xs leading-relaxed text-ink-600 dark:text-ink-300">
                   Add a hosted walkthrough URL with{" "}
                   <code>NEXT_PUBLIC_KNOWLEDGE_TUTORIAL_URL</code> to embed the
                   setup video here.
@@ -380,15 +309,18 @@ function KnowledgeSetupGuide({ tutorialUrl }: { tutorialUrl: string }) {
               </div>
             </div>
           )}
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-ink-800 px-3 py-2 text-xs text-ink-300">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-ink-200 px-3 py-2 text-xs text-ink-600 dark:border-ink-800 dark:text-ink-300">
             <span>Atlas-ready source setup</span>
-            <Link href="/atlas" className="inline-flex items-center gap-1 text-accent-gold hover:text-accent-gold-300">
+            <Link
+              href="/atlas"
+              className="inline-flex items-center gap-1 text-accent-gold hover:text-accent-gold-300"
+            >
               Test retrieval
               <ExternalLink size={12} />
             </Link>
           </div>
         </div>
       </div>
-    </section>
+    </CollapsibleSection>
   );
 }

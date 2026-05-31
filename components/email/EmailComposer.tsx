@@ -526,7 +526,7 @@ export function EmailComposer({
               />
             )}
             {audiences.length === 0 && (
-              <p className="text-[10px] text-ink-300">
+              <p className="text-[10px] text-ink-600 dark:text-ink-300">
                 No audiences yet. Open Audiences (top-right) to import a CSV.
               </p>
             )}
@@ -536,10 +536,10 @@ export function EmailComposer({
                   <Users2 size={16} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-ink-100">
+                  <p className="truncate text-sm font-semibold text-ink-900 dark:text-ink-100">
                     {selectedAudience.name}
                   </p>
-                  <p className="mt-0.5 text-[12px] text-ink-200">
+                  <p className="mt-0.5 text-[12px] text-ink-700 dark:text-ink-200">
                     <span className="font-semibold text-accent-gold">
                       {selectedAudience.active.toLocaleString()}
                     </span>{" "}
@@ -547,14 +547,14 @@ export function EmailComposer({
                     {selectedAudience.active === 1 ? "" : "s"} ·{" "}
                     {selectedAudience.total.toLocaleString()} total
                   </p>
-                  <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-ink-300">
+                  <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-ink-600 dark:text-ink-300">
                     Blast size when you Queue send
                   </p>
                 </div>
               </div>
             )}
             {!selectedAudience && audiences.length > 0 && (
-              <p className="text-[10px] text-ink-300">
+              <p className="text-[10px] text-ink-600 dark:text-ink-300">
                 Pick an audience above to see the blast size before sending.
               </p>
             )}
@@ -579,32 +579,32 @@ export function EmailComposer({
                 card visual (rounded ink-950 panel, gold-tinted eyebrow). The
                 iframe is sized like a real inbox: max-width ~600px so the
                 preview matches what the recipient sees in Gmail / Outlook. */}
-            <div className="overflow-hidden rounded-xl border border-ink-800 bg-ink-950">
-              <div className="flex items-center justify-between gap-2 border-b border-ink-800 px-3 py-1.5">
-                <p className="text-[10px] uppercase tracking-[0.18em] text-ink-300">
+            <div className="overflow-hidden rounded-xl border border-ink-200 bg-white dark:border-ink-800 dark:bg-ink-950">
+              <div className="flex items-center justify-between gap-2 border-b border-ink-200 px-3 py-1.5 dark:border-ink-800">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-ink-600 dark:text-ink-300">
                   Inbox preview
                 </p>
-                <p className="text-[10px] text-ink-400">
+                <p className="text-[10px] text-ink-500 dark:text-ink-400">
                   Same shell ships to n8n on Queue send
                 </p>
               </div>
-              <div className="border-b border-ink-800 bg-ink-900/40 px-4 py-3">
-                <p className="text-[10px] uppercase tracking-[0.18em] text-ink-300">
+              <div className="border-b border-ink-200 bg-ink-50 px-4 py-3 dark:border-ink-800 dark:bg-ink-900/40">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-ink-600 dark:text-ink-300">
                   Subject
                 </p>
-                <p className="mt-1 truncate font-medium text-ink-100">
+                <p className="mt-1 truncate font-medium text-ink-900 dark:text-ink-100">
                   {subject || "Subject preview"}
                 </p>
-                <p className="truncate text-xs text-ink-300">
+                <p className="truncate text-xs text-ink-600 dark:text-ink-300">
                   {previewText || "Preview text appears here"}
                 </p>
               </div>
-              <div className="flex justify-center bg-ink-950 px-3 py-4">
+              <div className="flex justify-center bg-ink-100 px-3 py-4 dark:bg-ink-950">
                 <iframe
                   title="Email preview"
                   srcDoc={previewHtml}
                   sandbox=""
-                  className="block h-[520px] w-full max-w-[600px] rounded-lg border border-ink-800 bg-ink-950"
+                  className="block h-[520px] w-full max-w-[600px] rounded-lg border border-ink-200 bg-white dark:border-ink-800 dark:bg-ink-950"
                 />
               </div>
             </div>
@@ -665,7 +665,7 @@ export function EmailComposer({
             ? `Queue send · ${selectedAudience.active.toLocaleString()} contacts`
             : "Queue send"}
         </button>
-        <span className="ml-auto inline-flex items-center gap-1 text-[11px] text-ink-300">
+        <span className="ml-auto inline-flex items-center gap-1 text-[11px] text-ink-600 dark:text-ink-300">
           <Mail size={12} />
           {liveSendEnabled
             ? "External sending enabled — n8n must be configured."
@@ -674,7 +674,7 @@ export function EmailComposer({
       </div>
 
       {isOwner && (
-        <div className="rounded-xl border border-ink-800 bg-ink-900/40 px-3 py-2.5">
+        <div className="rounded-xl border border-ink-200 bg-white/60 px-3 py-2.5 dark:border-ink-800 dark:bg-ink-900/40">
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
@@ -694,7 +694,7 @@ export function EmailComposer({
                     ownerEmail ? ` (${ownerEmail})` : ""
                   }`}
             </button>
-            <p className="text-[11px] text-ink-300">
+            <p className="text-[11px] text-ink-600 dark:text-ink-300">
               Owner-only, single-recipient. Audience is ignored for this
               button — only your inbox is hit.
             </p>
@@ -801,18 +801,18 @@ export function StarterTemplatesPanel({ templates }: StarterTemplatesPanelProps)
             onClick={() => pick(t)}
             disabled={busyKey !== null}
             className={cn(
-              "group flex flex-col gap-2 rounded-xl border border-ink-800 bg-ink-900/40 p-3 text-left transition",
+              "group flex flex-col gap-2 rounded-xl border border-ink-200 bg-white/60 p-3 text-left transition dark:border-ink-800 dark:bg-ink-900/40",
               busyKey === t.key
                 ? "border-accent-gold/40 bg-accent-gold/10"
-                : "hover:border-accent-gold/30 hover:bg-ink-900/60"
+                : "hover:border-accent-gold/30 hover:bg-ink-50 dark:hover:bg-ink-900/60"
             )}
           >
-            <p className="text-[10px] uppercase tracking-[0.18em] text-ink-300">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-ink-600 dark:text-ink-300">
               Newsletter starter
             </p>
-            <p className="text-sm font-semibold text-ink-100">{t.subject}</p>
-            <p className="text-[11px] text-ink-300">{t.preview_text}</p>
-            <p className="mt-auto pt-1 text-[10px] text-ink-400 group-hover:text-accent-gold">
+            <p className="text-sm font-semibold text-ink-900 dark:text-ink-100">{t.subject}</p>
+            <p className="text-[11px] text-ink-600 dark:text-ink-300">{t.preview_text}</p>
+            <p className="mt-auto pt-1 text-[10px] text-ink-500 group-hover:text-accent-gold dark:text-ink-400">
               {busyKey === t.key ? "Creating draft…" : t.blurb}
             </p>
           </button>

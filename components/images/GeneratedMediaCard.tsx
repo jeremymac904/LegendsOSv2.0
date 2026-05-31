@@ -41,15 +41,15 @@ export function GeneratedMediaCard({ media }: Props) {
             className="h-full w-full object-cover"
           />
         ) : (
-          <div className="grid h-full w-full place-items-center text-[10px] text-ink-300">
+          <div className="grid h-full w-full place-items-center text-[10px] text-ink-600 dark:text-ink-300">
             <ImageIcon size={18} />
             <span className="mt-1">{media.status}</span>
           </div>
         )}
       </div>
       <figcaption className="space-y-2 p-3 text-xs">
-        <p className="line-clamp-2 text-ink-100">{media.prompt ?? "—"}</p>
-        <div className="flex flex-wrap items-center gap-2 text-[10px] text-ink-300">
+        <p className="line-clamp-2 text-ink-900 dark:text-ink-100">{media.prompt ?? "—"}</p>
+        <div className="flex flex-wrap items-center gap-2 text-[10px] text-ink-600 dark:text-ink-300">
           <StatusPill status={media.status as never} />
           <span className="chip">{media.provider ?? "—"}</span>
           {media.model && <span className="chip">{truncate(media.model, 20)}</span>}

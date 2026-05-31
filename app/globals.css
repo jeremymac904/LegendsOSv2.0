@@ -136,7 +136,7 @@ body {
   /* `.glass-panel` is an unbordered translucent surface for nested panels
    * inside a card — sub-sections, side blocks, list rows. */
   .glass-panel {
-    @apply relative rounded-xl border border-accent-champagne/10 bg-ink-950/24 backdrop-blur-xl;
+    @apply relative rounded-xl border border-accent-champagne/10 bg-ink-950/25 backdrop-blur-xl;
   }
 
   /* ─── Buttons ────────────────────────────────────────────────────── */

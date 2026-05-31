@@ -42,7 +42,7 @@ export default async function RoleplayLabPage() {
 
       <section className="glass-card-padded">
         <div className="flex items-start gap-3">
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-accent-champagne/25 bg-ink-950/40 text-accent-champagne dark:bg-ink-950/40">
+          <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-ink-200 bg-ink-50 text-ink-700 dark:border-accent-champagne/25 dark:bg-accent-gold/10 dark:text-accent-champagne">
             <MessageCircle size={16} />
           </span>
           <div>
@@ -80,7 +80,7 @@ export default async function RoleplayLabPage() {
 
       <section className="glass-card-padded">
         <div className="flex items-start gap-3">
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-accent-champagne/25 bg-ink-950/40 text-accent-champagne dark:bg-ink-950/40">
+          <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-ink-200 bg-ink-50 text-ink-700 dark:border-accent-champagne/25 dark:bg-accent-gold/10 dark:text-accent-champagne">
             <Shield size={16} />
           </span>
           <div>

@@ -82,9 +82,12 @@ export function MCPConnections() {
 
   function providerBadge(provider: string) {
     const styles: Record<string, string> = {
-      zapier: "bg-blue-500/10 text-blue-400 border-blue-500/30",
-      composio: "bg-purple-500/10 text-purple-400 border-purple-500/30",
-      custom: "bg-ink-700 text-ink-200 border-ink-600",
+      zapier:
+        "border-blue-500/40 bg-blue-500/10 text-blue-600 dark:border-blue-500/30 dark:text-blue-400",
+      composio:
+        "border-purple-500/40 bg-purple-500/10 text-purple-600 dark:border-purple-500/30 dark:text-purple-400",
+      custom:
+        "border-ink-300 bg-ink-100 text-ink-700 dark:border-ink-600 dark:bg-ink-700 dark:text-ink-200",
     };
     return (
       <span
@@ -117,9 +120,9 @@ export function MCPConnections() {
       </div>
 
       {showForm && (
-        <div className="mt-4 space-y-3 rounded-xl border border-ink-700 bg-ink-900/60 p-4">
+        <div className="mt-4 space-y-3 rounded-xl border border-ink-200 bg-ink-50/60 p-4 dark:border-ink-700 dark:bg-ink-900/60">
           <div>
-            <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-ink-300">
+            <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-ink-600 dark:text-ink-300">
               Provider
             </label>
             <div className="flex gap-2">
@@ -131,7 +134,7 @@ export function MCPConnections() {
                   className={`rounded-lg border px-3 py-1.5 text-xs font-medium capitalize transition ${
                     newProvider === p
                       ? "border-accent-gold/40 bg-accent-gold/10 text-accent-gold"
-                      : "border-ink-700 text-ink-300 hover:border-ink-500"
+                      : "border-ink-200 text-ink-600 hover:border-ink-400 dark:border-ink-700 dark:text-ink-300 dark:hover:border-ink-500"
                   }`}
                 >
                   {p}
@@ -140,7 +143,7 @@ export function MCPConnections() {
             </div>
           </div>
           <div>
-            <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-ink-300">
+            <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-ink-600 dark:text-ink-300">
               Label
             </label>
             <input
@@ -148,11 +151,11 @@ export function MCPConnections() {
               value={newLabel}
               onChange={(e) => setNewLabel(e.target.value)}
               placeholder="e.g. My Zapier Tools"
-              className="w-full rounded-lg border border-ink-700 bg-ink-900 px-3 py-2 text-sm text-ink-100 placeholder:text-ink-500 focus:border-accent-gold/50 focus:outline-none"
+              className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm text-ink-900 placeholder:text-ink-500 focus:border-accent-gold/50 focus:outline-none dark:border-ink-700 dark:bg-ink-900 dark:text-ink-100 dark:placeholder:text-ink-500"
             />
           </div>
           <div>
-            <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-ink-300">
+            <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-ink-600 dark:text-ink-300">
               MCP Server URL
             </label>
             <input
@@ -164,11 +167,11 @@ export function MCPConnections() {
                   ? "https://mcp.zapier.com/mcp/servers/your-id/stream"
                   : "https://your-mcp-server.example.com/mcp"
               }
-              className="w-full rounded-lg border border-ink-700 bg-ink-900 px-3 py-2 text-sm text-ink-100 placeholder:text-ink-500 focus:border-accent-gold/50 focus:outline-none"
+              className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm text-ink-900 placeholder:text-ink-500 focus:border-accent-gold/50 focus:outline-none dark:border-ink-700 dark:bg-ink-900 dark:text-ink-100 dark:placeholder:text-ink-500"
             />
           </div>
           <div>
-            <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-ink-300">
+            <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-ink-600 dark:text-ink-300">
               Auth Token{" "}
               <span className="text-ink-500">(optional — for Bearer auth)</span>
             </label>
@@ -177,7 +180,7 @@ export function MCPConnections() {
               value={newToken}
               onChange={(e) => setNewToken(e.target.value)}
               placeholder="Bearer sk-..."
-              className="w-full rounded-lg border border-ink-700 bg-ink-900 px-3 py-2 text-sm text-ink-100 placeholder:text-ink-500 focus:border-accent-gold/50 focus:outline-none"
+              className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm text-ink-900 placeholder:text-ink-500 focus:border-accent-gold/50 focus:outline-none dark:border-ink-700 dark:bg-ink-900 dark:text-ink-100 dark:placeholder:text-ink-500"
             />
           </div>
           <div className="flex items-center gap-2 pt-1">
@@ -201,12 +204,12 @@ export function MCPConnections() {
 
       <div className="mt-4 space-y-2">
         {loading ? (
-          <p className="py-4 text-center text-[11px] text-ink-400">
+          <p className="py-4 text-center text-[11px] text-ink-600 dark:text-ink-400">
             Loading connections...
           </p>
         ) : connections.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-ink-700 py-8 text-center">
-            <p className="text-sm text-ink-400">
+          <div className="rounded-xl border border-dashed border-ink-300 py-8 text-center dark:border-ink-700">
+            <p className="text-sm text-ink-700 dark:text-ink-400">
               No MCP servers connected yet.
             </p>
             <p className="mt-1 text-[11px] text-ink-500">
@@ -218,17 +221,17 @@ export function MCPConnections() {
           connections.map((c) => (
             <div
               key={c.id}
-              className="flex items-center justify-between rounded-lg border border-ink-800 bg-ink-900/40 px-3 py-2.5"
+              className="flex items-center justify-between rounded-lg border border-ink-200 bg-white px-3 py-2.5 dark:border-ink-800 dark:bg-ink-900/40"
             >
               <div className="flex items-center gap-3">
                 <div className="flex flex-col gap-0.5">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-ink-100">
+                    <span className="text-sm font-medium text-ink-900 dark:text-ink-100">
                       {c.label}
                     </span>
                     {providerBadge(c.provider)}
                   </div>
-                  <span className="font-mono text-[11px] text-ink-400">
+                  <span className="font-mono text-[11px] text-ink-600 dark:text-ink-400">
                     {c.url.length > 60
                       ? c.url.slice(0, 50) + "..." + c.url.slice(-12)
                       : c.url}
@@ -255,23 +258,23 @@ export function MCPConnections() {
       </div>
 
       <details className="mt-4">
-        <summary className="cursor-pointer text-[11px] text-ink-400 hover:text-ink-300">
+        <summary className="cursor-pointer text-[11px] text-ink-600 hover:text-ink-900 dark:text-ink-400 dark:hover:text-ink-300">
           How to get your MCP server URL
         </summary>
-        <div className="mt-2 space-y-2 rounded-lg border border-ink-800 bg-ink-900/30 p-3 text-xs text-ink-300">
+        <div className="mt-2 space-y-2 rounded-lg border border-ink-200 bg-ink-50/60 p-3 text-xs text-ink-700 dark:border-ink-800 dark:bg-ink-900/30 dark:text-ink-300">
           <p>
-            <strong className="text-ink-200">Zapier MCP:</strong> Go to{" "}
-            <code className="text-ink-100">zapier.com/mcp</code>, sign in, and
+            <strong className="text-ink-900 dark:text-ink-200">Zapier MCP:</strong> Go to{" "}
+            <code className="text-ink-900 dark:text-ink-100">zapier.com/mcp</code>, sign in, and
             create a new MCP server. Connect your apps (Gmail, Calendar,
             Sheets, etc.), then copy the server URL and auth token.
           </p>
           <p>
-            <strong className="text-ink-200">Composio:</strong> Go to{" "}
-            <code className="text-ink-100">composio.dev</code>, create a
+            <strong className="text-ink-900 dark:text-ink-200">Composio:</strong> Go to{" "}
+            <code className="text-ink-900 dark:text-ink-100">composio.dev</code>, create a
             session, and use the MCP endpoint from your dashboard.
           </p>
           <p>
-            <strong className="text-ink-200">Custom:</strong> Any
+            <strong className="text-ink-900 dark:text-ink-200">Custom:</strong> Any
             MCP-compatible server that supports the Streamable HTTP transport.
             Run it locally or host it — just provide the URL.
           </p>

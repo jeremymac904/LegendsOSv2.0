@@ -98,7 +98,7 @@ export function CreateCollectionForm({ userId, organizationId, canShare }: Props
           </button>
         </div>
         {!canShare && (
-          <p className="mt-2 text-[11px] text-ink-300">
+          <p className="mt-2 text-[11px] text-ink-600 dark:text-ink-300">
             Only Jeremy can mark a collection team-shared.
           </p>
         )}

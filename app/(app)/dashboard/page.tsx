@@ -13,9 +13,9 @@ import {
   MessageCircle,
   Share2,
   Sparkles,
-  TrendingUp,
 } from "lucide-react";
 
+import { DashboardPanels } from "@/components/dashboard/DashboardPanels";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatusPill } from "@/components/ui/StatusPill";
@@ -314,12 +314,15 @@ export default async function DashboardPage() {
     asset_uploaded: "uploaded an asset",
   };
 
+  const draftsCount = drafts.length + emails.length;
+  const imageryTitle = images.length > 0 ? "Imagery" : "Visuals";
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-5">
       <SectionHeader
         eyebrow={owner ? "Owner view" : "Operator view"}
         title={`Welcome back${profile.full_name ? `, ${profile.full_name.split(" ")[0]}` : ""}.`}
-        description={`${PUBLIC_ENV.TEAM_NAME}. This is your command center — one app, one login, one source of truth.`}
+        description={`${PUBLIC_ENV.TEAM_NAME}. One app, one login, one source of truth.`}
         action={
           <Link href="/atlas" className="btn-primary">
             <MessageCircle size={14} />
@@ -328,431 +331,416 @@ export default async function DashboardPage() {
         }
       />
 
-      <section>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <UsageCard
-            label="Atlas chats today"
+      {/* ── Metrics strip — compact daily-usage row (no giant StatCard wall) ── */}
+      <section className="card-padded">
+        <div className="flex items-center justify-between">
+          <p className="label">Today&rsquo;s usage</p>
+          <p className="text-[11px] text-ink-500 dark:text-ink-400">
+            Resets daily · capped per operator
+          </p>
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
+          <UsageStat
+            label="Atlas chats"
             used={chatsUsed}
             cap={caps.chat}
-            unit="chat"
             icon={MessageCircle}
           />
-          <UsageCard
-            label="Images today"
+          <UsageStat
+            label="Images"
             used={imagesUsed}
             cap={caps.images}
-            unit="image"
             icon={ImageIcon}
           />
-          <UsageCard
-            label="Social activity today"
+          <UsageStat
+            label="Social"
             used={socialUsed}
             cap={caps.social}
-            unit="action"
             icon={Share2}
           />
-          <UsageCard
-            label="Email activity today"
+          <UsageStat
+            label="Email"
             used={emailUsed}
             cap={caps.email}
-            unit="action"
             icon={Mail}
           />
         </div>
       </section>
 
+      {/* ── Quick actions — dense launcher grid ── */}
       <section>
-        <div className="section-title mb-3">
-          <div>
-            <h2>Quick launch</h2>
-            <p>Jump into the highest-value workflows.</p>
-          </div>
+        <div className="mb-2.5 flex items-center justify-between">
+          <p className="label">Quick actions</p>
         </div>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
           {QUICK_LAUNCH.map(({ href, label, description, icon: Icon }) => (
             <Link
               key={href}
               href={href}
-              className="card-padded group transition hover:border-accent-gold/30 hover:shadow-glow"
+              title={description}
+              className="card group flex items-center gap-2.5 p-3 transition hover:border-accent-gold/30 hover:shadow-glow"
             >
-              <div className="flex items-center justify-between">
-                <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-accent-orange/40 to-accent-gold/30 text-accent-gold">
-                  <Icon size={16} />
-                </div>
-                <ArrowRight
-                  size={14}
-                  className="text-ink-600 dark:text-ink-300 transition-transform group-hover:translate-x-1 group-hover:text-accent-gold"
-                />
+              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-accent-orange/40 to-accent-gold/30 text-accent-gold">
+                <Icon size={15} />
               </div>
-              <p className="mt-3 font-medium text-ink-900 dark:text-ink-100">{label}</p>
-              <p className="text-xs text-ink-600 dark:text-ink-300">{description}</p>
+              <p className="min-w-0 truncate text-[13px] font-medium text-ink-900 dark:text-ink-100">
+                {label}
+              </p>
+              <ArrowRight
+                size={13}
+                className="ml-auto shrink-0 text-ink-500 transition-transform group-hover:translate-x-0.5 group-hover:text-accent-gold dark:text-ink-400"
+              />
             </Link>
           ))}
         </div>
       </section>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <section className="card-padded">
-          <div className="section-title">
-            <div>
-              <h2>Drafts needing attention</h2>
-              <p>Social posts and email campaigns in progress.</p>
-            </div>
-          </div>
-          <div className="mt-4 grid grid-cols-1 gap-2">
-            {drafts.length === 0 && emails.length === 0 ? (
-              <EmptyState
-                icon={Share2}
-                title="No drafts yet"
-                description="Create a social post or newsletter — drafts stay here until you approve."
-              />
-            ) : (
-              <>
-                {drafts.map((d) => (
-                  <Link
-                    key={d.id}
-                    href={`/social/${d.id}`}
-                  className="flex items-start justify-between gap-3 rounded-xl border border-accent-champagne/10 bg-white/30 dark:bg-ink-950/30 p-3 backdrop-blur-sm"
-                  >
-                    <div>
-                      <p className="text-sm font-medium text-ink-900 dark:text-ink-100">
-                        {d.title || "Untitled social draft"}
-                      </p>
-                      <p className="line-clamp-1 text-xs text-ink-600 dark:text-ink-300">
-                        {d.body}
-                      </p>
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {d.channels?.map((ch) => (
-                          <span key={ch} className="chip">
-                            {ch.replace(/_/g, " ")}
-                          </span>
-                        ))}
+      {/* ── Command-center panel — folds the old card-wall into tabs ── */}
+      <DashboardPanels
+        tabs={[
+          {
+            id: "drafts",
+            label: "Drafts",
+            count: draftsCount,
+            content:
+              draftsCount === 0 ? (
+                <EmptyState
+                  icon={Share2}
+                  title="No drafts yet"
+                  description="Create a social post or newsletter — drafts stay here until you approve."
+                />
+              ) : (
+                <div className="grid grid-cols-1 gap-2">
+                  {drafts.map((d) => (
+                    <Link
+                      key={d.id}
+                      href={`/social/${d.id}`}
+                      className="flex items-start justify-between gap-3 rounded-lg border border-ink-200 bg-white/40 p-2.5 transition hover:border-accent-gold/30 dark:border-ink-800 dark:bg-ink-950/30"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-[13px] font-medium text-ink-900 dark:text-ink-100">
+                          {d.title || "Untitled social draft"}
+                        </p>
+                        <p className="line-clamp-1 text-xs text-ink-600 dark:text-ink-300">
+                          {d.body}
+                        </p>
+                        {d.channels && d.channels.length > 0 && (
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {d.channels.map((ch) => (
+                              <span key={ch} className="chip">
+                                {ch.replace(/_/g, " ")}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    </div>
-                    <StatusPill status={d.status as never} />
-                  </Link>
-                ))}
-                {emails.map((e) => (
-                  <Link
-                    key={e.id}
-                    href={`/email/${e.id}`}
-                    className="flex items-start justify-between gap-3 rounded-xl border border-accent-champagne/10 bg-white/30 dark:bg-ink-950/30 p-3 backdrop-blur-sm"
-                  >
-                    <div>
-                      <p className="text-sm font-medium text-ink-900 dark:text-ink-100">
-                        {e.subject || "Untitled email draft"}
-                      </p>
-                      <p className="text-xs text-ink-600 dark:text-ink-300">
-                        Updated {formatRelative(e.updated_at)}
-                      </p>
-                    </div>
-                    <StatusPill status={e.status as never} />
-                  </Link>
-                ))}
-              </>
-            )}
-          </div>
-        </section>
-
-        <section className="card-padded">
-          <div className="section-title">
-            <div>
-              <h2>{images.length > 0 ? "Recent imagery" : "Brand visuals"}</h2>
-              <p>
-                {images.length > 0
-                  ? "Last six Image Studio outputs."
-                  : "Curated starters from your brand library — generate a new image to replace these."}
-              </p>
-            </div>
-            <Link href="/images" className="btn-ghost text-xs">
-              Open studio
-            </Link>
-          </div>
-          <div className="mt-4 grid grid-cols-3 gap-2">
-            {images.length > 0
-              ? images.map((img) => (
-                  <div
-                    key={img.id}
-                    className="aspect-square overflow-hidden rounded-xl border border-ink-200 dark:border-ink-800 bg-checker"
-                    title={img.prompt}
-                  >
-                    {img.preview_url ? (
-                      <img
-                        src={img.preview_url}
-                        alt={img.prompt}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <div className="grid h-full w-full place-items-center text-[10px] text-ink-600 dark:text-ink-300">
-                        {img.status}
+                      <StatusPill status={d.status as never} />
+                    </Link>
+                  ))}
+                  {emails.map((e) => (
+                    <Link
+                      key={e.id}
+                      href={`/email/${e.id}`}
+                      className="flex items-start justify-between gap-3 rounded-lg border border-ink-200 bg-white/40 p-2.5 transition hover:border-accent-gold/30 dark:border-ink-800 dark:bg-ink-950/30"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-[13px] font-medium text-ink-900 dark:text-ink-100">
+                          {e.subject || "Untitled email draft"}
+                        </p>
+                        <p className="text-xs text-ink-600 dark:text-ink-300">
+                          Updated {formatRelative(e.updated_at)}
+                        </p>
                       </div>
-                    )}
-                  </div>
-                ))
-              : brandStarters.length > 0
-              ? brandStarters.map((a) => (
-                  <div
-                    key={a.id}
-                    className="group relative aspect-square overflow-hidden rounded-xl border border-ink-200 dark:border-ink-800 bg-checker"
-                    title={a.label}
-                  >
-                    {a.public_path && (
-                      <img
-                        src={a.public_path}
-                        alt={a.label}
-                        className="h-full w-full object-cover"
-                        loading="lazy"
-                      />
-                    )}
-                    <span className="absolute bottom-1 left-1 right-1 rounded-md bg-white/70 dark:bg-ink-950/70 px-1.5 py-0.5 text-[9px] text-ink-900 dark:text-ink-100 line-clamp-1">
-                      {a.label}
-                    </span>
-                  </div>
-                ))
-              : (
-                <div className="col-span-3">
-                  <EmptyState
-                    icon={Sparkles}
-                    title="No imagery yet"
-                    description="Open Image Studio to generate the first brand visual, or upload assets in the Admin Asset Library."
-                  />
+                      <StatusPill status={e.status as never} />
+                    </Link>
+                  ))}
                 </div>
-              )}
-          </div>
-        </section>
-      </div>
-
-      {latestNewsletter && (
-        <section className="card-padded">
-          <div className="section-title">
-            <div>
-              <h2>Latest newsletter</h2>
-              <p>
-                {`"${latestNewsletter.subject || "(No subject)"}" · ${
-                  latestNewsletter.status
-                } · updated ${formatRelative(latestNewsletter.updated_at)}`}
-              </p>
-            </div>
-            <Link
-              href={`/email?id=${latestNewsletter.id}`}
-              className="btn-primary text-xs"
-            >
-              <Mail size={14} />
-              Continue editing
-            </Link>
-          </div>
-          <div className="mt-4 overflow-hidden rounded-xl border border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-950">
-            <div className="flex items-center justify-between gap-2 border-b border-ink-200 dark:border-ink-800 px-3 py-1.5">
-              <p className="text-[10px] uppercase tracking-[0.18em] text-ink-600 dark:text-ink-300">
-                Inbox preview
-              </p>
-              <p className="text-[10px] text-ink-500 dark:text-ink-400">
-                Same shell ships when n8n relays
-              </p>
-            </div>
-            <iframe
-              title="Latest newsletter preview"
-              srcDoc={latestNewsletterHtml}
-              sandbox=""
-              className="block h-[320px] w-full bg-white dark:bg-ink-950"
-            />
-          </div>
-        </section>
-      )}
-
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <section className="card-padded">
-          <div className="section-title">
-            <div>
-              <h2>Upcoming content</h2>
-              <p>Next 7 days of scheduled posts, newsletters, and calendar items.</p>
-            </div>
-            <Link href="/calendar" className="btn-ghost text-xs">
-              <Calendar size={14} />
-              Open calendar
-            </Link>
-          </div>
-          <div className="mt-4 grid grid-cols-1 gap-2">
-            {upcoming.length === 0 ? (
-              <EmptyState
-                icon={Clock}
-                title="Nothing scheduled this week"
-                description="Schedule a social post, newsletter, or calendar item to see it here."
-              />
-            ) : (
-              upcoming.map((u) => (
-                <Link
-                  key={`${u.kind}-${u.id}`}
-                  href={u.href}
-                  className="flex items-start justify-between gap-3 rounded-xl border border-accent-champagne/10 bg-white/30 dark:bg-ink-950/30 p-3 backdrop-blur-sm transition hover:border-accent-champagne/30"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-ink-900 dark:text-ink-100">
-                      {u.title}
-                    </p>
-                    <p className="text-xs text-ink-600 dark:text-ink-300">
-                      {formatRelative(u.whenIso)}
-                      {u.badge ? <> · <span className="capitalize">{u.badge}</span></> : null}
-                    </p>
-                  </div>
-                  <span
-                    className={
-                      u.kind === "social"
-                        ? "chip border-accent-orange/40 text-accent-orange"
-                        : u.kind === "email"
-                        ? "chip border-accent-gold/40 text-accent-gold"
-                        : "chip"
-                    }
-                  >
-                    {u.kind}
-                  </span>
-                </Link>
-              ))
-            )}
-          </div>
-        </section>
-
-        <section className="card-padded">
-          <div className="section-title">
-            <div>
-              <h2>Recent activity</h2>
-              <p>What you and the team have been doing in the last 24 hours.</p>
-            </div>
-            {owner && (
-              <Link href="/admin/usage" className="btn-ghost text-xs">
-                <Activity size={14} />
-                Full feed
-              </Link>
-            )}
-          </div>
-          <div className="mt-4 grid grid-cols-1 gap-2">
-            {activityRows.length === 0 ? (
-              <EmptyState
-                icon={Activity}
-                title="No activity yet today"
-                description="Send an Atlas chat, draft a post, or generate an image — events land here."
-              />
-            ) : (
-              activityRows.map((ev, i) => (
-                <div
-                  key={`${ev.created_at}-${i}`}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-accent-champagne/10 bg-white/30 dark:bg-ink-950/30 p-3 backdrop-blur-sm"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm text-ink-900 dark:text-ink-100">
-                      <span className="text-ink-600 dark:text-ink-300">
-                        {moduleLabel[ev.module] ?? ev.module}
-                      </span>{" "}
-                      {eventLabel[ev.event_type] ?? ev.event_type.replace(/_/g, " ")}
-                    </p>
-                    <p className="text-xs text-ink-600 dark:text-ink-300">
-                      {formatRelative(ev.created_at)}
-                    </p>
-                  </div>
-                  <span className="chip">{ev.module}</span>
+              ),
+          },
+          {
+            id: "upcoming",
+            label: "Upcoming",
+            count: upcoming.length,
+            content:
+              upcoming.length === 0 ? (
+                <EmptyState
+                  icon={Clock}
+                  title="Nothing scheduled this week"
+                  description="Schedule a social post, newsletter, or calendar item to see it here."
+                />
+              ) : (
+                <div className="grid grid-cols-1 gap-2">
+                  {upcoming.map((u) => (
+                    <Link
+                      key={`${u.kind}-${u.id}`}
+                      href={u.href}
+                      className="flex items-start justify-between gap-3 rounded-lg border border-ink-200 bg-white/40 p-2.5 transition hover:border-accent-gold/30 dark:border-ink-800 dark:bg-ink-950/30"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-[13px] font-medium text-ink-900 dark:text-ink-100">
+                          {u.title}
+                        </p>
+                        <p className="text-xs text-ink-600 dark:text-ink-300">
+                          {formatRelative(u.whenIso)}
+                          {u.badge ? (
+                            <>
+                              {" "}
+                              · <span className="capitalize">{u.badge}</span>
+                            </>
+                          ) : null}
+                        </p>
+                      </div>
+                      <span
+                        className={
+                          u.kind === "social"
+                            ? "chip border-accent-orange/40 text-accent-orange"
+                            : u.kind === "email"
+                            ? "chip border-accent-gold/40 text-accent-gold"
+                            : "chip"
+                        }
+                      >
+                        {u.kind}
+                      </span>
+                    </Link>
+                  ))}
                 </div>
-              ))
-            )}
-          </div>
-        </section>
-      </div>
-
-      {owner && (
-        <section className="card-padded">
-          <div className="section-title">
-            <div>
-              <h2>Automation jobs</h2>
-              <p>n8n queue status — owner-only summary.</p>
-            </div>
-            <Link href="/admin/usage" className="btn-ghost text-xs">
-              <TrendingUp size={14} />
-              Open admin
-            </Link>
-          </div>
-          <div className="mt-4 overflow-hidden rounded-xl border border-ink-200 dark:border-ink-800">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-white/70 dark:bg-ink-900/70 text-[10px] uppercase tracking-[0.18em] text-ink-600 dark:text-ink-300">
-                <tr>
-                  <th className="px-3 py-2">Job</th>
-                  <th className="px-3 py-2">Status</th>
-                  <th className="px-3 py-2">Last update</th>
-                  <th className="px-3 py-2">Notes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {jobs.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="px-3 py-6 text-center text-ink-600 dark:text-ink-300">
-                      No automation jobs yet — they appear here when modules
-                      enqueue work.
-                    </td>
-                  </tr>
-                ) : (
-                  jobs.map((j) => (
-                    <tr key={j.id} className="border-t border-ink-200 dark:border-ink-800">
-                      <td className="px-3 py-2 text-ink-900 dark:text-ink-100">{j.job_type}</td>
-                      <td className="px-3 py-2">
-                        <StatusPill status={j.status as never} />
-                      </td>
-                      <td className="px-3 py-2 text-ink-600 dark:text-ink-300">
-                        {formatRelative(j.updated_at)}
-                      </td>
-                      <td className="px-3 py-2 text-ink-600 dark:text-ink-300">
-                        {j.last_error ?? "—"}
-                      </td>
-                    </tr>
+              ),
+          },
+          {
+            id: "activity",
+            label: "Activity",
+            count: activityRows.length,
+            content:
+              activityRows.length === 0 ? (
+                <EmptyState
+                  icon={Activity}
+                  title="No activity yet today"
+                  description="Send an Atlas chat, draft a post, or generate an image — events land here."
+                />
+              ) : (
+                <div className="grid grid-cols-1 gap-2">
+                  {activityRows.map((ev, i) => (
+                    <div
+                      key={`${ev.created_at}-${i}`}
+                      className="flex items-center justify-between gap-3 rounded-lg border border-ink-200 bg-white/40 p-2.5 dark:border-ink-800 dark:bg-ink-950/30"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-[13px] text-ink-900 dark:text-ink-100">
+                          <span className="text-ink-600 dark:text-ink-300">
+                            {moduleLabel[ev.module] ?? ev.module}
+                          </span>{" "}
+                          {eventLabel[ev.event_type] ??
+                            ev.event_type.replace(/_/g, " ")}
+                        </p>
+                        <p className="text-xs text-ink-600 dark:text-ink-300">
+                          {formatRelative(ev.created_at)}
+                        </p>
+                      </div>
+                      <span className="chip">{ev.module}</span>
+                    </div>
+                  ))}
+                </div>
+              ),
+          },
+          {
+            id: "imagery",
+            label: imageryTitle,
+            count: images.length,
+            content: (
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+                {images.length > 0 ? (
+                  images.map((img) => (
+                    <div
+                      key={img.id}
+                      className="aspect-square overflow-hidden rounded-lg border border-ink-200 bg-checker dark:border-ink-800"
+                      title={img.prompt}
+                    >
+                      {img.preview_url ? (
+                        <img
+                          src={img.preview_url}
+                          alt={img.prompt}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="grid h-full w-full place-items-center text-[10px] text-ink-600 dark:text-ink-300">
+                          {img.status}
+                        </div>
+                      )}
+                    </div>
                   ))
+                ) : brandStarters.length > 0 ? (
+                  brandStarters.map((a) => (
+                    <div
+                      key={a.id}
+                      className="group relative aspect-square overflow-hidden rounded-lg border border-ink-200 bg-checker dark:border-ink-800"
+                      title={a.label}
+                    >
+                      {a.public_path && (
+                        <img
+                          src={a.public_path}
+                          alt={a.label}
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                        />
+                      )}
+                      <span className="absolute inset-x-1 bottom-1 line-clamp-1 rounded-md bg-white/70 px-1.5 py-0.5 text-[9px] text-ink-900 dark:bg-ink-950/70 dark:text-ink-100">
+                        {a.label}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="col-span-3 sm:col-span-6">
+                    <EmptyState
+                      icon={Sparkles}
+                      title="No imagery yet"
+                      description="Open Image Studio to generate the first brand visual, or upload assets in the Admin Asset Library."
+                    />
+                  </div>
                 )}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
+              </div>
+            ),
+          },
+          ...(latestNewsletter
+            ? [
+                {
+                  id: "newsletter",
+                  label: "Newsletter",
+                  count: null,
+                  content: (
+                    <div className="overflow-hidden rounded-lg border border-ink-200 bg-white dark:border-ink-800 dark:bg-ink-950">
+                      <div className="flex items-center justify-between gap-2 border-b border-ink-200 px-3 py-1.5 dark:border-ink-800">
+                        <p className="text-[10px] uppercase tracking-[0.18em] text-ink-600 dark:text-ink-300">
+                          {`"${latestNewsletter.subject || "(No subject)"}" · ${
+                            latestNewsletter.status
+                          } · ${formatRelative(latestNewsletter.updated_at)}`}
+                        </p>
+                        <Link
+                          href={`/email?id=${latestNewsletter.id}`}
+                          className="btn-ghost shrink-0 text-[11px]"
+                        >
+                          <Mail size={12} />
+                          Continue editing
+                        </Link>
+                      </div>
+                      <iframe
+                        title="Latest newsletter preview"
+                        srcDoc={latestNewsletterHtml}
+                        sandbox=""
+                        className="block h-[280px] w-full bg-white dark:bg-ink-950"
+                      />
+                    </div>
+                  ),
+                },
+              ]
+            : []),
+          ...(owner
+            ? [
+                {
+                  id: "automation",
+                  label: "Automation",
+                  count: jobs.length,
+                  content: (
+                    <div className="overflow-hidden rounded-lg border border-ink-200 dark:border-ink-800">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-white/70 text-[10px] uppercase tracking-[0.18em] text-ink-600 dark:bg-ink-900/70 dark:text-ink-300">
+                          <tr>
+                            <th className="px-3 py-2">Job</th>
+                            <th className="px-3 py-2">Status</th>
+                            <th className="px-3 py-2">Last update</th>
+                            <th className="px-3 py-2">Notes</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {jobs.length === 0 ? (
+                            <tr>
+                              <td
+                                colSpan={4}
+                                className="px-3 py-6 text-center text-ink-600 dark:text-ink-300"
+                              >
+                                No automation jobs yet — they appear here when
+                                modules enqueue work.
+                              </td>
+                            </tr>
+                          ) : (
+                            jobs.map((j) => (
+                              <tr
+                                key={j.id}
+                                className="border-t border-ink-200 dark:border-ink-800"
+                              >
+                                <td className="px-3 py-2 text-ink-900 dark:text-ink-100">
+                                  {j.job_type}
+                                </td>
+                                <td className="px-3 py-2">
+                                  <StatusPill status={j.status as never} />
+                                </td>
+                                <td className="px-3 py-2 text-ink-600 dark:text-ink-300">
+                                  {formatRelative(j.updated_at)}
+                                </td>
+                                <td className="px-3 py-2 text-ink-600 dark:text-ink-300">
+                                  {j.last_error ?? "—"}
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  ),
+                },
+              ]
+            : []),
+        ]}
+        rightSlot={
+          <Link href="/calendar" className="btn-ghost text-xs">
+            <Calendar size={14} />
+            Calendar
+          </Link>
+        }
+      />
     </div>
   );
 }
 
-// Daily usage card with humanized copy. "0/100" reads as broken; this shows
-// either "100 chats remaining today" + "No chats used yet today" or
-// "97 chats remaining today" + "3 used so far today".
-function UsageCard({
+// Compact daily-usage stat for the metrics strip. Shows "used / cap" with a
+// remaining label so it reads honestly ("3 / 100 · 97 left") plus a thin
+// progress bar — no giant card. Cap of 0 is handled so we never divide by zero.
+function UsageStat({
   label,
   used,
   cap,
-  unit,
   icon: Icon,
 }: {
   label: string;
   used: number;
   cap: number;
-  unit: string;
   icon: React.ComponentType<{ size?: number | string }>;
 }) {
   const remaining = Math.max(cap - used, 0);
   const pct = cap > 0 ? Math.min(100, (used / cap) * 100) : 0;
-  const noneYet = used === 0;
-  const headline = noneYet
-    ? `${cap} ${unit}${cap === 1 ? "" : "s"} ready today`
-    : `${remaining} ${unit}${remaining === 1 ? "" : "s"} remaining today`;
-  const sub = noneYet
-    ? `No ${unit}s used yet today.`
-    : `${used} used so far · daily cap ${cap}`;
   return (
-    <div className="card-padded space-y-2">
-      <div className="flex items-center justify-between">
-        <p className="label">{label}</p>
-        <span className="text-ink-600 dark:text-ink-300">
-          <Icon size={14} />
-        </span>
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-1.5 text-ink-600 dark:text-ink-300">
+        <Icon size={13} />
+        <p className="text-[11px] font-medium uppercase tracking-[0.12em]">
+          {label}
+        </p>
       </div>
-      <p className="text-base font-semibold text-ink-900 dark:text-ink-100">{headline}</p>
-      <p className="text-[11px] text-ink-600 dark:text-ink-300">{sub}</p>
-        <div className="h-1 w-full overflow-hidden rounded-full bg-ink-100/70 dark:bg-ink-800/70">
+      <p className="text-[19px] font-semibold leading-none tracking-tight text-ink-900 dark:text-ink-100">
+        {used}
+        <span className="text-[12px] font-normal text-ink-500 dark:text-ink-400">
+          {" "}
+          / {cap}
+        </span>
+      </p>
+      <div className="h-1 w-full overflow-hidden rounded-full bg-ink-100 dark:bg-ink-800/70">
         <div
           className="h-full rounded-full bg-gradient-to-r from-accent-champagne via-accent-gold to-accent-orange"
           style={{ width: `${pct}%` }}
         />
       </div>
+      <p className="text-[10.5px] text-ink-500 dark:text-ink-400">
+        {used === 0 ? `${cap} ready today` : `${remaining} left today`}
+      </p>
     </div>
   );
 }

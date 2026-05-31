@@ -72,7 +72,7 @@ export default async function EmailCampaignPage({
         }
       />
       <article className="card-padded space-y-3">
-        <pre className="whitespace-pre-wrap rounded-xl border border-ink-800 bg-ink-900/40 p-3 font-sans text-sm text-ink-100">
+        <pre className="whitespace-pre-wrap rounded-xl border border-ink-200 bg-white/60 p-3 font-sans text-sm text-ink-900 dark:border-ink-800 dark:bg-ink-900/40 dark:text-ink-100">
 {campaign.body_text ?? "(no plaintext body)"}
         </pre>
         {audience && (
@@ -81,21 +81,21 @@ export default async function EmailCampaignPage({
               <Users2 size={14} />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] uppercase tracking-[0.18em] text-ink-300">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-ink-600 dark:text-ink-300">
                 Audience
               </p>
-              <p className="truncate text-sm font-semibold text-ink-100">
+              <p className="truncate text-sm font-semibold text-ink-900 dark:text-ink-100">
                 {audience.name}
               </p>
               {audience.description && (
-                <p className="mt-0.5 text-xs text-ink-300">
+                <p className="mt-0.5 text-xs text-ink-600 dark:text-ink-300">
                   {audience.description}
                 </p>
               )}
             </div>
           </div>
         )}
-        <p className="text-xs text-ink-300">
+        <p className="text-xs text-ink-600 dark:text-ink-300">
           {campaign.recipient_list
             ? `Recipient list: ${campaign.recipient_list}`
             : "No recipient list set"}{" "}

@@ -31,17 +31,17 @@ const ROLES: { value: UserRole; label: string; description: string }[] = [
   },
   {
     value: "loan_officer",
-    label: "LO",
+    label: "Loan Officer",
     description: "Loan officer — uses Atlas, social, image, knowledge.",
   },
   {
     value: "processor",
-    label: "Processor",
+    label: "Processor (Ashley)",
     description: "Ashley — sees loans assigned to her in Processing (FLO).",
   },
   {
     value: "coordinator",
-    label: "Coordinator",
+    label: "Coordinator (Geraldine)",
     description: "Geraldine — sees leads/loans assigned to her for follow-up.",
   },
   {
@@ -55,6 +55,28 @@ const ROLES: { value: UserRole; label: string; description: string }[] = [
     description: "Read-only — sees dashboards, no posting.",
   },
 ];
+
+// Display label for a role chip. Owner is handled inline (it's not in ROLES).
+function roleLabel(role: UserRole): string {
+  switch (role) {
+    case "owner":
+      return "Owner";
+    case "admin":
+      return "Admin";
+    case "loan_officer":
+      return "Loan Officer";
+    case "processor":
+      return "Processor (Ashley)";
+    case "coordinator":
+      return "Coordinator (Geraldine)";
+    case "marketing":
+      return "Marketing";
+    case "viewer":
+      return "Viewer";
+    default:
+      return role;
+  }
+}
 
 function formatStableDate(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -177,8 +199,8 @@ export function UserManager({ ownerProfileId, users }: Props) {
     <section className="card-padded space-y-4">
       <div className="section-title">
         <div>
-          <h2>Team members</h2>
-          <p>
+          <h2 className="text-ink-900 dark:text-ink-100">Team members</h2>
+          <p className="text-ink-600 dark:text-ink-300">
             Add, edit, reset, and deactivate users. Auth changes route through
             Supabase&apos;s Admin API on the server — your service role key
             never reaches the browser.
@@ -192,6 +214,20 @@ export function UserManager({ ownerProfileId, users }: Props) {
           <UserPlus size={14} />
           {showAdd ? "Cancel" : "Add user"}
         </button>
+      </div>
+
+      <div className="flex flex-wrap gap-1.5">
+        {ROLES.map((r) => (
+          <span
+            key={r.value}
+            className="inline-flex items-center gap-1 rounded-full border border-ink-200 bg-white px-2.5 py-1 text-[11px] text-ink-700 dark:border-ink-800 dark:bg-ink-900/40 dark:text-ink-300"
+            title={r.description}
+          >
+            <span className="font-medium text-ink-900 dark:text-ink-100">
+              {r.label}
+            </span>
+          </span>
+        ))}
       </div>
 
       {showAdd && (
@@ -240,7 +276,7 @@ export function UserManager({ ownerProfileId, users }: Props) {
               />
             </label>
           </div>
-          <p className="text-[11px] text-ink-300">
+          <p className="text-[11px] text-ink-600 dark:text-ink-300">
             Copy the setup link that appears after creation. If you set a
             starter password, share it outside LegendsOS and ask the user to
             change it after first sign-in.
@@ -274,9 +310,9 @@ export function UserManager({ ownerProfileId, users }: Props) {
         </p>
       )}
 
-      <div className="overflow-hidden rounded-xl border border-ink-800">
+      <div className="overflow-hidden rounded-xl border border-ink-200 dark:border-ink-800">
         <table className="w-full text-left text-sm">
-          <thead className="bg-ink-900/70 text-[10px] uppercase tracking-[0.18em] text-ink-300">
+          <thead className="bg-ink-50 text-[10px] uppercase tracking-[0.18em] text-ink-600 dark:bg-ink-900/70 dark:text-ink-300">
             <tr>
               <th className="px-3 py-2">Member</th>
               <th className="px-3 py-2">Role</th>
@@ -291,7 +327,7 @@ export function UserManager({ ownerProfileId, users }: Props) {
               <tr>
                 <td
                   colSpan={6}
-                  className="px-3 py-6 text-center text-ink-300"
+                  className="px-3 py-6 text-center text-ink-500 dark:text-ink-300"
                 >
                   No profiles yet.
                 </td>
@@ -301,12 +337,15 @@ export function UserManager({ ownerProfileId, users }: Props) {
                 const isSelf = u.id === ownerProfileId;
                 const isEditing = editingId === u.id;
                 return (
-                  <tr key={u.id} className="border-t border-ink-800 align-middle">
+                  <tr
+                    key={u.id}
+                    className="border-t border-ink-200 align-middle dark:border-ink-800"
+                  >
                     <td className="px-3 py-2">
-                      <p className="font-medium text-ink-100">
+                      <p className="font-medium text-ink-900 dark:text-ink-100">
                         {u.full_name ?? u.email}
                       </p>
-                      <p className="text-xs text-ink-300">{u.email}</p>
+                      <p className="text-xs text-ink-600 dark:text-ink-300">{u.email}</p>
                     </td>
                     <td className="px-3 py-2">
                       {isEditing ? (
@@ -331,7 +370,7 @@ export function UserManager({ ownerProfileId, users }: Props) {
                             u.role === "owner" && "chip-ok"
                           )}
                         >
-                          {u.role === "loan_officer" ? "LO" : u.role}
+                          {roleLabel(u.role)}
                         </span>
                       )}
                     </td>
@@ -341,10 +380,10 @@ export function UserManager({ ownerProfileId, users }: Props) {
                         label={u.is_active ? "active" : "inactive"}
                       />
                     </td>
-                    <td className="px-3 py-2 text-ink-300">
+                    <td className="px-3 py-2 text-ink-600 dark:text-ink-300">
                       {formatStableDate(u.last_seen_at)}
                     </td>
-                    <td className="px-3 py-2 text-ink-300">
+                    <td className="px-3 py-2 text-ink-600 dark:text-ink-300">
                       {formatStableDate(u.created_at)}
                     </td>
                     <td className="px-3 py-2">
@@ -403,7 +442,7 @@ export function UserManager({ ownerProfileId, users }: Props) {
           </tbody>
         </table>
       </div>
-      <p className="text-[11px] text-ink-300">
+      <p className="text-[11px] text-ink-600 dark:text-ink-300">
         Promoting a user to owner still goes through{" "}
         <code>select public.promote_owner(&apos;email&apos;)</code> from the
         Supabase SQL editor — this UI intentionally doesn&apos;t create new
@@ -431,19 +470,19 @@ function LinkBanner({
         </p>
         <button
           type="button"
-          className="text-ink-300 hover:text-ink-100"
+          className="text-ink-500 hover:text-ink-900 dark:text-ink-300 dark:hover:text-ink-100"
           onClick={onClose}
           aria-label="Close"
         >
           <X size={12} />
         </button>
       </div>
-      <p className="mt-1 text-ink-200">
+      <p className="mt-1 text-ink-700 dark:text-ink-200">
         Copy this link into your invite message. It keeps onboarding usable even
         before transactional email is fully configured.
       </p>
       <div className="mt-2 flex items-center gap-2">
-        <code className="flex-1 truncate rounded bg-ink-950/60 px-2 py-1 text-[10px] text-ink-100">
+        <code className="flex-1 truncate rounded bg-ink-100 px-2 py-1 text-[10px] text-ink-900 dark:bg-ink-950/60 dark:text-ink-100">
           {info.url}
         </code>
         <button
@@ -494,7 +533,7 @@ function ImpersonateButton({ userId }: { userId: string }) {
       disabled={pending}
     >
       <Eye size={13} />
-      {pending ? "Starting..." : "Preview as user"}
+      {pending ? "Starting…" : "Preview"}
     </button>
   );
 }

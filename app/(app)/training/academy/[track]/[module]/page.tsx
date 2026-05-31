@@ -98,7 +98,7 @@ export default async function AcademyModulePage({
           <li>A short post-module reflection prompt the LO completes in Atlas.</li>
         </ul>
         {moduleEntry.internalNotes && (
-          <p className="mt-4 rounded-xl border border-accent-champagne/15 bg-ink-950/30 px-3 py-2 text-[12px] leading-relaxed text-ink-600 dark:bg-ink-950/30 dark:text-ink-300">
+          <p className="glass-panel mt-4 px-3 py-2 text-[12px] leading-relaxed text-ink-700 dark:text-ink-300">
             <span className="label mr-2">Internal note</span>
             {moduleEntry.internalNotes}
           </p>

@@ -51,12 +51,12 @@ export function ImpersonationBanner({
     <div className="sticky top-0 z-50 border-b border-accent-gold/40 bg-gradient-to-r from-accent-gold/15 via-accent-gold/10 to-accent-gold/15 px-3 py-1.5 text-xs text-accent-gold shadow-glow backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center gap-2">
         <Eye size={13} className="shrink-0" />
-        <p className="flex-1 truncate text-ink-100">
+        <p className="flex-1 truncate text-ink-900 dark:text-ink-100">
           Previewing as{" "}
-          <strong className="text-accent-gold">{label}</strong>{" "}
-          <span className="text-ink-300">({targetRole})</span>. Click{" "}
-          <strong className="text-accent-gold">Stop</strong> to return to your
-          own view.
+          <strong className="text-accent-bronze dark:text-accent-gold">{label}</strong>{" "}
+          <span className="text-ink-600 dark:text-ink-300">({targetRole})</span>. Click{" "}
+          <strong className="text-accent-bronze dark:text-accent-gold">Stop</strong> to
+          return to your own view.
         </p>
         <button
           type="button"
