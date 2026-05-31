@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 
+import { DesktopStatusBadge } from "@/components/desktop/DesktopRuntime";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { NAV_ITEMS } from "@/lib/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -29,7 +30,7 @@ export function TopBar({ profile }: { profile: Profile }) {
   }
 
   return (
-    <header className="sticky top-0 z-20 flex items-center justify-between gap-4 border-b border-ink-900/10 bg-white/75 px-5 py-3 backdrop-blur-md relative dark:border-accent-champagne/10 dark:bg-ink-950/65">
+    <header className="desktop-titlebar-drag desktop-mac-traffic-offset sticky top-0 z-20 flex items-center justify-between gap-4 border-b border-ink-900/10 bg-white/75 px-5 py-3 backdrop-blur-md relative dark:border-accent-champagne/10 dark:bg-ink-950/65">
       <span
         aria-hidden
         className="pointer-events-none absolute inset-x-6 bottom-[-1px] h-px bg-gradient-to-r from-transparent via-accent-champagne/30 to-transparent dark:via-accent-champagne/20"
@@ -49,8 +50,9 @@ export function TopBar({ profile }: { profile: Profile }) {
             </h1>
           </div>
         </div>
+        <DesktopStatusBadge className="hidden xl:inline-flex" compact />
       </div>
-      <div className="flex items-center gap-2">
+      <div className="desktop-no-drag flex items-center gap-2">
         <ThemeToggle />
         <div className="hidden items-center gap-3 rounded-xl border border-ink-900/10 bg-white/70 px-3 py-1.5 backdrop-blur-sm dark:border-accent-champagne/10 dark:bg-ink-950/40 md:flex">
           <div className="flex flex-col text-right leading-tight">

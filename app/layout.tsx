@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 
+import { DesktopRuntime } from "@/components/desktop/DesktopRuntime";
 import { ThemeProvider } from "@/components/ui/ThemeProvider";
 import { PUBLIC_ENV } from "@/lib/env";
 import { THEME_BOOT_SCRIPT } from "@/lib/theme";
@@ -39,6 +40,7 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen font-sans antialiased dark:bg-ink-950 dark:text-ink-100">
+        <DesktopRuntime />
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>

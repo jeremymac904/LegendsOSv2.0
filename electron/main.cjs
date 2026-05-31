@@ -38,13 +38,15 @@ function createMainWindow() {
   const url = process.env.LEGENDSOS_DESKTOP_URL || DEFAULT_URL;
   const win = new BrowserWindow({
     width: 1440,
-    height: 900,
-    minWidth: 1024,
-    minHeight: 700,
+    height: 920,
+    minWidth: 1120,
+    minHeight: 760,
     title: APP_NAME,
     backgroundColor: "#0a0a0d",
     autoHideMenuBar: true,
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
+    trafficLightPosition:
+      process.platform === "darwin" ? { x: 18, y: 18 } : undefined,
     show: false,
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
