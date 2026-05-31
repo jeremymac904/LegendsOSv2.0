@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { AgentChat } from "@/components/agents/AgentChat";
 import { CoordinatorBoard } from "@/components/coordinator/CoordinatorBoard";
 import { SampleModeBanner } from "@/components/loanbrain/SampleModeBanner";
 import { SectionHeader } from "@/components/ui/SectionHeader";
@@ -28,7 +29,20 @@ export default async function CoordinatorPage() {
         description="Who needs contact, what to collect, and draft messages — with one tap to escalate to Jeremy. Draft-first; nothing sends itself."
       />
       <SampleModeBanner note="Sample Mode — demo follow-ups, no live leads yet · no borrower data · drafts only, nothing sends." />
-      <CoordinatorBoard rows={rows} sampleMode />
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_400px]">
+        <div className="min-w-0">
+          <CoordinatorBoard rows={rows} sampleMode />
+        </div>
+        <div className="xl:sticky xl:top-4 xl:h-[calc(100vh-7rem)]">
+          <AgentChat
+            agentType="coordinator_agent"
+            agentName="Coordinator Assistant"
+            agentRole="Follow-up engine — document chasing, realtor updates, handoffs"
+            seedPrompt="Draft today's borrower follow-up plan: who to contact, what to collect, and the message for each."
+            compact
+          />
+        </div>
+      </div>
     </div>
   );
 }

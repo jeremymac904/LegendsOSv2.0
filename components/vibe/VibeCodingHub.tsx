@@ -192,7 +192,8 @@ function BuildDetailPanel({
   };
 
   const handleSendToAtlas = () => {
-    window.location.href = `/atlas?prompt=${encodeURIComponent(filledPrompt)}`;
+    // Open a real Builder agent session prefilled with this prompt.
+    window.location.href = `/builder?prompt=${encodeURIComponent(filledPrompt)}`;
   };
 
   return (
@@ -295,7 +296,7 @@ function BuildDetailPanel({
               className="btn-primary flex items-center gap-1.5"
             >
               <ArrowUpRight size={14} />
-              Send to Atlas
+              Open in Builder
             </button>
             <button
               type="button"
