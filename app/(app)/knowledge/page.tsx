@@ -47,10 +47,7 @@ export default async function KnowledgePage() {
       .from("knowledge_items")
       .select("id,title,source_type,collection_id,created_at,user_id")
       .order("created_at", { ascending: false })
-      .limit(8),
-    // "Local Knowledge Imports" — collections produced by the local
-    // importer (we tag them via metadata.seeded_by). The same .eq() against
-    // a jsonb field uses PostgREST's `->>` accessor syntax.
+      .limit(10),
     supabase
       .from("knowledge_collections")
       .select("*")
@@ -77,225 +74,157 @@ export default async function KnowledgePage() {
     );
   }
 
-  // Combined list of collections the user can write into — used by the
-  // quick-upload picker at the top.
-  const writableCollections: { id: string; name: string; visibility: "private" | "team_shared" }[] = [
-    ...priv.map((c) => ({
-      id: c.id,
-      name: c.name,
-      visibility: c.visibility as "private" | "team_shared",
-    })),
-    ...team
-      .filter((c) => c.user_id === profile.id || isOwner(profile))
-      .map((c) => ({
-        id: c.id,
-        name: c.name,
-        visibility: c.visibility as "private" | "team_shared",
-      })),
+  const writableCollections = [
+    ...priv.map((c) => ({ id: c.id, name: c.name, visibility: c.visibility as any })),
+    ...team.filter((c) => c.user_id === profile.id || isOwner(profile)).map((c) => ({ id: c.id, name: c.name, visibility: c.visibility as any })),
   ];
 
   return (
-    <div className="space-y-6">
-      <SectionHeader
-        eyebrow="Knowledge Sources"
-        title="Reference material for Atlas"
-        description="Upload files, paste text, and link sources. Private by default; team-shared when you flip the toggle."
-      />
-
-      <QuickUploadPicker
-        userId={profile.id}
-        organizationId={profile.organization_id}
-        collections={writableCollections}
-      />
-
-      <KnowledgeSetupGuide tutorialUrl={tutorialUrl} />
-
-      {isOwner(profile) && imports.length > 0 && (
-        <section className="card-padded">
-          <div className="section-title">
-            <div>
-              <h2>Local knowledge imports</h2>
-              <p>
-                Collections seeded by{" "}
-                <code>scripts/import-local-knowledge.ts</code>. Re-run{" "}
-                <code>npm run import-local-knowledge</code> after dropping
-                new files into <code>future/</code>.
-              </p>
-            </div>
-            <span className="chip-info">
-              <FolderTree size={12} />
-              {imports.length} sources
-            </span>
-          </div>
-          <div className="mt-4 overflow-hidden rounded-xl border border-ink-800">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-ink-900/70 text-[10px] uppercase tracking-[0.18em] text-ink-300">
-                <tr>
-                  <th className="px-3 py-2">Collection</th>
-                  <th className="px-3 py-2">Visibility</th>
-                  <th className="px-3 py-2">Items</th>
-                  <th className="px-3 py-2">Last imported</th>
-                </tr>
-              </thead>
-              <tbody>
-                {imports.map((c) => {
-                  const count = itemsByCollection.get(c.id) ?? 0;
-                  return (
-                    <tr key={c.id} className="border-t border-ink-800">
-                      <td className="px-3 py-2">
-                        <Link
-                          href={`/knowledge/${c.id}`}
-                          className="font-medium text-ink-100 hover:text-accent-gold"
-                        >
-                          {c.name}
-                        </Link>
-                        {c.description && (
-                          <p className="line-clamp-1 text-[11px] text-ink-300">
-                            {c.description}
-                          </p>
-                        )}
-                      </td>
-                      <td className="px-3 py-2">
-                        <StatusPill
-                          status={c.visibility === "team_shared" ? "ok" : "info"}
-                          label={c.visibility.replace("_", " ")}
-                        />
-                      </td>
-                      <td className="px-3 py-2 text-ink-100">{count}</td>
-                      <td className="px-3 py-2 text-ink-300">
-                        {formatRelative(c.updated_at)}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
-
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[2fr_1fr]">
-        <div className="space-y-5">
-          <section className="card-padded">
-            <div className="section-title">
-              <div>
-                <h2>My collections</h2>
-                <p>Only you can see these unless you mark them team-shared.</p>
-              </div>
-              <span className="chip-info">
-                <Lock size={12} />
-                private
-              </span>
-            </div>
-            <div className="mt-4 grid grid-cols-1 gap-2">
-              {priv.length === 0 ? (
-                <EmptyState
-                  icon={BookOpen}
-                  title="No private collections yet"
-                  description="Create one on the right to start uploading source material."
-                />
-              ) : (
-                priv.map((c) => (
-                  <Link
-                    key={c.id}
-                    href={`/knowledge/${c.id}`}
-                    className="flex items-center justify-between rounded-xl border border-ink-800 bg-ink-900/40 px-3 py-3 transition hover:border-accent-gold/30"
-                  >
-                    <div>
-                      <p className="text-sm font-medium text-ink-100">{c.name}</p>
-                      <p className="text-xs text-ink-300">{c.description}</p>
-                    </div>
-                    <span className="text-xs text-ink-300">
-                      {formatRelative(c.updated_at)}
-                    </span>
-                  </Link>
-                ))
-              )}
-            </div>
-          </section>
-          <section className="card-padded">
-            <div className="section-title">
-              <div>
-                <h2>Team-shared collections</h2>
-                <p>Visible to every member of the organization.</p>
-              </div>
-              <span className="chip-ok">
-                <Users2 size={12} />
-                team shared
-              </span>
-            </div>
-            <div className="mt-4 grid grid-cols-1 gap-2">
-              {team.length === 0 ? (
-                <EmptyState
-                  icon={Users2}
-                  title="No team-shared collections yet"
-                  description="Jeremy can promote any collection to team-shared visibility."
-                />
-              ) : (
-                team.map((c) => (
-                  <Link
-                    key={c.id}
-                    href={`/knowledge/${c.id}`}
-                    className="flex items-center justify-between rounded-xl border border-ink-800 bg-ink-900/40 px-3 py-3"
-                  >
-                    <div>
-                      <p className="text-sm font-medium text-ink-100">{c.name}</p>
-                      <p className="text-xs text-ink-300">{c.description}</p>
-                    </div>
-                    <StatusPill status="info" label="shared" />
-                  </Link>
-                ))
-              )}
-            </div>
-          </section>
-          <section className="card-padded">
-            <div className="section-title">
-              <div>
-                <h2>Recent items</h2>
-                <p>Across all collections you can read.</p>
-              </div>
-            </div>
-            <div className="mt-4 grid gap-2">
-              {recent.length === 0 ? (
-                <EmptyState
-                  icon={BookOpen}
-                  title="No items yet"
-                  description="Items appear as soon as you add them to a collection."
-                />
-              ) : (
-                recent.map((it) => (
-                  <Link
-                    key={it.id}
-                    href={`/knowledge/${it.collection_id}`}
-                    className="flex items-center justify-between rounded-xl border border-ink-800 bg-ink-900/40 px-3 py-2 text-sm"
-                  >
-                    <span className="truncate text-ink-100">{it.title}</span>
-                    <span className="flex items-center gap-2 text-xs text-ink-300">
-                      <span className="chip">{it.source_type ?? "note"}</span>
-                      {formatRelative(it.created_at)}
-                    </span>
-                  </Link>
-                ))
-              )}
-            </div>
-          </section>
+    <div className="flex h-[calc(100vh-140px)] min-h-[650px] flex-col gap-4 overflow-hidden">
+      <div className="flex items-center justify-between gap-4">
+        <SectionHeader
+          eyebrow="Knowledge Sources"
+          title="Reference for Atlas"
+          description="Manage training data and reference material."
+        />
+        <div className="flex items-center gap-2">
+           <Link href="/atlas" className="btn py-1 text-xs"><BookOpen size={14} /> Open Atlas</Link>
         </div>
-        <aside className="space-y-4">
-          <CreateCollectionForm
-            userId={profile.id}
-            organizationId={profile.organization_id}
-            canShare={profile.role === "owner"}
-          />
-          <div className="card-padded text-xs text-ink-300">
-            <p className="label">Privacy</p>
-            <p className="mt-2">
-              Source files and embeddings live in Supabase under your user
-              folder. RLS enforces who can read them. Owner ({profile.role === "owner" ? "you" : "Jeremy"})
-              has cross-team read access.
-            </p>
-          </div>
-        </aside>
       </div>
+
+      <div className="grid flex-1 grid-cols-1 gap-4 overflow-hidden lg:grid-cols-[1fr_2.5fr]">
+        {/* Sidebar: Add & Config */}
+        <div className="flex flex-col gap-4 overflow-y-auto pr-1 scrollbar-thin">
+           <CreateCollectionForm
+             userId={profile.id}
+             organizationId={profile.organization_id}
+             canShare={profile.role === "owner"}
+           />
+           <div className="card-padded py-3">
+              <p className="label text-[10px] uppercase tracking-wider mb-2">Quick Upload</p>
+              <QuickUploadPicker
+                userId={profile.id}
+                organizationId={profile.organization_id}
+                collections={writableCollections}
+              />
+           </div>
+           <KnowledgeSetupGuide tutorialUrl={tutorialUrl} />
+        </div>
+
+        {/* Main: Collections Tabs */}
+        <div className="flex flex-col overflow-hidden rounded-2xl border border-ink-200 bg-white/40 dark:border-ink-800 dark:bg-ink-950/20">
+           <KnowledgeTabs
+             priv={priv}
+             team={team}
+             imports={imports}
+             recent={recent}
+             itemsByCollection={itemsByCollection}
+             isOwner={isOwner(profile)}
+           />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+import { Tabs, type TabItem } from "@/components/ui/Tabs";
+
+function KnowledgeTabs({ priv, team, imports, recent, itemsByCollection, isOwner }: any) {
+  const tabs: TabItem[] = [
+    {
+      id: "my",
+      label: `Private (${priv.length})`,
+      icon: Lock,
+      content: (
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+           {priv.length === 0 ? (
+             <div className="col-span-full py-10"><EmptyState icon={Lock} title="No private collections" description="Create one to start uploading." /></div>
+           ) : (
+             priv.map((c: any) => (
+               <Link key={c.id} href={`/knowledge/${c.id}`} className="flex items-center justify-between rounded-xl border border-ink-100 bg-white/50 p-3 dark:border-ink-800 dark:bg-ink-900/40 hover:border-accent-gold/30">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-ink-900 dark:text-ink-100">{c.name}</p>
+                    <p className="truncate text-[10px] text-ink-500">{itemsByCollection.get(c.id) || 0} items</p>
+                  </div>
+                  <span className="text-[10px] text-ink-400">{formatRelative(c.updated_at)}</span>
+               </Link>
+             ))
+           )}
+        </div>
+      )
+    },
+    {
+      id: "team",
+      label: `Team (${team.length})`,
+      icon: Users2,
+      content: (
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+           {team.length === 0 ? (
+             <div className="col-span-full py-10"><EmptyState icon={Users2} title="No team collections" description="Shared material appears here." /></div>
+           ) : (
+             team.map((c: any) => (
+               <Link key={c.id} href={`/knowledge/${c.id}`} className="flex items-center justify-between rounded-xl border border-ink-100 bg-white/50 p-3 dark:border-ink-800 dark:bg-ink-900/40 hover:border-accent-gold/30">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-ink-900 dark:text-ink-100">{c.name}</p>
+                    <p className="truncate text-[10px] text-ink-500">{itemsByCollection.get(c.id) || 0} items</p>
+                  </div>
+                  <StatusPill status="info" label="shared" />
+               </Link>
+             ))
+           )}
+        </div>
+      )
+    },
+    {
+      id: "recent",
+      label: "Recent Activity",
+      icon: BookOpen,
+      content: (
+        <div className="space-y-2">
+           {recent.length === 0 ? (
+             <EmptyState icon={BookOpen} title="No recent items" description="Uploads appear here." />
+           ) : (
+             recent.map((it: any) => (
+               <Link key={it.id} href={`/knowledge/${it.collection_id}`} className="flex items-center justify-between rounded-xl border border-ink-100 bg-white/50 px-3 py-2 dark:border-ink-800 dark:bg-ink-900/40 hover:border-accent-gold/30">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="chip-off text-[9px] uppercase">{it.source_type || "note"}</span>
+                    <p className="truncate text-sm text-ink-900 dark:text-ink-100">{it.title}</p>
+                  </div>
+                  <span className="text-[10px] text-ink-400">{formatRelative(it.created_at)}</span>
+               </Link>
+             ))
+           )}
+        </div>
+      )
+    }
+  ];
+
+  if (isOwner && imports.length > 0) {
+    tabs.push({
+      id: "imports",
+      label: "Imports",
+      icon: FolderTree,
+      content: (
+        <div className="space-y-2">
+           {imports.map((c: any) => (
+             <Link key={c.id} href={`/knowledge/${c.id}`} className="flex items-center justify-between rounded-xl border border-ink-100 bg-white/50 p-3 dark:border-ink-800 dark:bg-ink-900/40 hover:border-accent-gold/30">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-ink-900 dark:text-ink-100">{c.name}</p>
+                  <p className="truncate text-[10px] text-ink-500">{itemsByCollection.get(c.id) || 0} items · Seeded by scripts</p>
+                </div>
+                <span className="text-[10px] text-ink-400">{formatRelative(c.updated_at)}</span>
+             </Link>
+           ))}
+        </div>
+      )
+    });
+  }
+
+  return (
+    <div className="flex flex-1 flex-col overflow-hidden">
+       <div className="flex-1 overflow-y-auto p-4 scrollbar-thin">
+          <Tabs tabs={tabs} variant="pill" />
+       </div>
     </div>
   );
 }

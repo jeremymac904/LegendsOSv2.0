@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { AtlasWorkspace } from "@/components/atlas/AtlasWorkspace";
+import { loadAtlasRuntimeContext } from "@/lib/atlas/runtimeContext";
 import { getAIProviderStatuses, getServerEnv } from "@/lib/env";
 import { getEffectiveProfile } from "@/lib/impersonation";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
@@ -52,7 +53,7 @@ export default async function AtlasThreadPage({ params }: PageProps) {
         .order("name"),
       supabase
         .from("chat_threads")
-        .select("id,title,assistant_id,last_message_at,is_archived")
+        .select("*")
         .eq("user_id", profile.id)
         .eq("is_archived", false)
         .order("last_message_at", { ascending: false })
@@ -107,6 +108,13 @@ export default async function AtlasThreadPage({ params }: PageProps) {
       ? envDefault
       : (fallback?.id as "openrouter" | "deepseek" | "nvidia" | "minimax" | undefined)) ??
     "openrouter";
+  const initialRuntimeContext = await loadAtlasRuntimeContext({
+    client: supabase,
+    profile,
+    assistantId: (thread as ChatThread).assistant_id ?? null,
+    provider: defaultProvider,
+    model: null,
+  });
 
   return (
     <AtlasWorkspace
@@ -122,6 +130,7 @@ export default async function AtlasThreadPage({ params }: PageProps) {
       }))}
       modelCatalog={models}
       defaultProvider={defaultProvider}
+      initialRuntimeContext={initialRuntimeContext}
       organizationId={profile.organization_id}
       projects={assistantList}
       knowledgeCollections={((collections ?? []) as Pick<

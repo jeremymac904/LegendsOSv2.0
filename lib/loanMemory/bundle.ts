@@ -12,6 +12,7 @@ export interface LoanMemoryBundle {
   events: LoanMemoryEvent[];
   open_tasks: Record<string, unknown>[];
   documents: Record<string, unknown>[];
+  conditions: Record<string, unknown>[];
   email_intake: Record<string, unknown>[];
   drive_links: Record<string, unknown>[];
   retrieval_summary: string;
@@ -66,6 +67,7 @@ export async function loadLoanMemoryBundle(
   // Loan-scoped sources require the linked loan_id.
   const loanId = memory?.loan_id ?? null;
   let open_tasks: Record<string, unknown>[] = [];
+  let conditions: Record<string, unknown>[] = [];
   let drive_links: Record<string, unknown>[] = [];
   let email_intake: Record<string, unknown>[] = [];
   if (loanId) {
@@ -77,6 +79,15 @@ export async function loadLoanMemoryBundle(
         .limit(50)
     );
     if (open_tasks.length) sources.push("loan_tasks");
+
+    conditions = await safeSelect(() =>
+      (client.from("loan_conditions") as any)
+        .select("*")
+        .eq("loan_id", loanId)
+        .neq("status", "cleared")
+        .limit(50)
+    );
+    if (conditions.length) sources.push("loan_conditions");
 
     drive_links = await safeSelect(() =>
       (client.from("drive_folder_links") as any).select("*").eq("loan_id", loanId).limit(20)
@@ -98,7 +109,7 @@ export async function loadLoanMemoryBundle(
   const retrieval_summary = memory
     ? `Loaded memory for ${memory.borrower_name ?? "loan"}${
         memory.loan_number ? ` (#${memory.loan_number})` : ""
-      } — stage ${memory.current_stage ?? "unknown"}, ${events.length} events, ${documents.length} docs, ${open_tasks.length} open tasks. Sources: ${sources.join(", ") || "none"}.`
+      } — stage ${memory.current_stage ?? "unknown"}, ${events.length} events, ${documents.length} docs, ${conditions.length} conditions, ${open_tasks.length} open tasks. Sources: ${sources.join(", ") || "none"}.`
     : "No loan memory found for that id.";
 
   // Audit: record what context was loaded before the AI answered.
@@ -122,6 +133,7 @@ export async function loadLoanMemoryBundle(
     events,
     open_tasks,
     documents,
+    conditions,
     email_intake,
     drive_links,
     retrieval_summary,
