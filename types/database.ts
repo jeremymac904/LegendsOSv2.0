@@ -552,3 +552,119 @@ export interface NewsletterContact {
   created_at: string;
   updated_at: string;
 }
+
+// ---------------------------------------------------------------------------
+// Browser Companion + Live Integrations (Sprint 4)
+// Migrations: 20260601000000_browser_companion.sql, 20260601000200_integrations.sql
+// Tables are NOT auto-applied — code paths must treat a missing table (42P01)
+// as "not provisioned yet" / "setup needed".
+// ---------------------------------------------------------------------------
+
+export type BrowserCaptureStatus =
+  | "captured"
+  | "routed"
+  | "dismissed"
+  | "error";
+
+export type IntegrationConnectionStatus =
+  | "not_connected"
+  | "connected"
+  | "needs_setup"
+  | "error"
+  | "revoked"
+  | "disabled";
+
+export type PublishAttemptStatus =
+  | "queued"
+  | "disabled"
+  | "sending"
+  | "published"
+  | "failed"
+  | "cancelled";
+
+export interface BrowserCompanionSession {
+  id: string;
+  user_id: string;
+  organization_id: string | null;
+  device_label: string | null;
+  user_agent: string | null;
+  paired_at: string;
+  last_seen_at: string | null;
+  revoked_at: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BrowserCompanionCapture {
+  id: string;
+  user_id: string;
+  organization_id: string | null;
+  session_id: string | null;
+  source_url: string | null;
+  source_title: string | null;
+  selected_text: string | null;
+  structured_context: Record<string, unknown>;
+  captured_at: string;
+  routed_assistant: string | null;
+  status: BrowserCaptureStatus;
+  is_redacted: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserIntegrationConnection {
+  id: string;
+  user_id: string;
+  organization_id: string | null;
+  provider: string;
+  status: IntegrationConnectionStatus;
+  scopes: string[];
+  connected_at: string | null;
+  last_checked_at: string | null;
+  // NON-secret display metadata only — never raw tokens/keys.
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface IntegrationAuditLog {
+  id: string;
+  organization_id: string | null;
+  actor_id: string | null;
+  action: string;
+  provider: string | null;
+  target_type: string | null;
+  target_id: string | null;
+  source_url: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface SocialAccountConnection {
+  id: string;
+  organization_id: string | null;
+  platform: string;
+  account_ref: string | null;
+  page_id: string | null;
+  status: IntegrationConnectionStatus;
+  connected_by: string | null;
+  connected_at: string | null;
+  // Owner-approval switch — defaults false; no live publishing until enabled.
+  is_publish_enabled: boolean;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PublishAttempt {
+  id: string;
+  organization_id: string | null;
+  social_post_id: string | null;
+  platform: string | null;
+  route: string | null;
+  status: PublishAttemptStatus;
+  error: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}

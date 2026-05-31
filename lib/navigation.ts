@@ -14,6 +14,7 @@ import {
   LayoutDashboard,
   Mail,
   MessageCircle,
+  Puzzle,
   Rocket,
   Settings,
   ShieldCheck,
@@ -65,6 +66,13 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Knowledge Sources",
     description: "Collections and retrieval",
     icon: BookOpen,
+  },
+  {
+    section: "core",
+    href: "/browser-companion",
+    label: "Browser Companion",
+    description: "Chrome extension — capture portal context into Atlas/FLO",
+    icon: Puzzle,
   },
   {
     section: "mortgage",
