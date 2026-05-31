@@ -1,6 +1,8 @@
 import {
   Bell,
   BookOpen,
+  Bot,
+  Brain,
   Briefcase,
   Calendar,
   ChartLine,
@@ -92,6 +94,14 @@ export const NAV_ITEMS: NavItem[] = [
   },
   {
     section: "mortgage",
+    href: "/flo",
+    label: "FLO Assistant",
+    description: "Ashley's real processing AI — conditions, docs, CTC",
+    icon: Bot,
+    gate: { roles: ["processor"] },
+  },
+  {
+    section: "mortgage",
     href: "/coordinator",
     label: "Coordinator",
     description: "Geraldine's follow-up board",
@@ -112,6 +122,14 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Social Studio",
     description: "Multi-channel drafts",
     icon: Share2,
+  },
+  {
+    section: "studios",
+    href: "/marketing-assistant",
+    label: "Marketing Assistant",
+    description: "Real marketing AI — social, email, GBP, YouTube, compliance",
+    icon: Sparkles,
+    gate: { roles: ["marketing", "loan_officer"] },
   },
   {
     section: "studios",
@@ -234,10 +252,40 @@ export const NAV_ITEMS: NavItem[] = [
   },
   {
     section: "team",
+    href: "/settings/assistant-memory",
+    label: "Assistant Memory",
+    description: "What your agents remember about you (private)",
+    icon: Brain,
+  },
+  {
+    section: "team",
+    href: "/settings/skills",
+    label: "My Skills",
+    description: "Your reusable agent workflows",
+    icon: Puzzle,
+  },
+  {
+    section: "team",
     href: "/settings",
     label: "Settings",
     description: "Profile and integrations",
     icon: Settings,
+  },
+  {
+    section: "owner",
+    href: "/admin/assistant-memory",
+    label: "Agent Memory (Admin)",
+    description: "Audit agent memory across the team",
+    icon: Brain,
+    gate: { ownerOnly: true },
+  },
+  {
+    section: "owner",
+    href: "/admin/skills",
+    label: "Agent Skills (Admin)",
+    description: "Review, promote, and deactivate agent skills",
+    icon: Puzzle,
+    gate: { ownerOnly: true },
   },
 ];
 
