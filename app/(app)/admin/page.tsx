@@ -48,90 +48,137 @@ export const dynamic = "force-dynamic";
 export default async function AdminCenterPage() {
   const { profile } = await getEffectiveProfile();
   if (!profile || !isOwner(profile)) redirect("/dashboard");
-  const supabase = getSupabaseServerClient();
   const env = getServerEnv();
   const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-  const [
-    { data: members },
-    { data: usage },
-    { data: jobs },
-    { data: audits },
-    { data: providers },
-    { data: chats },
-    { data: socials },
-    { data: emails },
-    { data: media },
-  ] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("*")
-      .order("role", { ascending: true })
-      .order("created_at", { ascending: true }),
-    supabase
-      .from("usage_events")
-      .select("module,event_type,created_at,user_id")
-      .gte("created_at", since24h)
-      .order("created_at", { ascending: false })
-      .limit(200),
-    supabase
-      .from("automation_jobs")
-      .select("*")
-      .order("updated_at", { ascending: false })
-      .limit(10),
-    supabase
-      .from("audit_logs")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(15),
-    supabase.from("provider_credentials_public").select("*"),
-    supabase
-      .from("chat_threads")
-      .select("id,title,user_id,updated_at,last_message_at")
-      .order("last_message_at", { ascending: false, nullsFirst: false })
-      .order("updated_at", { ascending: false })
-      .limit(6),
-    supabase
-      .from("social_posts")
-      .select("id,title,body,user_id,status,channels,updated_at")
-      .order("updated_at", { ascending: false })
-      .limit(6),
-    supabase
-      .from("email_campaigns")
-      .select("id,subject,user_id,status,updated_at")
-      .order("updated_at", { ascending: false })
-      .limit(6),
-    supabase
-      .from("generated_media")
-      .select("id,user_id,prompt,preview_url,status,created_at")
-      .order("created_at", { ascending: false })
-      .limit(6),
-  ]);
-
-  const membersList = (members ?? []) as Profile[];
-  const usageList = (usage ?? []) as Pick<
+  let adminDataSetupNeeded = false;
+  let membersList: Profile[] = [];
+  let usageList: Pick<
     UsageEvent,
     "module" | "event_type" | "created_at" | "user_id"
-  >[];
-  const jobList = (jobs ?? []) as AutomationJob[];
-  const auditList = (audits ?? []) as AuditLog[];
-  const storedProviders = (providers ?? []) as ProviderCredentialPublic[];
-  const recentChats = (chats ?? []) as Pick<
+  >[] = [];
+  let jobList: AutomationJob[] = [];
+  let auditList: AuditLog[] = [];
+  let storedProviders: ProviderCredentialPublic[] = [];
+  let recentChats: Pick<
     ChatThread,
     "id" | "title" | "user_id" | "updated_at" | "last_message_at"
-  >[];
-  const recentSocial = (socials ?? []) as Pick<
+  >[] = [];
+  let recentSocial: Pick<
     SocialPost,
     "id" | "title" | "body" | "user_id" | "status" | "channels" | "updated_at"
-  >[];
-  const recentEmail = (emails ?? []) as Pick<
+  >[] = [];
+  let recentEmail: Pick<
     EmailCampaign,
     "id" | "subject" | "user_id" | "status" | "updated_at"
-  >[];
-  const recentMedia = (media ?? []) as Pick<
+  >[] = [];
+  let recentMedia: Pick<
     GeneratedMedia,
     "id" | "user_id" | "prompt" | "preview_url" | "status" | "created_at"
-  >[];
+  >[] = [];
+
+  try {
+    const supabase = getSupabaseServerClient();
+    const results = await Promise.all([
+      safeArrayQuery<Profile>(
+        supabase
+          .from("profiles")
+          .select("*")
+          .order("role", { ascending: true })
+          .order("created_at", { ascending: true })
+      ),
+      safeArrayQuery<
+        Pick<UsageEvent, "module" | "event_type" | "created_at" | "user_id">
+      >(
+        supabase
+          .from("usage_events")
+          .select("module,event_type,created_at,user_id")
+          .gte("created_at", since24h)
+          .order("created_at", { ascending: false })
+          .limit(200)
+      ),
+      safeArrayQuery<AutomationJob>(
+        supabase
+          .from("automation_jobs")
+          .select("*")
+          .order("updated_at", { ascending: false })
+          .limit(10)
+      ),
+      safeArrayQuery<AuditLog>(
+        supabase
+          .from("audit_logs")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(15)
+      ),
+      safeArrayQuery<ProviderCredentialPublic>(
+        supabase.from("provider_credentials_public").select("*")
+      ),
+      safeArrayQuery<
+        Pick<ChatThread, "id" | "title" | "user_id" | "updated_at" | "last_message_at">
+      >(
+        supabase
+          .from("chat_threads")
+          .select("id,title,user_id,updated_at,last_message_at")
+          .order("last_message_at", { ascending: false, nullsFirst: false })
+          .order("updated_at", { ascending: false })
+          .limit(6)
+      ),
+      safeArrayQuery<
+        Pick<
+          SocialPost,
+          "id" | "title" | "body" | "user_id" | "status" | "channels" | "updated_at"
+        >
+      >(
+        supabase
+          .from("social_posts")
+          .select("id,title,body,user_id,status,channels,updated_at")
+          .order("updated_at", { ascending: false })
+          .limit(6)
+      ),
+      safeArrayQuery<Pick<EmailCampaign, "id" | "subject" | "user_id" | "status" | "updated_at">>(
+        supabase
+          .from("email_campaigns")
+          .select("id,subject,user_id,status,updated_at")
+          .order("updated_at", { ascending: false })
+          .limit(6)
+      ),
+      safeArrayQuery<
+        Pick<GeneratedMedia, "id" | "user_id" | "prompt" | "preview_url" | "status" | "created_at">
+      >(
+        supabase
+          .from("generated_media")
+          .select("id,user_id,prompt,preview_url,status,created_at")
+          .order("created_at", { ascending: false })
+          .limit(6)
+      ),
+    ]);
+
+    adminDataSetupNeeded = results.some((result) => result.setupNeeded);
+    [
+      membersList,
+      usageList,
+      jobList,
+      auditList,
+      storedProviders,
+      recentChats,
+      recentSocial,
+      recentEmail,
+      recentMedia,
+    ] = results.map((result) => result.data) as [
+      Profile[],
+      Pick<UsageEvent, "module" | "event_type" | "created_at" | "user_id">[],
+      AutomationJob[],
+      AuditLog[],
+      ProviderCredentialPublic[],
+      Pick<ChatThread, "id" | "title" | "user_id" | "updated_at" | "last_message_at">[],
+      Pick<SocialPost, "id" | "title" | "body" | "user_id" | "status" | "channels" | "updated_at">[],
+      Pick<EmailCampaign, "id" | "subject" | "user_id" | "status" | "updated_at">[],
+      Pick<GeneratedMedia, "id" | "user_id" | "prompt" | "preview_url" | "status" | "created_at">[],
+    ];
+  } catch {
+    adminDataSetupNeeded = true;
+  }
 
   const memberById = new Map(membersList.map((m) => [m.id, m]));
   const liveStatuses = getAIProviderStatuses();
@@ -571,6 +618,23 @@ export default async function AdminCenterPage() {
         action={<StatusPill status="ok" label="owner" />}
       />
 
+      {adminDataSetupNeeded && (
+        <section className="card-padded border-status-warn/30 bg-status-warn/10">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold text-ink-900 dark:text-ink-100">
+                Database setup needed
+              </h2>
+              <p className="mt-1 text-xs text-ink-700 dark:text-ink-300">
+                One or more admin tables are unavailable, so this page is
+                rendering with safe empty data instead of crashing.
+              </p>
+            </div>
+            <StatusPill status="warn" label="setup needed" />
+          </div>
+        </section>
+      )}
+
       <section className="card-padded">
         <div className="section-title">
           <div>
@@ -645,6 +709,20 @@ export default async function AdminCenterPage() {
       <Tabs tabs={tabs} variant="pill" />
     </div>
   );
+}
+
+async function safeArrayQuery<T>(
+  query: PromiseLike<{ data: unknown; error: unknown }>
+): Promise<{ data: T[]; setupNeeded: boolean }> {
+  try {
+    const { data, error } = await query;
+    return {
+      data: Array.isArray(data) ? (data as T[]) : [],
+      setupNeeded: Boolean(error),
+    };
+  } catch {
+    return { data: [], setupNeeded: true };
+  }
 }
 
 // ----------------------------------------------------------------------

@@ -75,14 +75,28 @@ export default async function TeamSetupPage() {
   const { profile } = await getEffectiveProfile();
   if (!profile || !isOwner(profile)) redirect("/dashboard");
 
-  const supabase = getSupabaseServerClient();
-  const { data: profileRows } = await supabase
-    .from("profiles")
-    .select("id,email,full_name,role,is_active")
-    .order("role", { ascending: true })
-    .order("email", { ascending: true });
+  let profileRowsSetupNeeded = false;
+  let profileRows: Pick<
+    Profile,
+    "id" | "email" | "full_name" | "role" | "is_active"
+  >[] = [];
+  try {
+    const supabase = getSupabaseServerClient();
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id,email,full_name,role,is_active")
+      .order("role", { ascending: true })
+      .order("email", { ascending: true });
+    profileRowsSetupNeeded = Boolean(error);
+    profileRows = (data ?? []) as Pick<
+      Profile,
+      "id" | "email" | "full_name" | "role" | "is_active"
+    >[];
+  } catch {
+    profileRowsSetupNeeded = true;
+  }
 
-  const profiles = (profileRows ?? []) as Pick<
+  const profiles = profileRows as Pick<
     Profile,
     "id" | "email" | "full_name" | "role" | "is_active"
   >[];
@@ -263,6 +277,23 @@ export default async function TeamSetupPage() {
         description={`Provision the ${ROSTER_COUNT} verified roster members, manage roles, and preview each persona — without sending a single email. Every integration status below is honest: nothing is marked connected unless it actually is.`}
         action={<StatusPill status="ok" label="owner" />}
       />
+
+      {profileRowsSetupNeeded && (
+        <section className="card-padded border-status-warn/30 bg-status-warn/10">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold text-ink-900 dark:text-ink-100">
+                Profiles table setup needed
+              </h2>
+              <p className="mt-1 text-xs text-ink-700 dark:text-ink-300">
+                Live roster rows are unavailable, so setup is rendering the
+                verified roster checklist with empty database matches.
+              </p>
+            </div>
+            <StatusPill status="warn" label="setup needed" />
+          </div>
+        </section>
+      )}
 
       {/* Integration status — honest, presence-not-values */}
       <section className="card-padded space-y-4">

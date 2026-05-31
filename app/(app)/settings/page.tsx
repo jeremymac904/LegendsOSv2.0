@@ -56,17 +56,20 @@ export default async function SettingsPage() {
   // construct when env is absent. Guard both the client creation and the query
   // so a missing table/env returns [] instead of throwing.
   let providerRows: ProviderCredentialPublic[] | null = null;
+  let providerTableSetupNeeded = false;
   try {
     const supabase = getSupabaseServerClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("provider_credentials_public")
       .select("*")
       .order("provider");
+    providerTableSetupNeeded = Boolean(error);
     providerRows = (data ?? []) as ProviderCredentialPublic[];
   } catch {
     // Table missing, RLS rejection, or unconfigured supabase — degrade to no
     // stored placeholders. Live env detection below still drives the gateway.
     providerRows = [];
+    providerTableSetupNeeded = true;
   }
 
   const owner = isOwner(profile);
@@ -570,6 +573,22 @@ export default async function SettingsPage() {
           </span>
         }
       />
+      {providerTableSetupNeeded && (
+        <section className="card-padded border-status-warn/30 bg-status-warn/10">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold text-ink-900 dark:text-ink-100">
+                Provider table setup needed
+              </h2>
+              <p className="mt-1 text-xs text-ink-700 dark:text-ink-300">
+                Stored provider toggles are unavailable, so Settings is using
+                safe environment-only status and showing setup-needed states.
+              </p>
+            </div>
+            <StatusPill status="warn" label="setup needed" />
+          </div>
+        </section>
+      )}
       <LegendsOSHelpCoaches />
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
