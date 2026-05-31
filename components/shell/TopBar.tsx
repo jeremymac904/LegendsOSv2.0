@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, LogOut, Search } from "lucide-react";
+import { LogOut } from "lucide-react";
 
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { NAV_ITEMS } from "@/lib/navigation";
@@ -49,22 +49,9 @@ export function TopBar({ profile }: { profile: Profile }) {
             </h1>
           </div>
         </div>
-        <div className="ml-6 hidden flex-1 max-w-md items-center gap-2 rounded-xl border border-ink-900/10 bg-white/70 px-3 py-1.5 text-xs text-ink-700 backdrop-blur-sm transition-colors focus-within:border-accent-champagne/50 dark:border-accent-champagne/10 dark:bg-ink-950/40 dark:text-ink-300 md:flex">
-          <Search size={14} className="text-ink-500 dark:text-ink-400" />
-          <input
-            placeholder="Search threads, drafts, knowledge…"
-            className="flex-1 bg-transparent outline-none placeholder:text-ink-500 dark:placeholder:text-ink-400"
-          />
-          <span className="rounded-md border border-ink-900/10 bg-white/80 px-1.5 py-0.5 font-mono text-[10px] text-ink-600 dark:border-ink-800 dark:bg-ink-900/80 dark:text-ink-400">
-            ⌘ K
-          </span>
-        </div>
       </div>
       <div className="flex items-center gap-2">
         <ThemeToggle />
-        <button className="btn-ghost px-2 py-2" aria-label="Notifications">
-          <Bell size={16} />
-        </button>
         <div className="hidden items-center gap-3 rounded-xl border border-ink-900/10 bg-white/70 px-3 py-1.5 backdrop-blur-sm dark:border-accent-champagne/10 dark:bg-ink-950/40 md:flex">
           <div className="flex flex-col text-right leading-tight">
             <span className="text-xs font-medium text-ink-900 dark:text-ink-100">

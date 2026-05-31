@@ -33,7 +33,13 @@ export function GeneratedMediaCard({ media }: Props) {
   }
   return (
     <figure className="card overflow-hidden">
-      <div className="aspect-square w-full bg-checker">
+      <div className="relative aspect-square w-full bg-checker">
+        {/* Honest provenance: real generations carry a "Generated" badge so
+            they're never confused with the "Sample" starter tiles that share
+            the same grid. */}
+        <span className="absolute left-1.5 top-1.5 z-10 rounded-full chip-ok px-1.5 py-0.5 text-[8px] uppercase tracking-[0.12em]">
+          Generated
+        </span>
         {media.preview_url ? (
           <img
             src={media.preview_url}
@@ -41,15 +47,15 @@ export function GeneratedMediaCard({ media }: Props) {
             className="h-full w-full object-cover"
           />
         ) : (
-          <div className="grid h-full w-full place-items-center text-[10px] text-ink-300">
+          <div className="grid h-full w-full place-items-center text-[10px] text-ink-600 dark:text-ink-300">
             <ImageIcon size={18} />
             <span className="mt-1">{media.status}</span>
           </div>
         )}
       </div>
       <figcaption className="space-y-2 p-3 text-xs">
-        <p className="line-clamp-2 text-ink-100">{media.prompt ?? "—"}</p>
-        <div className="flex flex-wrap items-center gap-2 text-[10px] text-ink-300">
+        <p className="line-clamp-2 text-ink-900 dark:text-ink-100">{media.prompt ?? "—"}</p>
+        <div className="flex flex-wrap items-center gap-2 text-[10px] text-ink-600 dark:text-ink-300">
           <StatusPill status={media.status as never} />
           <span className="chip">{media.provider ?? "—"}</span>
           {media.model && <span className="chip">{truncate(media.model, 20)}</span>}

@@ -57,7 +57,7 @@ export function ProviderToggle({ provider, initialEnabled, canEdit }: Props) {
           "relative inline-flex h-5 w-10 items-center rounded-full border transition",
           enabled
             ? "border-status-ok/40 bg-status-ok/30"
-            : "border-ink-700 bg-ink-800",
+            : "border-ink-300 bg-ink-200 dark:border-ink-700 dark:bg-ink-800",
           (!canEdit || isPending) && "cursor-not-allowed opacity-60"
         )}
         title={
@@ -70,7 +70,7 @@ export function ProviderToggle({ provider, initialEnabled, canEdit }: Props) {
       >
         <span
           className={cn(
-            "inline-block h-3.5 w-3.5 transform rounded-full bg-ink-100 transition",
+            "inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-sm transition dark:bg-ink-100",
             enabled ? "translate-x-5" : "translate-x-0.5"
           )}
         />

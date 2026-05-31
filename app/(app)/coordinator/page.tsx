@@ -27,8 +27,8 @@ export default async function CoordinatorPage() {
         title="Follow-up board"
         description="Who needs contact, what to collect, and draft messages — with one tap to escalate to Jeremy. Draft-first; nothing sends itself."
       />
-      <SampleModeBanner note="Demo follow-ups until real leads are connected · no borrower data · drafts only." />
-      <CoordinatorBoard rows={rows} />
+      <SampleModeBanner note="Sample Mode — demo follow-ups, no live leads yet · no borrower data · drafts only, nothing sends." />
+      <CoordinatorBoard rows={rows} sampleMode />
     </div>
   );
 }

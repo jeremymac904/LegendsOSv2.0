@@ -105,7 +105,7 @@ export default async function EmailStudioPage({
         <div className="section-title">
           <div>
             <h2>Campaign workflow</h2>
-            <p>Daily-use newsletter drafting, audience counts, preview, owner test send, and safe queueing.</p>
+            <p>Daily-use newsletter drafting, audience counts, and inbox preview. External sending is disabled — drafts save without delivering.</p>
           </div>
           <Link href="/settings" className="btn-ghost text-xs">
             <ExternalLink size={13} />
@@ -120,8 +120,10 @@ export default async function EmailStudioPage({
           />
           <EmailSetupCard
             title="n8n email broker"
-            detail="N8N_WEBHOOK_EMAIL_SEND"
+            detail="N8N_WEBHOOK_EMAIL_SEND — configured but inactive unless verified"
             ready={Boolean(env.N8N_WEBHOOKS.email_send)}
+            readyLabel="configured"
+            readyStatus="warn"
           />
           <EmailSetupCard
             title="Audiences"
@@ -185,13 +187,15 @@ export default async function EmailStudioPage({
                     className={`block rounded-lg border px-3 py-2 text-xs transition ${
                       isActive
                         ? "border-accent-gold/40 bg-accent-gold/10"
-                        : "border-ink-800 bg-ink-900/40 hover:border-ink-600"
+                        : "border-ink-200 bg-white/70 hover:border-ink-400 dark:border-ink-800 dark:bg-ink-900/40 dark:hover:border-ink-600"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <p
                         className={`truncate font-medium ${
-                          isActive ? "text-accent-gold" : "text-ink-100"
+                          isActive
+                            ? "text-accent-gold"
+                            : "text-ink-900 dark:text-ink-100"
                         }`}
                       >
                         {truncate(c.subject, 50)}
@@ -199,11 +203,11 @@ export default async function EmailStudioPage({
                       <StatusPill status={c.status as never} />
                     </div>
                     {c.preview_text && (
-                      <p className="line-clamp-1 text-[11px] text-ink-300">
+                      <p className="line-clamp-1 text-[11px] text-ink-600 dark:text-ink-300">
                         {c.preview_text}
                       </p>
                     )}
-                    <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-ink-400">
+                    <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-ink-600 dark:text-ink-400">
                       Updated {formatRelative(c.updated_at)}
                     </p>
                   </Link>
@@ -212,7 +216,7 @@ export default async function EmailStudioPage({
             )}
           </div>
           {campaigns.length > 0 && (
-            <div className="mt-3 border-t border-ink-800 pt-3">
+            <div className="mt-3 border-t border-ink-200 pt-3 dark:border-ink-800">
               <Link href="/email" scroll={false} className="btn-ghost text-xs">
                 Start a new draft
               </Link>
@@ -228,21 +232,31 @@ function EmailSetupCard({
   title,
   detail,
   ready,
+  readyLabel = "ready",
+  readyStatus = "ok",
 }: {
   title: string;
   detail: string;
   ready: boolean;
+  // When a card represents something we can detect but cannot verify (e.g. an
+  // n8n webhook URL is present in env but never proven to work), pass a
+  // softer label/status so the UI does not overstate readiness.
+  readyLabel?: string;
+  readyStatus?: "ok" | "warn";
 }) {
   return (
-    <div className="rounded-xl border border-ink-800 bg-ink-900/30 p-3">
+    <div className="rounded-xl border border-ink-200 bg-white/70 p-3 dark:border-ink-800 dark:bg-ink-900/30">
       <div className="flex items-center justify-between gap-2">
         <span className="grid h-8 w-8 place-items-center rounded-lg border border-accent-gold/20 bg-accent-gold/10 text-accent-gold">
           <PlugZap size={14} />
         </span>
-        <StatusPill status={ready ? "ok" : "warn"} label={ready ? "ready" : "setup needed"} />
+        <StatusPill
+          status={ready ? readyStatus : "warn"}
+          label={ready ? readyLabel : "setup needed"}
+        />
       </div>
-      <p className="mt-3 text-sm font-medium text-ink-100">{title}</p>
-      <p className="mt-1 text-[11px] text-ink-400">{detail}</p>
+      <p className="mt-3 text-sm font-medium text-ink-900 dark:text-ink-100">{title}</p>
+      <p className="mt-1 text-[11px] text-ink-600 dark:text-ink-400">{detail}</p>
     </div>
   );
 }

@@ -27,10 +27,28 @@ function readOnlyDriveOptIn(): boolean {
   return process.env.LOAN_BRAIN_DRIVE_READONLY === "true";
 }
 
+// HONESTY GATE (Sprint 2 — "Stop Lying").
+// Env presence alone does NOT mean the Loan Brain is reading live Drive data.
+// Today EVERY read path (lib/loanbrain/store.ts) returns `source: "sample"` —
+// there is no live Drive fetch wired up yet. So the green "connection active"
+// banner must NEVER show on env presence alone.
+//
+// This function is the single source of truth for whether reads actually return
+// live data. It is hard-`false` until a real read-only Drive fetch is wired into
+// the store and proven to return live results. When that lands, flip this to
+// reflect the actual data path (e.g. a successful live probe), not env vars.
+function liveReadsAvailable(): boolean {
+  return false;
+}
+
 export function getDriveConnectionStatus(): DriveConnectionStatus {
   const oauth = googleOAuthPresent();
   const optIn = readOnlyDriveOptIn();
-  const connected = oauth && optIn;
+  // Configuration can be present, but "connected" requires that reads actually
+  // return live data. Until liveReadsAvailable() is true, we stay in sample mode
+  // no matter what env vars are set — the banner reflects the real data path.
+  const configured = oauth && optIn;
+  const connected = configured && liveReadsAvailable();
 
   const rootUrl = process.env.LOAN_BRAIN_PIPELINE_FOLDER_URL || JEREMY_PIPELINE_FOLDER_URL;
 
@@ -51,16 +69,22 @@ export function getDriveConnectionStatus(): DriveConnectionStatus {
       label: "Owner opt-in flag enabled (LOAN_BRAIN_DRIVE_READONLY=true)",
       done: optIn,
     },
+    {
+      label: "Live read-only Drive reads returning real folder/file data",
+      done: liveReadsAvailable(),
+    },
   ];
 
   return {
     connected,
     mode: connected ? "live" : "sample",
     reason: connected
-      ? "Read-only Google Drive connection is active."
+      ? "Read-only Google Drive connection is active and returning live data."
       : !oauth
       ? "Google OAuth client is not configured yet. Running on safe sample data."
-      : "Read-only Drive opt-in is off. Running on safe sample data.",
+      : !optIn
+      ? "Read-only Drive opt-in is off. Running on safe sample data."
+      : "Drive credentials are configured, but live read-only reads are not wired up yet — every read still returns demo borrower data. Running in sample mode.",
     identityNeeded:
       "A Google Workspace identity with read-only access to the Jeremy Applicants Pipeline folder (Loan Factory corporate or mcdonald-mtg.com).",
     scopeNeeded: "drive.readonly (or drive.metadata.readonly) — read-only only.",

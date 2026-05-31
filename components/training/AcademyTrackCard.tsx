@@ -22,7 +22,7 @@ export function AcademyTrackCard({ track }: AcademyTrackCardProps) {
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-accent-champagne/25 bg-ink-950/40 text-accent-champagne dark:bg-ink-950/40">
+          <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-accent-champagne/25 bg-accent-gold/10 text-accent-champagne dark:bg-ink-950/40">
             <GraduationCap size={16} />
           </span>
           <div>
@@ -34,7 +34,7 @@ export function AcademyTrackCard({ track }: AcademyTrackCardProps) {
         </div>
         <ArrowRight
           size={16}
-          className="text-ink-400 transition-colors group-hover:text-accent-champagne"
+          className="text-ink-600 transition-colors group-hover:text-accent-champagne dark:text-ink-400"
         />
       </div>
       <p className="mt-3 text-sm leading-relaxed text-ink-700 dark:text-ink-200">

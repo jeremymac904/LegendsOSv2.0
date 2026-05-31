@@ -252,8 +252,12 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
               }
             />
             <StatusPill
-              status={n8nConnected ? "ok" : "off"}
-              label={n8nConnected ? "n8n connected" : "n8n not connected"}
+              status={n8nConnected ? "warn" : "off"}
+              label={
+                n8nConnected
+                  ? "n8n configured (inactive unless verified)"
+                  : "n8n not configured"
+              }
             />
           </div>
         }
@@ -276,7 +280,7 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
         </span>
         <span className="text-ink-500 dark:text-ink-400">·</span>
         <span className="text-ink-600 dark:text-ink-300">
-          n8n {n8nConnected ? "connected" : "not connected"}
+          n8n {n8nConnected ? "configured (inactive unless verified)" : "not configured"}
         </span>
         <Link href="/settings" className="btn-ghost ml-auto text-[11px]">
           <ExternalLink size={12} />

@@ -45,7 +45,7 @@ export default async function AcademyLandingPage() {
         eyebrow="Legends Growth OS"
         title="Legends Growth Academy"
         description="Sales, marketing, and AI tracks built for The Legends Mortgage Team. Internal only — every module is in Legends voice, none of it claims a rate, fee, or approval."
-        action={<span className="chip-active">Phase 1 scaffold</span>}
+        action={<span className="chip-off">Preview — content in progress</span>}
       />
 
       <section className="glass-card-padded overflow-hidden">
@@ -57,10 +57,11 @@ export default async function AcademyLandingPage() {
             </h2>
             <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink-700 dark:text-ink-300">
               Four tracks that grow with a Legends LO from first conversation to
-              senior execution. Modules are written in Legends voice, internal
-              only, and reviewed before they ship to the team. AI training
-              wires into LegendsOS Atlas; sales and marketing modules wire into
-              the Scripts Library, Roleplay Lab, and Audio Library below.
+              senior execution. Modules will be written in Legends voice,
+              internal only, and reviewed before they ship to the team. AI
+              training wires into LegendsOS Atlas; sales and marketing modules
+              wire into the Scripts Library, Roleplay Lab, and Audio Library
+              below.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               <span className="chip">Internal only</span>
@@ -69,16 +70,16 @@ export default async function AcademyLandingPage() {
               <span className="chip">No rate, fee, or approval claims</span>
             </div>
           </div>
-          <div className="rounded-2xl border border-accent-champagne/15 bg-ink-950/30 p-5 dark:bg-ink-950/30">
-            <p className="label">Sprint status</p>
+          <div className="rounded-2xl border border-ink-200 bg-ink-50 p-5 dark:border-accent-champagne/15 dark:bg-ink-950/30">
+            <p className="label">Status</p>
             <ul className="mt-3 space-y-2 text-[13px] text-ink-700 dark:text-ink-200">
               <li className="flex items-center gap-2">
-                <span className="chip-active">Built</span>
-                Academy scaffold, four tracks, 22 module entries
+                <span className="chip-active">Scaffold</span>
+                Academy structure and four tracks are in place
               </li>
               <li className="flex items-center gap-2">
-                <span className="chip">Draft</span>
-                Module bodies in Legends voice (preview content)
+                <span className="chip-off">Draft</span>
+                21 module outlines — bodies not written yet
               </li>
               <li className="flex items-center gap-2">
                 <span className="chip-off">Catalog</span>
@@ -120,12 +121,12 @@ export default async function AcademyLandingPage() {
                 className="glass-card-padded group block transition-transform hover:-translate-y-0.5"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-accent-champagne/20 bg-ink-950/40 text-accent-champagne dark:bg-ink-950/40">
+                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-accent-champagne/20 bg-accent-gold/10 text-accent-champagne dark:bg-ink-950/40">
                     <Icon size={16} />
                   </span>
                   <ArrowRight
                     size={16}
-                    className="text-ink-400 transition-colors group-hover:text-accent-champagne"
+                    className="text-ink-600 transition-colors group-hover:text-accent-champagne dark:text-ink-400"
                   />
                 </div>
                 <h3 className="mt-3 text-sm font-semibold text-ink-900 dark:text-ink-100">

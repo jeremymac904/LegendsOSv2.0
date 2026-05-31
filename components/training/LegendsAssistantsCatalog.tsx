@@ -16,7 +16,7 @@ export function LegendsAssistantsCatalog() {
     <section className="glass-card-padded">
       <header className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-accent-champagne/25 bg-ink-950/40 text-accent-champagne dark:bg-ink-950/40">
+          <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-accent-champagne/25 bg-accent-gold/10 text-accent-champagne dark:bg-ink-950/40">
             <MessageCircle size={14} />
           </span>
           <div>
@@ -40,7 +40,7 @@ export function LegendsAssistantsCatalog() {
         {LEGENDS_ASSISTANTS.map((assistant) => (
           <li
             key={assistant.slug}
-            className="rounded-2xl border border-accent-champagne/12 bg-ink-950/25 p-4 dark:bg-ink-950/25"
+            className="rounded-2xl border border-ink-200 bg-ink-50 p-4 dark:border-accent-champagne/12 dark:bg-ink-950/25"
           >
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-sm font-semibold text-ink-900 dark:text-ink-100">

@@ -176,8 +176,8 @@ export function LoanBrainBrowser({ status }: { status: DriveConnectionStatus }) 
         <span className="flex items-center gap-2">
           <ShieldCheck size={14} />
           {status.connected
-            ? "Read-only Drive connection active."
-            : "Sample mode — read-only Drive not connected. Showing safe demo data."}
+            ? "Read-only Drive connection active — showing live borrower data."
+            : "Sample Mode — demo borrower data, no live Drive connection. Nothing here is a real borrower."}
         </span>
         <span className="chip">Read-only</span>
       </div>

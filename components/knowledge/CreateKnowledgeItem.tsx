@@ -197,7 +197,7 @@ export function CreateKnowledgeItem({
             {files.map((f, i) => (
               <li
                 key={i}
-                className="flex items-center justify-between rounded border border-ink-800 bg-ink-900/40 px-2 py-1 text-ink-200"
+                className="flex items-center justify-between rounded border border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-900/40 px-2 py-1 text-ink-700 dark:text-ink-200"
               >
                 <span>{truncate(f.name, 40)} · {Math.round(f.size / 1024)} KB</span>
                 <button
@@ -234,9 +234,11 @@ export function CreateKnowledgeItem({
           ? `Upload ${files.length} file(s)`
           : "Add to collection"}
       </button>
-      <p className="text-[11px] text-ink-300">
+      <p className="text-[11px] text-ink-700 dark:text-ink-300">
         Files upload to the <code>knowledge</code> bucket. Each file creates an{" "}
         <code>uploaded_files</code> row and a <code>knowledge_items</code> row.
+        Attached files are stored as-is — their text is not extracted, so Atlas
+        only matches the file name unless you also paste the body text above.
       </p>
     </form>
   );

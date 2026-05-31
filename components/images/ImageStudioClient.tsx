@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ImageIcon, WandSparkles, Sparkles } from "lucide-react";
+import { ChevronDown, ImageIcon, WandSparkles, Sparkles, Info } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -10,12 +10,14 @@ import { cn } from "@/lib/utils";
 // Guided composer — choice-based controls
 // ---------------------------------------------------------------------------
 //
-// The Image Studio used to lean on a raw prompt textarea. To make the demo
-// feel intentional and on-brand, we instead drive generation through chip
-// groups + dropdowns. The composer assembles a structured prompt internally
-// and surfaces it read-only beneath the controls. A collapsed "Advanced
-// details" disclosure lets a power user override the raw prompt — but the
-// default flow never asks the user to type one.
+// The Image Studio used to stack eight chip groups before you could generate,
+// which read as decision fatigue. The default flow now surfaces only the two
+// decisions that matter most — Image type and Output size — plus the composed
+// prompt preview and the Generate button. Everything else (channel, tone,
+// style, background, brand color, subject, reference asset) lives behind an
+// "Advanced styling" disclosure and keeps sensible defaults. A separate raw
+// prompt override stays in "Advanced details"; when it's on we show a clear
+// banner so the paused chip choices are never a silent surprise.
 
 const IMAGE_TYPES = [
   { id: "social_post", label: "Social post" },
@@ -309,6 +311,11 @@ export function ImageStudioClient({ falReadiness, referenceAssets }: Props) {
     ? overridePrompt.trim()
     : guidedPrompt;
 
+  function enableOverride(seed: string) {
+    setOverrideOn(true);
+    setOverridePrompt(seed);
+  }
+
   function generate() {
     setError(null);
     setInfo(null);
@@ -325,7 +332,7 @@ export function ImageStudioClient({ falReadiness, referenceAssets }: Props) {
       );
       return;
     }
-    if (selectedReference) {
+    if (selectedReference && !overrideOn) {
       setInfo(
         "Reference selected. FAL will receive reference guidance in the prompt, but this model cannot guarantee exact identity preservation from a headshot."
       );
@@ -359,52 +366,17 @@ export function ImageStudioClient({ falReadiness, referenceAssets }: Props) {
       <div className="section-title">
         <div>
           <h2>Generate</h2>
-          <p>Guided controls drive a structured prompt. Cost cap enforced per day.</p>
+          <p>Pick a type and size — open Advanced styling to fine-tune. Cost cap enforced per day.</p>
         </div>
         <ReadinessChip state={falReadiness} />
       </div>
 
+      {/* Default surface: only the two highest-signal decisions. */}
       <ChipGroup
         label="Image type"
         options={IMAGE_TYPES}
         value={type}
         onChange={(v) => setType(v as ImageTypeId)}
-      />
-      <ChipGroup
-        label="Channel"
-        options={CHANNELS}
-        value={channel}
-        onChange={(v) => setChannel(v as ChannelId)}
-      />
-      <ChipGroup
-        label="Tone"
-        options={TONES}
-        value={tone}
-        onChange={(v) => setTone(v as ToneId)}
-      />
-      <ChipGroup
-        label="Style"
-        options={STYLES}
-        value={style}
-        onChange={(v) => setStyle(v as StyleId)}
-      />
-      <ChipGroup
-        label="Background"
-        options={BACKGROUNDS}
-        value={background}
-        onChange={(v) => setBackground(v as BackgroundId)}
-      />
-      <ChipGroup
-        label="Brand color emphasis"
-        options={COLOR_EMPHASES}
-        value={colorEmphasis}
-        onChange={(v) => setColorEmphasis(v as ColorEmphasisId)}
-      />
-      <ChipGroup
-        label="Subject"
-        options={SUBJECTS}
-        value={subject}
-        onChange={(v) => setSubject(v as SubjectId)}
       />
       <ChipGroup
         label="Output size"
@@ -413,69 +385,159 @@ export function ImageStudioClient({ falReadiness, referenceAssets }: Props) {
         onChange={(v) => setOutputSize(v as OutputSizeId)}
       />
 
-      <div>
-        <p className="label">Reference asset (optional)</p>
-        <select
-          className="textarea mt-2 min-h-0 py-2"
-          value={referenceId}
-          onChange={(e) => setReferenceId(e.target.value)}
+      {/* Advanced styling — channel, tone, style, background, brand color,
+          subject and the optional reference asset. Sensible defaults already
+          chosen above, so the disclosure stays closed for the common path. */}
+      <details className="group rounded-xl border border-ink-200 bg-ink-100/60 p-2 text-xs dark:border-ink-800 dark:bg-ink-900/30">
+        <summary className="flex cursor-pointer list-none items-center gap-1.5 text-ink-700 dark:text-ink-200 [&::-webkit-details-marker]:hidden">
+          <ChevronDown
+            size={12}
+            className="transition group-open:rotate-180"
+            aria-hidden
+          />
+          Advanced styling
+          {!overrideOn && (
+            <span className="ml-auto text-[10px] font-normal text-ink-600 dark:text-ink-400">
+              channel, tone, style, background, color, subject, reference
+            </span>
+          )}
+        </summary>
+        <div
+          className={cn(
+            "mt-3 space-y-3",
+            overrideOn && "pointer-events-none opacity-50"
+          )}
+          aria-disabled={overrideOn}
         >
-          <option value="">None — start from brand palette</option>
-          {referenceAssets.length > 0 && (
-            <optgroup label="Uploaded">
-              {referenceAssets
-                .filter((a) => a.source === "uploaded")
-                .map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.label}
-                  </option>
-                ))}
-            </optgroup>
-          )}
-          {referenceAssets.some((a) => a.source === "library") && (
-            <optgroup label="Brand library">
-              {referenceAssets
-                .filter((a) => a.source === "library")
-                .map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.label}
-                  </option>
-                ))}
-            </optgroup>
-          )}
-        </select>
-        {selectedReference?.public_path && (
-          <div className="mt-2 flex items-center gap-2 rounded-lg border border-ink-800 bg-ink-900/40 p-2">
-            <img
-              src={selectedReference.public_path}
-              alt={selectedReference.label}
-              className="h-12 w-12 rounded object-cover"
-              loading="lazy"
-            />
-            <p className="text-[11px] text-ink-300">
-              Using <span className="text-ink-100">{selectedReference.label}</span> as a style reference.
-              Exact identity preservation is not guaranteed by the current FAL text-to-image flow.
-            </p>
-          </div>
-        )}
-      </div>
+          <ChipGroup
+            label="Channel"
+            options={CHANNELS}
+            value={channel}
+            onChange={(v) => setChannel(v as ChannelId)}
+          />
+          <ChipGroup
+            label="Tone"
+            options={TONES}
+            value={tone}
+            onChange={(v) => setTone(v as ToneId)}
+          />
+          <ChipGroup
+            label="Style"
+            options={STYLES}
+            value={style}
+            onChange={(v) => setStyle(v as StyleId)}
+          />
+          <ChipGroup
+            label="Background"
+            options={BACKGROUNDS}
+            value={background}
+            onChange={(v) => setBackground(v as BackgroundId)}
+          />
+          <ChipGroup
+            label="Brand color emphasis"
+            options={COLOR_EMPHASES}
+            value={colorEmphasis}
+            onChange={(v) => setColorEmphasis(v as ColorEmphasisId)}
+          />
+          <ChipGroup
+            label="Subject"
+            options={SUBJECTS}
+            value={subject}
+            onChange={(v) => setSubject(v as SubjectId)}
+          />
 
+          <div>
+            <p className="label">Reference asset (optional)</p>
+            <select
+              className="textarea mt-2 min-h-0 py-2"
+              value={referenceId}
+              onChange={(e) => setReferenceId(e.target.value)}
+            >
+              <option value="">None — start from brand palette</option>
+              {referenceAssets.length > 0 && (
+                <optgroup label="Uploaded">
+                  {referenceAssets
+                    .filter((a) => a.source === "uploaded")
+                    .map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.label}
+                      </option>
+                    ))}
+                </optgroup>
+              )}
+              {referenceAssets.some((a) => a.source === "library") && (
+                <optgroup label="Brand library">
+                  {referenceAssets
+                    .filter((a) => a.source === "library")
+                    .map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.label}
+                      </option>
+                    ))}
+                </optgroup>
+              )}
+            </select>
+            {selectedReference?.public_path && (
+              <div className="mt-2 flex items-center gap-2 rounded-lg border border-ink-200 bg-white p-2 dark:border-ink-800 dark:bg-ink-900/40">
+                <img
+                  src={selectedReference.public_path}
+                  alt={selectedReference.label}
+                  className="h-12 w-12 rounded object-cover"
+                  loading="lazy"
+                />
+                <p className="text-[11px] text-ink-700 dark:text-ink-300">
+                  Using{" "}
+                  <span className="text-ink-900 dark:text-ink-100">
+                    {selectedReference.label}
+                  </span>{" "}
+                  as a style reference. Exact identity preservation is not
+                  guaranteed by the current FAL text-to-image flow.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </details>
+
+      {/* Raw-override banner — makes the "chip choices are paused" state loud,
+          not silent. Shown whenever the raw prompt override is active. */}
+      {overrideOn && (
+        <div className="flex items-start gap-2 rounded-lg border border-status-warn/40 bg-status-warn/10 px-3 py-2 text-[11px] text-status-warn">
+          <Info size={14} className="mt-px shrink-0" aria-hidden />
+          <p className="leading-snug">
+            Now editing raw prompt — chip choices are paused.{" "}
+            <button
+              type="button"
+              className="font-semibold underline underline-offset-2 hover:opacity-80"
+              onClick={() => setOverrideOn(false)}
+            >
+              Untick to return
+            </button>{" "}
+            to the guided composer.
+          </p>
+        </div>
+      )}
+
+      {/* Composed prompt preview — the thing that will actually be sent. */}
       <div>
         <div className="flex items-center justify-between gap-2">
-          <p className="label">Composed prompt</p>
-          <button
-            type="button"
-            className="btn-ghost h-7 px-2 text-[11px]"
-            onClick={() => {
-              setOverrideOn(true);
-              setOverridePrompt(improvePrompt(guidedPrompt, selectedReference));
-            }}
-          >
-            <WandSparkles size={12} />
-            Improve Prompt
-          </button>
+          <p className="label">
+            {overrideOn ? "Raw prompt (sent to FAL)" : "Composed prompt"}
+          </p>
+          {!overrideOn && (
+            <button
+              type="button"
+              className="btn-ghost h-7 px-2 text-[11px]"
+              onClick={() =>
+                enableOverride(improvePrompt(guidedPrompt, selectedReference))
+              }
+            >
+              <WandSparkles size={12} />
+              Improve Prompt
+            </button>
+          )}
         </div>
-        <p className="mt-2 rounded-xl border border-ink-800 bg-ink-900/40 p-2 text-[11px] leading-snug text-ink-200">
+        <p className="mt-2 rounded-xl border border-ink-200 bg-white p-2 text-[11px] leading-snug text-ink-700 dark:border-ink-800 dark:bg-ink-900/40 dark:text-ink-200">
           {effectivePrompt}
         </p>
       </div>
@@ -500,17 +562,28 @@ export function ImageStudioClient({ falReadiness, referenceAssets }: Props) {
         {isPending ? "Generating…" : "Generate image"}
       </button>
 
-      <details className="group rounded-xl border border-ink-800 bg-ink-900/30 p-2 text-xs">
-        <summary className="flex cursor-pointer list-none items-center gap-1.5 text-ink-200 [&::-webkit-details-marker]:hidden">
+      {/* Advanced details — raw prompt override. Distinct from "Advanced
+          styling": this hands you the full text FAL receives and pauses the
+          guided controls until you untick it. */}
+      <details
+        className="group rounded-xl border border-ink-200 bg-ink-100/60 p-2 text-xs dark:border-ink-800 dark:bg-ink-900/30"
+        open={overrideOn}
+      >
+        <summary className="flex cursor-pointer list-none items-center gap-1.5 text-ink-700 dark:text-ink-200 [&::-webkit-details-marker]:hidden">
           <ChevronDown
             size={12}
             className="transition group-open:rotate-180"
             aria-hidden
           />
           Advanced details
+          {overrideOn && (
+            <span className="ml-auto rounded-full chip-warn px-1.5 py-0.5 text-[8px] uppercase tracking-[0.12em]">
+              Raw override on
+            </span>
+          )}
         </summary>
         <div className="mt-2 space-y-2">
-          <label className="flex items-center gap-2 text-[11px] text-ink-300">
+          <label className="flex items-center gap-2 text-[11px] text-ink-700 dark:text-ink-300">
             <input
               type="checkbox"
               checked={overrideOn}
@@ -523,7 +596,7 @@ export function ImageStudioClient({ falReadiness, referenceAssets }: Props) {
             />
             Override raw prompt
           </label>
-          <p className="text-[10px] text-ink-300">
+          <p className="text-[10px] text-ink-600 dark:text-ink-300">
             Overriding ignores the guided controls above. Edit the text below to
             send a fully custom prompt to FAL. Untick to return to the guided
             composer.
@@ -539,9 +612,9 @@ export function ImageStudioClient({ falReadiness, referenceAssets }: Props) {
       </details>
 
       {preview && (
-        <div className="overflow-hidden rounded-xl border border-ink-800 bg-checker">
+        <div className="overflow-hidden rounded-xl border border-ink-200 bg-checker dark:border-ink-800">
           <img src={preview} alt="Generated preview" className="w-full" />
-          <p className="border-t border-ink-800 p-2 text-[11px] text-ink-300">
+          <p className="border-t border-ink-200 p-2 text-[11px] text-ink-700 dark:border-ink-800 dark:text-ink-300">
             <ImageIcon className="inline" size={12} /> Preview
           </p>
         </div>
@@ -583,7 +656,7 @@ function ChipGroup({
               "rounded-lg border px-2.5 py-1 text-xs",
               value === o.id
                 ? "border-accent-gold/40 bg-accent-gold/10 text-accent-gold"
-                : "border-ink-700 text-ink-200 hover:border-ink-500"
+                : "border-ink-300 text-ink-700 hover:border-ink-400 dark:border-ink-700 dark:text-ink-200 dark:hover:border-ink-500"
             )}
           >
             {o.label}

@@ -127,8 +127,10 @@ export default async function MyLoansPage() {
                     </span>
                   )}
                   <Link
-                    href={`/atlas?topic=${encodeURIComponent(
-                      r.borrowerName
+                    href={`/atlas?prompt=${encodeURIComponent(
+                      `Help me draft a status update for borrower ${r.borrowerName}${
+                        r.loanNumber ? ` on loan #${r.loanNumber}` : ""
+                      }.`
                     )}`}
                     className="btn-ghost text-xs"
                   >

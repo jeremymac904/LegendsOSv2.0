@@ -37,17 +37,21 @@ interface QuickAction {
 // Quick Actions — pre-built Atlas prompts
 // ---------------------------------------------------------------------------
 
+// These are prompt starters — they insert text into the Atlas composer for the
+// AI to answer. They do NOT query a live rate API, leads table, or automation
+// engine, so the labels are framed as "ask/explain" rather than "run/check" to
+// avoid implying a real data source exists yet.
 const QUICK_ACTIONS: QuickAction[] = [
   {
     id: "rate_sheet",
-    label: "Run Rate Sheet",
+    label: "Explain Rates",
     icon: TrendingDown,
     prompt: "Summarize today's rate environment for conventional, FHA, and VA loans for a 740+ credit score borrower in Florida putting 20% down.",
     color: "text-accent-gold",
   },
   {
     id: "lead_status",
-    label: "Check Lead Status",
+    label: "Underwriting FAQ",
     icon: UserCheck,
     prompt: "What are the most common reasons a mortgage application gets stuck in underwriting, and what should I tell the borrower?",
     color: "text-status-ok",
@@ -61,7 +65,7 @@ const QUICK_ACTIONS: QuickAction[] = [
   },
   {
     id: "trigger_automation",
-    label: "Trigger Automation",
+    label: "Ask About Automations",
     icon: Zap,
     prompt: "What automations do I have available in n8n? List them so I can choose one to trigger.",
     color: "text-[#EA4B71]",
@@ -69,7 +73,9 @@ const QUICK_ACTIONS: QuickAction[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Rate Snapshot (mock data — replace with live when rate API is wired)
+// Rate Snapshot — SAMPLE DATA ONLY. These are static placeholder numbers shown
+// to illustrate the widget layout. They are NOT a live rate feed. The UI labels
+// every instance "Sample — not live". Replace with a real feed when wired.
 // ---------------------------------------------------------------------------
 
 interface RateEntry {
@@ -86,7 +92,9 @@ const MOCK_RATES: RateEntry[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Pipeline Summary (mock — replace with live query when leads table exists)
+// Pipeline Summary — SAMPLE DATA ONLY. Static placeholder counts that show the
+// widget shape; they are NOT this user's real leads and are labeled "Sample —
+// not live" in the UI. Replace with a live query when a leads table exists.
 // ---------------------------------------------------------------------------
 
 interface PipelineStage {
@@ -133,19 +141,26 @@ function SectionHeader({
   );
 }
 
+function SampleBadge() {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border border-status-warn/40 bg-status-warn/10 px-1.5 py-[1px] text-[9px] font-semibold uppercase tracking-[0.12em] text-status-warn">
+      <span className="h-1 w-1 shrink-0 rounded-full bg-status-warn" />
+      Sample — not live
+    </span>
+  );
+}
+
 function PipelineCard() {
   const total = MOCK_PIPELINE.reduce((s, p) => s + p.count, 0);
   return (
     <div className="px-3 pb-3">
-      <div className="rounded-lg border border-ink-200/70 dark:border-ink-800/70 bg-white/50 dark:bg-ink-900/50 p-2.5">
+      <div className="rounded-lg border border-status-warn/30 bg-white/50 dark:bg-ink-900/50 p-2.5">
         <div className="flex items-center justify-between gap-2 mb-2">
           <div className="flex items-center gap-1.5">
-            <Users size={12} className="text-accent-gold" />
-            <p className="text-[11px] font-semibold text-ink-900 dark:text-ink-100">{total} in pipeline</p>
+            <Users size={12} className="text-ink-500 dark:text-ink-400" />
+            <p className="text-[11px] font-semibold text-ink-900 dark:text-ink-100">Example pipeline</p>
           </div>
-          <span className="text-[9px] uppercase tracking-[0.14em] text-ink-500 dark:text-ink-500">
-            Mock data
-          </span>
+          <SampleBadge />
         </div>
         <div className="flex gap-1 mb-2">
           {MOCK_PIPELINE.map((s) => (
@@ -153,7 +168,7 @@ function PipelineCard() {
               key={s.label}
               className={cn("h-1.5 flex-1 rounded-full", s.color)}
               style={{ opacity: 0.7 + s.count / total * 0.3 }}
-              title={`${s.label}: ${s.count}`}
+              title={`${s.label}: ${s.count} (sample)`}
             />
           ))}
         </div>
@@ -166,6 +181,9 @@ function PipelineCard() {
             </div>
           ))}
         </div>
+        <p className="mt-2 text-[9px] italic leading-snug text-ink-700 dark:text-ink-500">
+          Setup required for live pipeline. These are placeholder numbers, not your real leads.
+        </p>
       </div>
     </div>
   );
@@ -174,12 +192,12 @@ function PipelineCard() {
 function RateSheetWidget() {
   return (
     <div className="px-3 pb-3">
-      <div className="rounded-lg border border-ink-200/70 dark:border-ink-800/70 bg-white/50 dark:bg-ink-900/50 p-2.5">
+      <div className="rounded-lg border border-status-warn/30 bg-white/50 dark:bg-ink-900/50 p-2.5">
         <div className="flex items-center gap-1.5 mb-2">
-          <DollarSign size={12} className="text-accent-gold" />
-          <p className="text-[11px] font-semibold text-ink-900 dark:text-ink-100">Rate Snapshot</p>
-          <span className="ml-auto text-[9px] uppercase tracking-[0.14em] text-ink-500 dark:text-ink-500">
-            Indicative
+          <DollarSign size={12} className="text-ink-500 dark:text-ink-400" />
+          <p className="text-[11px] font-semibold text-ink-900 dark:text-ink-100">Example rates</p>
+          <span className="ml-auto">
+            <SampleBadge />
           </span>
         </div>
         {MOCK_RATES.map((r) => (
@@ -209,8 +227,8 @@ function RateSheetWidget() {
             </div>
           </div>
         ))}
-        <p className="mt-1.5 text-[9px] italic text-ink-700 dark:text-ink-600">
-          Indicative only. Always confirm with live lock desk.
+        <p className="mt-1.5 text-[9px] italic leading-snug text-ink-700 dark:text-ink-500">
+          Sample numbers, not a live rate feed. Setup required for live rates — always confirm with your lock desk.
         </p>
       </div>
     </div>
@@ -332,20 +350,20 @@ export function LOWorkspace({ onPrompt }: { onPrompt: (prompt: string) => void }
         {actionsOpen && <QuickActions onPrompt={onPrompt} />}
       </div>
 
-      {/* Pipeline */}
+      {/* Pipeline — sample data only, clearly labeled inside the card */}
       <div className="border-b border-ink-200 dark:border-ink-800">
         <SectionHeader
-          title="My Pipeline"
+          title="Pipeline (sample)"
           open={pipelineOpen}
           onToggle={() => setPipelineOpen((o) => !o)}
         />
         {pipelineOpen && <PipelineCard />}
       </div>
 
-      {/* Rate Sheet */}
+      {/* Rate Sheet — sample data only, clearly labeled inside the card */}
       <div className="border-b border-ink-200 dark:border-ink-800">
         <SectionHeader
-          title="Rate Snapshot"
+          title="Rates (sample)"
           open={ratesOpen}
           onToggle={() => setRatesOpen((o) => !o)}
         />

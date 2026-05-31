@@ -193,11 +193,25 @@ export function KnowledgeUploadCard({ collectionId, userId, organizationId }: Pr
     <div className="card-padded space-y-3">
       <div>
         <p className="label">Upload files</p>
-        <p className="mt-1 text-[11px] text-ink-300">
+        <p className="mt-1 text-[11px] text-ink-700 dark:text-ink-300">
           PDF, DOCX, PPTX, TXT, MD, CSV, JSON, PNG, JPG, JPEG, WEBP. Up to
-          15 MB each. Text from .md / .txt / .csv / .json is indexed for
-          Atlas keyword retrieval; binaries stay searchable by filename.
+          15 MB each.
         </p>
+        <div className="mt-2 rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-[11px] leading-relaxed text-ink-700 dark:text-ink-200">
+          <p>
+            <strong className="text-ink-900 dark:text-ink-100">
+              Plain text, Markdown, CSV and JSON are indexed
+            </strong>{" "}
+            so Atlas can read their contents.
+          </p>
+          <p className="mt-1">
+            <strong className="text-ink-900 dark:text-ink-100">
+              PDF / DOCX / PPTX / images are STORED but their text is NOT
+              extracted yet
+            </strong>{" "}
+            — Atlas cannot read inside them and can only match on the file name.
+          </p>
+        </div>
       </div>
       <label
         onDragOver={(e) => {
@@ -207,17 +221,17 @@ export function KnowledgeUploadCard({ collectionId, userId, organizationId }: Pr
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
         className={cn(
-          "flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed bg-ink-900/40 p-6 text-center transition",
+          "flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed bg-ink-50 dark:bg-ink-900/40 p-6 text-center transition",
           dragOver
             ? "border-accent-gold/60 bg-accent-gold/10 text-accent-gold"
-            : "border-ink-700 text-ink-300 hover:border-ink-500"
+            : "border-ink-300 text-ink-600 dark:border-ink-700 dark:text-ink-300 hover:border-ink-400 dark:hover:border-ink-500"
         )}
       >
         <CloudUpload size={22} />
-        <p className="mt-2 text-sm font-medium text-ink-100">
+        <p className="mt-2 text-sm font-medium text-ink-900 dark:text-ink-100">
           Drop files here or click to choose
         </p>
-        <p className="text-[11px] text-ink-300">
+        <p className="text-[11px] text-ink-600 dark:text-ink-300">
           Multiple files supported.
         </p>
         <input
@@ -234,19 +248,19 @@ export function KnowledgeUploadCard({ collectionId, userId, organizationId }: Pr
           {files.map((f, i) => (
             <li
               key={`${f.name}-${i}`}
-              className="flex items-center justify-between rounded-lg border border-ink-800 bg-ink-900/40 px-2 py-1.5"
+              className="flex items-center justify-between rounded-lg border border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-900/40 px-2 py-1.5"
             >
               <span className="flex items-center gap-2">
-                <FileText size={12} className="text-ink-300" />
-                <span className="text-ink-100">{truncate(f.name, 40)}</span>
-                <span className="text-[10px] text-ink-300">
+                <FileText size={12} className="text-ink-600 dark:text-ink-300" />
+                <span className="text-ink-900 dark:text-ink-100">{truncate(f.name, 40)}</span>
+                <span className="text-[10px] text-ink-600 dark:text-ink-300">
                   {Math.round(f.size / 1024)} KB
                 </span>
               </span>
               <button
                 type="button"
                 onClick={() => setFiles((prev) => prev.filter((_, idx) => idx !== i))}
-                className="text-ink-300 hover:text-status-err"
+                className="text-ink-600 dark:text-ink-300 hover:text-status-err"
               >
                 <Trash2 size={10} />
               </button>
@@ -281,9 +295,12 @@ export function KnowledgeUploadCard({ collectionId, userId, organizationId }: Pr
         {isPending ? "Uploading…" : `Upload ${files.length || ""} file(s)`}
       </button>
 
-      <p className="text-[11px] text-ink-300">
-        Retrieval indexing (embeddings, vector search) is coming next pass. For
-        now the file content is browseable but not yet embedded.
+      <p className="text-[11px] text-ink-700 dark:text-ink-300">
+        Atlas retrieval is keyword-only today (plain-text/Markdown/CSV/JSON
+        body plus every file name); there are no embeddings or semantic /
+        vector search yet. Atlas only pulls from a collection once that
+        collection is connected to an assistant in Settings — uploads alone do
+        not reach a chat.
       </p>
     </div>
   );

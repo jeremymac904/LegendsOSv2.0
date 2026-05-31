@@ -59,18 +59,20 @@ export default async function SharedResourcesPage() {
               resources.map((r) => (
                 <article
                   key={r.id}
-                  className="rounded-xl border border-ink-800 bg-ink-900/40 p-4"
+                  className="rounded-xl border border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-900/40 p-4"
                 >
                   <header className="flex items-center justify-between gap-3">
-                    <h3 className="text-sm font-medium text-ink-100">
+                    <h3 className="text-sm font-medium text-ink-900 dark:text-ink-100">
                       {r.title}
                     </h3>
                     <span className="chip">{r.resource_type}</span>
                   </header>
                   {r.description && (
-                    <p className="mt-1 text-xs text-ink-300">{r.description}</p>
+                    <p className="mt-1 text-xs text-ink-700 dark:text-ink-300">
+                      {r.description}
+                    </p>
                   )}
-                  <p className="mt-3 text-[10px] uppercase tracking-[0.18em] text-ink-400">
+                  <p className="mt-3 text-[10px] uppercase tracking-[0.18em] text-ink-600 dark:text-ink-400">
                     Updated {formatRelative(r.updated_at)}
                   </p>
                 </article>
@@ -81,14 +83,14 @@ export default async function SharedResourcesPage() {
         <aside className="space-y-4">
           {owner ? (
             <>
+              <CreateSharedResourceForm
+                organizationId={profile.organization_id}
+                userId={profile.id}
+              />
               <ResourceIntake
                 userId={profile.id}
                 organizationId={profile.organization_id}
                 canManage={owner}
-              />
-              <CreateSharedResourceForm
-                organizationId={profile.organization_id}
-                userId={profile.id}
               />
             </>
           ) : (

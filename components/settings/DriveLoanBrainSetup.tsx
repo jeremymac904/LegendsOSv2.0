@@ -45,10 +45,11 @@ export function DriveLoanBrainSetup() {
     load();
   }, [load]);
 
-  async function testConnection() {
-    // Honest report based purely on the server-rendered status — no live writes.
-    // Re-fetches the read-only ?view=status endpoint, which reflects
-    // getDriveConnectionStatus() (OAuth env presence + opt-in flag).
+  async function recheckConfiguration() {
+    // HONEST: this does NOT test Drive connectivity. It only re-reads the
+    // server-rendered status (OAuth env presence + opt-in flag) via the
+    // read-only ?view=status endpoint. No Drive call, no writes. The button is
+    // labelled "Re-check configuration" so it never implies a live test.
     setTesting(true);
     await load();
     setTesting(false);
@@ -148,7 +149,7 @@ export function DriveLoanBrainSetup() {
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={testConnection}
+              onClick={recheckConfiguration}
               disabled={testing}
               className="btn-secondary text-xs"
             >
@@ -157,12 +158,11 @@ export function DriveLoanBrainSetup() {
               ) : (
                 <RefreshCw size={13} />
               )}
-              Test connection
+              Re-check configuration
             </button>
-            <span className="text-[11px] text-ink-500 dark:text-ink-400">
-              {isLive
-                ? "Read-only check confirmed connected."
-                : "Read-only check — reports connected vs. not connected. No Drive writes."}
+            <span className="text-[11px] text-ink-600 dark:text-ink-400">
+              Re-reads the saved OAuth env presence and opt-in flag. It does not
+              contact Google Drive or test connectivity.
             </span>
           </div>
 

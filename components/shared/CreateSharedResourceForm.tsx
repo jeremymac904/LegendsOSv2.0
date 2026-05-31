@@ -56,7 +56,13 @@ export function CreateSharedResourceForm({ organizationId, userId }: Props) {
 
   return (
     <form onSubmit={submit} className="card-padded space-y-3">
-      <p className="label">New shared resource</p>
+      <div>
+        <p className="label">Publish now (appears in Active resources)</p>
+        <p className="mt-1 text-[11px] text-ink-600 dark:text-ink-300">
+          Saved straight to Shared Resources — every team member sees it
+          immediately. No AI step.
+        </p>
+      </div>
       <input
         className="input"
         placeholder="Title"
@@ -100,7 +106,7 @@ export function CreateSharedResourceForm({ organizationId, userId }: Props) {
         disabled={isPending || !title.trim()}
       >
         <Plus size={14} />
-        {isPending ? "Sharing…" : "Share with team"}
+        {isPending ? "Publishing…" : "Publish to Active resources"}
       </button>
     </form>
   );

@@ -132,7 +132,10 @@ export default async function SettingsPage() {
     {
       id: "n8n",
       title: "n8n workflow broker",
-      detail: `${n8nWebhookCount} webhook${n8nWebhookCount === 1 ? "" : "s"} configured`,
+      detail:
+        n8nWebhookCount > 0 || env.N8N_BASE_URL
+          ? `${n8nWebhookCount} webhook${n8nWebhookCount === 1 ? "" : "s"} present (not verified)`
+          : "Disabled until configured — no base URL or webhooks set",
       envNames: ["N8N_BASE_URL", "N8N_WEBHOOK_*"],
       configured: Boolean(env.N8N_BASE_URL || n8nWebhookCount > 0),
       icon: "plug",
@@ -148,7 +151,6 @@ export default async function SettingsPage() {
         "Review webhook status, run sandbox tests, and keep publishing/sending flags off until approved.",
       teamAction:
         "Use Studio draft and schedule flows. Do not publish live unless Jeremy has enabled the safe path.",
-      videoPlaceholder: "n8n broker setup walkthrough",
     },
     {
       id: "heygen",
@@ -169,7 +171,6 @@ export default async function SettingsPage() {
       ],
       ownerAction: "Update the embed URL only through environment configuration.",
       teamAction: "Loan officers can watch the login welcome video before signing in.",
-      videoPlaceholder: "HeyGen welcome video setup",
     },
     {
       id: "google-oauth",
@@ -197,7 +198,6 @@ export default async function SettingsPage() {
         "Configure OAuth client credentials in the deployment environment. Saved values are never shown in the browser.",
       teamAction:
         "Use supported Google connection buttons when they appear. If not available, follow the setup coach instructions.",
-      videoPlaceholder: "Google Workspace connection walkthrough",
     },
     {
       id: "google-drive",
@@ -222,7 +222,6 @@ export default async function SettingsPage() {
       ],
       ownerAction: "Add approved Drive source folders as resource cards or knowledge sources.",
       teamAction: "Upload allowed docs through Knowledge or open approved LF Resource source links.",
-      videoPlaceholder: "Google Drive knowledge and resources walkthrough",
     },
     {
       id: "social-platforms",
@@ -252,7 +251,6 @@ export default async function SettingsPage() {
       ownerAction:
         "Use draft previews and sandbox workflow tests before enabling any external publish path.",
       teamAction: "Create and save drafts. Live social publishing remains disabled unless configured.",
-      videoPlaceholder: "Social connector setup walkthrough",
     },
     {
       id: "zapier-mcp",
@@ -273,7 +271,6 @@ export default async function SettingsPage() {
       ],
       ownerAction: "Use team scoped MCP only for shared workflows.",
       teamAction: "Use personal MCP for personal connector actions and keep tokens private.",
-      videoPlaceholder: "Zapier MCP setup walkthrough",
     },
     {
       id: "telegram",
@@ -294,7 +291,6 @@ export default async function SettingsPage() {
       ],
       ownerAction: "Store the bot token server-side only. Never paste saved secrets into the browser.",
       teamAction: "Use Atlas prompts that call configured tools; do not share bot tokens.",
-      videoPlaceholder: "Telegram bot action setup walkthrough",
     },
     {
       id: "mcp-apps",
@@ -315,12 +311,11 @@ export default async function SettingsPage() {
       ],
       ownerAction: "Keep team endpoints limited to shared workflows.",
       teamAction: "Use personal endpoints for user-owned connector actions.",
-      videoPlaceholder: "Personal MCP setup walkthrough",
     },
     {
       id: "ai-providers",
       title: "AI subscriptions",
-      detail: `${merged.filter((p) => p.configured).length} provider${merged.filter((p) => p.configured).length === 1 ? "" : "s"} configured`,
+      detail: `${merged.filter((p) => p.configured).length} provider key${merged.filter((p) => p.configured).length === 1 ? "" : "s"} present (not verified)`,
       envNames: [
         "OPENROUTER_API_KEY",
         "FAL_KEY",
@@ -343,7 +338,6 @@ export default async function SettingsPage() {
       ownerAction:
         "Add provider keys in Netlify or the secure host environment. MiniMax is included as a supported provider lane.",
       teamAction: "Use enabled providers through Atlas and Studios. Provider keys are never shown to users.",
-      videoPlaceholder: "AI provider gateway setup walkthrough",
     },
   ];
 
@@ -353,7 +347,7 @@ export default async function SettingsPage() {
     {
       id: "connections",
       title: "Connections & setup coaches",
-      meta: `${connectionGuides.filter((g) => g.configured).length}/${connectionGuides.length} configured`,
+      meta: `${connectionGuides.filter((g) => g.configured).length}/${connectionGuides.length} keys present`,
       icon: Plug,
       defaultOpen: true,
       children: <SettingsConnectionSetup guides={connectionGuides} />,
@@ -369,32 +363,19 @@ export default async function SettingsPage() {
       title: "Setup tutorials",
       icon: Video,
       children: (
-        <div className="grid gap-3 md:grid-cols-3">
-          {[
-            ["Owner broker setup", "n8n, provider keys, live action flags"],
-            ["Team connector setup", "MCP, Google, Gmail, Calendar, Drive"],
-            ["Personal workspace setup", "Per-user providers and project knowledge"],
-          ].map(([title, detail]) => (
-            <div
-              key={title}
-              className="overflow-hidden rounded-xl border border-accent-champagne/10 bg-ink-950/30 backdrop-blur-sm"
-            >
-              <div className="grid aspect-video place-items-center border-b border-accent-champagne/10 bg-ink-950/50">
-                <Video size={22} className="text-accent-champagne/80" />
-              </div>
-              <div className="p-3">
-                <p className="text-sm font-medium text-ink-100">{title}</p>
-                <p className="mt-1 text-xs text-ink-300">{detail}</p>
-              </div>
-            </div>
-          ))}
-        </div>
+        // HONEST: no walkthrough videos are wired up yet. Rather than render
+        // empty video placeholders that imply content exists, collapse to one
+        // truthful line until real tutorial URLs are added.
+        <p className="text-sm text-ink-700 dark:text-ink-300">
+          Tutorials coming soon. Walkthrough videos will appear here once the
+          approved recordings are published.
+        </p>
       ),
     },
     {
       id: "ai-providers",
       title: "AI Provider Gateway",
-      meta: `${merged.filter((p) => p.configured).length} connected`,
+      meta: `${merged.filter((p) => p.configured).length} keys present`,
       icon: Cpu,
       defaultOpen: true,
       children: (
@@ -403,18 +384,20 @@ export default async function SettingsPage() {
             <div>
               <h2>AI Provider Gateway</h2>
               <p>
-                Server-side credential status detected from environment variables.
-                Secrets never leave the server — only masked previews shown below.
+                Credential presence detected from environment variables — not a
+                live connectivity test. &ldquo;Key present&rdquo; means the env
+                var is set, not that the provider was reached. Secrets never
+                leave the server; only masked previews are shown below.
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2 text-[11px] text-ink-300">
+            <div className="flex flex-wrap items-center gap-2 text-[11px] text-ink-700 dark:text-ink-300">
               <span className="uppercase tracking-[0.18em] text-[10px]">
                 Atlas default:
               </span>
               <span className="rounded-full border border-accent-gold/40 bg-accent-gold/10 px-2 py-0.5 text-accent-gold">
                 {env.AI_DEFAULT_TEXT_PROVIDER || "openrouter"}
               </span>
-              <span className="text-ink-400">·</span>
+              <span className="text-ink-600 dark:text-ink-400">·</span>
               <span className="uppercase tracking-[0.18em] text-[10px]">
                 Image:
               </span>
@@ -425,14 +408,14 @@ export default async function SettingsPage() {
           </div>
           <div className="mt-4 overflow-x-auto rounded-xl border border-accent-champagne/10">
             <table className="w-full text-left text-sm">
-              <thead className="bg-ink-950/50 text-[10px] uppercase tracking-[0.18em] text-ink-300">
+              <thead className="bg-ink-100 text-[10px] uppercase tracking-[0.18em] text-ink-600 dark:bg-ink-950/50 dark:text-ink-300">
                 <tr>
                   <th className="px-3 py-2">Provider</th>
                   <th className="px-3 py-2">Env var(s)</th>
                   <th className="px-3 py-2">Masked preview</th>
                   <th className="px-3 py-2">Models</th>
                   <th className="px-3 py-2">Status</th>
-                  <th className="px-3 py-2">Test</th>
+                  <th className="px-3 py-2">Status JSON</th>
                   <th className="px-3 py-2 text-right">Toggle</th>
                 </tr>
               </thead>
@@ -445,7 +428,7 @@ export default async function SettingsPage() {
                     p.id === env.AI_DEFAULT_IMAGE_PROVIDER && p.id === "fal";
                   return (
                     <tr key={p.id} className="border-t border-accent-champagne/10">
-                      <td className="px-3 py-2 text-ink-100">
+                      <td className="px-3 py-2 text-ink-900 dark:text-ink-100">
                         <div className="flex flex-wrap items-center gap-2">
                           <span>{p.label}</span>
                           {(isTextDefault || isImageDefault) && (
@@ -455,38 +438,47 @@ export default async function SettingsPage() {
                           )}
                         </div>
                       </td>
-                      <td className="px-3 py-2 text-ink-300">
+                      <td className="px-3 py-2 text-ink-700 dark:text-ink-300">
                         {p.envVarNames.join(" / ")}
                       </td>
-                      <td className="px-3 py-2 font-mono text-[11px] text-ink-300">
+                      <td className="px-3 py-2 font-mono text-[11px] text-ink-700 dark:text-ink-300">
                         {p.preview || "—"}
                       </td>
-                      <td className="px-3 py-2 text-[11px] text-ink-300">
+                      <td className="px-3 py-2 text-[11px] text-ink-700 dark:text-ink-300">
                         {modelLookup[p.id]?.length
                           ? modelLookup[p.id].slice(0, 2).join(" / ")
                           : "—"}
                       </td>
                       <td className="px-3 py-2">
+                        {/* HONEST STATUS: a present env key is NOT verified
+                            connectivity. We never call the provider from this
+                            page, so the most we can claim is "key present"
+                            (neutral), never green "connected". */}
                         <StatusPill
                           status={
                             p.configured
                               ? p.effectiveEnabled
-                                ? "ok"
+                                ? "info"
                                 : "off"
                               : "missing"
                           }
                           label={
                             p.configured
                               ? p.effectiveEnabled
-                                ? "connected"
+                                ? "key present"
                                 : "disabled"
-                              : "missing"
+                              : "setup needed"
                           }
                         />
                       </td>
                       <td className="px-3 py-2">
-                        <Link href="/api/ai/status" className="btn-ghost h-7 px-2 text-[11px]">
-                          Test status
+                        <Link
+                          href="/api/ai/status"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="btn-ghost h-7 px-2 text-[11px]"
+                        >
+                          View status (raw JSON)
                         </Link>
                       </td>
                       <td className="px-3 py-2">
@@ -504,11 +496,13 @@ export default async function SettingsPage() {
               </tbody>
             </table>
           </div>
-          <p className="mt-3 text-[11px] text-ink-300">
-            The toggle disables the provider for everyone in the org without
-            touching the env var. To <em>add</em> a new provider key, set its
-            env var (e.g. <code>OPENROUTER_API_KEY</code>) on the hosting
-            platform and redeploy — keys never travel through the browser.
+          <p className="mt-3 text-[11px] text-ink-700 dark:text-ink-300">
+            &ldquo;Key present&rdquo; means the env var is set — it has not been
+            tested against the provider, so it is not a verified connection. The
+            toggle disables the provider for everyone in the org without touching
+            the env var. To <em>add</em> a new provider key, set its env var
+            (e.g. <code>OPENROUTER_API_KEY</code>) on the hosting platform and
+            redeploy — keys never travel through the browser.
           </p>
         </div>
       ),
@@ -529,11 +523,11 @@ export default async function SettingsPage() {
       icon: Sparkles,
       children: (
         <div>
-          <p className="text-xs text-ink-300">
+          <p className="text-xs text-ink-700 dark:text-ink-300">
             Team identity line. Atlas auto-includes this when drafting outbound
             marketing copy.
           </p>
-          <pre className="mt-3 whitespace-pre-wrap rounded-xl border border-accent-champagne/10 bg-ink-950/30 p-3 text-xs text-ink-200">
+          <pre className="mt-3 whitespace-pre-wrap rounded-xl border border-ink-200 bg-ink-50 p-3 text-xs text-ink-700 dark:border-accent-champagne/10 dark:bg-ink-950/30 dark:text-ink-200">
 {PUBLIC_ENV.BRAND_LINE}
           </pre>
         </div>
@@ -564,20 +558,20 @@ export default async function SettingsPage() {
             </div>
           </div>
           <dl className="mt-4 grid grid-cols-3 gap-2 text-xs">
-            <dt className="text-ink-300">Email</dt>
-            <dd className="col-span-2 text-ink-100">{profile.email}</dd>
-            <dt className="text-ink-300">Full name</dt>
-            <dd className="col-span-2 text-ink-100">
+            <dt className="text-ink-600 dark:text-ink-400">Email</dt>
+            <dd className="col-span-2 text-ink-900 dark:text-ink-100">{profile.email}</dd>
+            <dt className="text-ink-600 dark:text-ink-400">Full name</dt>
+            <dd className="col-span-2 text-ink-900 dark:text-ink-100">
               {profile.full_name ?? "—"}
             </dd>
-            <dt className="text-ink-300">Role</dt>
+            <dt className="text-ink-600 dark:text-ink-400">Role</dt>
             <dd className="col-span-2">
               <StatusPill status="info" label={profile.role} />
             </dd>
-            <dt className="text-ink-300">Organization</dt>
-            <dd className="col-span-2 text-ink-100">{PUBLIC_ENV.TEAM_NAME}</dd>
-            <dt className="text-ink-300">Active since</dt>
-            <dd className="col-span-2 text-ink-100">
+            <dt className="text-ink-600 dark:text-ink-400">Organization</dt>
+            <dd className="col-span-2 text-ink-900 dark:text-ink-100">{PUBLIC_ENV.TEAM_NAME}</dd>
+            <dt className="text-ink-600 dark:text-ink-400">Active since</dt>
+            <dd className="col-span-2 text-ink-900 dark:text-ink-100">
               {formatRelative(profile.created_at)}
             </dd>
           </dl>
@@ -586,31 +580,34 @@ export default async function SettingsPage() {
           <div className="section-title">
             <div>
               <h2>External actions</h2>
-              <p>Owner-controlled toggles for outbound publishing and sending.</p>
+              {/* HONEST: these are read-only status pills derived from
+                  environment flags, not interactive toggles. The header must
+                  not imply you can flip them here. */}
+              <p>Outbound action status (set via environment).</p>
             </div>
           </div>
           <ul className="mt-4 space-y-2 text-sm">
             {externalToggles.map((s) => (
               <li
                 key={s.env_var}
-                className="flex items-center justify-between rounded-lg border border-accent-champagne/10 bg-ink-950/30 px-3 py-2 backdrop-blur-sm"
+                className="flex items-center justify-between rounded-lg border border-ink-200 bg-ink-50 px-3 py-2 backdrop-blur-sm dark:border-accent-champagne/10 dark:bg-ink-950/30"
               >
                 <div>
-                  <p className="text-ink-100">{s.label}</p>
-                  <p className="text-[11px] text-ink-300">{s.env_var}</p>
+                  <p className="text-ink-900 dark:text-ink-100">{s.label}</p>
+                  <p className="text-[11px] text-ink-600 dark:text-ink-400">{s.env_var}</p>
                 </div>
                 <StatusPill
-                  status={s.on ? "ok" : "warn"}
-                  label={s.on ? "enabled" : "disabled"}
+                  status={s.on ? "ok" : "off"}
+                  label={s.on ? "enabled" : "disabled until configured"}
                 />
               </li>
             ))}
           </ul>
-          {!owner && (
-            <p className="mt-3 text-[11px] text-ink-300">
-              Only the owner can change these toggles.
-            </p>
-          )}
+          <p className="mt-3 text-[11px] text-ink-600 dark:text-ink-400">
+            Read-only status. These flags are set in the hosting environment, not
+            from this screen. Outbound sending and publishing stay disabled
+            (draft only) until the owner enables the matching environment flag.
+          </p>
         </section>
       </div>
 

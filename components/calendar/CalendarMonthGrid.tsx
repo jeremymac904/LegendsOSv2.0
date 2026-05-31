@@ -2,8 +2,16 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { ChevronLeft, ChevronRight, Trash2, X } from "lucide-react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
+import { createPortal } from "react-dom";
 
 export type CalendarKind = "social" | "email" | "calendar";
 
@@ -14,6 +22,30 @@ export interface CalendarEntry {
   /** ISO string, computed server-side */
   whenIso: string;
   link: string;
+  /**
+   * Calendar-item-only extras used by the detail popover. Social/email
+   * entries leave these undefined — they link out to their own studios.
+   */
+  description?: string | null;
+  itemType?: string | null;
+}
+
+// Human-readable label for a `calendar_items.item_type` enum value.
+function itemTypeLabel(itemType: string | null | undefined): string {
+  switch (itemType) {
+    case "content_plan":
+      return "Content plan";
+    case "social_post":
+      return "Social post";
+    case "email_campaign":
+      return "Email campaign";
+    case "team_event":
+      return "Team event";
+    case "reminder":
+      return "Reminder";
+    default:
+      return "Calendar item";
+  }
 }
 
 interface Props {
@@ -62,7 +94,9 @@ function kindClasses(kind: CalendarKind): string {
       return "border-accent-gold/50 bg-accent-gold/15 text-accent-gold hover:bg-accent-gold/25";
     case "calendar":
     default:
-      return "border-ink-600/70 bg-ink-800/80 text-ink-100 border-l-2 border-l-accent-gold/60 hover:bg-ink-700/80";
+      // `bg-ink-800/80` is light-remapped globally; the hover fill is not, so
+      // pin it to a light-safe surface explicitly via the dual pattern.
+      return "border-ink-600/70 bg-ink-800/80 text-ink-900 dark:text-ink-100 border-l-2 border-l-accent-gold/60 hover:bg-ink-100 dark:hover:bg-ink-700/80";
   }
 }
 
@@ -72,10 +106,21 @@ export function CalendarMonthGrid({ month, entries, focusId }: Props) {
   const params = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  // The calendar entry whose detail popover is open, plus the on-screen rect of
+  // the chip that triggered it so the portal-rendered popover can anchor itself
+  // with `fixed` positioning (immune to the grid's `overflow-hidden`). Only
+  // `calendar` entries open a popover — social/email link out to their studios.
+  const [open, setOpen] = useState<{
+    id: string;
+    rect: { top: number; bottom: number; left: number; right: number };
+  } | null>(null);
+  const openId = open?.id ?? null;
+  const closePopover = () => setOpen(null);
   // Holds the DOM node for the focused entry so we can scroll it into view.
   // We keep the highlight active for ~3s, then fade so the rest of the
-  // calendar reads normally on a manual revisit.
-  const focusRef = useRef<HTMLAnchorElement | null>(null);
+  // calendar reads normally on a manual revisit. The focus target is always a
+  // calendar entry, which renders as a <button>.
+  const focusRef = useRef<HTMLButtonElement | null>(null);
   const [highlightActive, setHighlightActive] = useState<boolean>(
     Boolean(focusId)
   );
@@ -138,6 +183,12 @@ export function CalendarMonthGrid({ month, entries, focusId }: Props) {
     return map;
   }, [entries]);
 
+  // The full entry whose popover is open (resolved from the open id). Guarded so
+  // a stale id (e.g. after the data refreshes) simply renders nothing.
+  const openEntry = openId
+    ? entries.find((e) => e.id === openId && e.kind === "calendar") ?? null
+    : null;
+
   function go(deltaMonths: number) {
     const next = shiftMonth(month, deltaMonths);
     const sp = new URLSearchParams(params?.toString() ?? "");
@@ -160,8 +211,30 @@ export function CalendarMonthGrid({ month, entries, focusId }: Props) {
     });
   }
 
+  // Close the open popover on Escape, or when the page scrolls/resizes (so the
+  // fixed-positioned popover never floats away from its anchor chip).
+  useEffect(() => {
+    if (!openId) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(null);
+    }
+    function onMove() {
+      setOpen(null);
+    }
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", onMove, true);
+    window.addEventListener("resize", onMove);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", onMove, true);
+      window.removeEventListener("resize", onMove);
+    };
+  }, [openId]);
+
   // Calendar-item delete. Social + email drafts have their own delete flows in
-  // their respective studios; this chip only renders for `calendar` entries.
+  // their respective studios; this only runs for `calendar` entries. The
+  // request hits /api/calendar/:id which performs a real RLS-scoped Supabase
+  // delete (no migration involved).
   async function deleteCalendarItem(id: string, title: string) {
     if (deletingId) return;
     if (!window.confirm(`Delete "${title || "Untitled"}" from the calendar?`))
@@ -170,10 +243,17 @@ export function CalendarMonthGrid({ month, entries, focusId }: Props) {
     try {
       const res = await fetch(`/api/calendar/${id}`, { method: "DELETE" });
       if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        window.alert(text || "Could not delete that item.");
+        let message = "Could not delete that item.";
+        try {
+          const body = (await res.json()) as { message?: string };
+          if (body?.message) message = body.message;
+        } catch {
+          /* non-JSON error body — keep the generic message */
+        }
+        window.alert(message);
         return;
       }
+      setOpen(null);
       router.refresh();
     } finally {
       setDeletingId(null);
@@ -229,13 +309,13 @@ export function CalendarMonthGrid({ month, entries, focusId }: Props) {
             Email
           </span>
           <span className="inline-flex items-center gap-1">
-            <span className="inline-block h-2 w-2 rounded-sm border-l-2 border-l-accent-gold/70 bg-ink-700" />
+            <span className="inline-block h-2 w-2 rounded-sm border-l-2 border-l-accent-gold/70 bg-ink-200 dark:bg-ink-700" />
             Item
           </span>
         </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-px overflow-hidden rounded-2xl border border-ink-700/70 bg-ink-700/40">
+      <div className="grid grid-cols-7 gap-px overflow-hidden rounded-2xl border border-ink-700/70 bg-ink-200/60 dark:bg-ink-700/40">
         {DAY_LABELS.map((d) => (
           <div
             key={d}
@@ -284,40 +364,72 @@ export function CalendarMonthGrid({ month, entries, focusId }: Props) {
               </div>
               <div className="flex flex-col gap-1">
                 {visible.map((entry) => {
-                  const canDelete = entry.kind === "calendar";
+                  const isCalendar = entry.kind === "calendar";
                   const isDeleting = deletingId === entry.id;
+                  const isOpen = openId === entry.id;
                   const isFocused =
-                    !!focusId &&
-                    entry.kind === "calendar" &&
-                    entry.id === focusId;
+                    !!focusId && isCalendar && entry.id === focusId;
+                  const chipClass = [
+                    "block w-full truncate rounded-md border px-1.5 py-0.5 text-left text-[10.5px] font-medium leading-tight transition-shadow",
+                    isCalendar ? "pr-4" : "",
+                    kindClasses(entry.kind),
+                    isDeleting ? "opacity-50" : "",
+                    isFocused && highlightActive
+                      ? "ring-2 ring-accent-gold/80 shadow-[0_0_0_3px_rgba(216,179,90,0.18)]"
+                      : "",
+                  ].join(" ");
+                  const chipTitle = `${entry.title} — ${new Date(
+                    entry.whenIso
+                  ).toLocaleString(undefined, {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}`;
                   return (
                     <div
                       key={`${entry.kind}-${entry.id}`}
                       className="group relative"
                     >
-                      <Link
-                        ref={isFocused ? focusRef : null}
-                        href={entry.link}
-                        title={`${entry.title} — ${new Date(
-                          entry.whenIso
-                        ).toLocaleString(undefined, {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}`}
-                        className={[
-                          "block truncate rounded-md border px-1.5 py-0.5 text-[10.5px] font-medium leading-tight transition-shadow",
-                          canDelete ? "pr-4" : "",
-                          kindClasses(entry.kind),
-                          isDeleting ? "opacity-50" : "",
-                          isFocused && highlightActive
-                            ? "ring-2 ring-accent-gold/80 shadow-[0_0_0_3px_rgba(216,179,90,0.18)]"
-                            : "",
-                        ].join(" ")}
-                        data-focused={isFocused ? "true" : undefined}
-                      >
-                        {entry.title || "Untitled"}
-                      </Link>
-                      {canDelete && (
+                      {isCalendar ? (
+                        // Calendar items open an in-place detail popover (real
+                        // detail + delete) instead of a dead self-link.
+                        <button
+                          type="button"
+                          ref={isFocused ? focusRef : null}
+                          onClick={(e) => {
+                            if (openId === entry.id) {
+                              setOpen(null);
+                              return;
+                            }
+                            const r =
+                              e.currentTarget.getBoundingClientRect();
+                            setOpen({
+                              id: entry.id,
+                              rect: {
+                                top: r.top,
+                                bottom: r.bottom,
+                                left: r.left,
+                                right: r.right,
+                              },
+                            });
+                          }}
+                          title={chipTitle}
+                          aria-haspopup="dialog"
+                          aria-expanded={isOpen}
+                          className={chipClass}
+                          data-focused={isFocused ? "true" : undefined}
+                        >
+                          {entry.title || "Untitled"}
+                        </button>
+                      ) : (
+                        <Link
+                          href={entry.link}
+                          title={chipTitle}
+                          className={chipClass}
+                        >
+                          {entry.title || "Untitled"}
+                        </Link>
+                      )}
+                      {isCalendar && (
                         <button
                           type="button"
                           onClick={(e) => {
@@ -327,7 +439,7 @@ export function CalendarMonthGrid({ month, entries, focusId }: Props) {
                           }}
                           disabled={isDeleting}
                           aria-label="Delete calendar item"
-                          className="absolute right-0.5 top-1/2 hidden -translate-y-1/2 items-center justify-center rounded-full bg-ink-950/80 p-0.5 text-ink-300 transition hover:bg-status-err/20 hover:text-status-err group-hover:flex"
+                          className="absolute right-0.5 top-1/2 hidden -translate-y-1/2 items-center justify-center rounded-full bg-white/90 p-0.5 text-ink-600 shadow-sm transition hover:bg-status-err/20 hover:text-status-err group-hover:flex dark:bg-ink-950/80 dark:text-ink-300"
                         >
                           <X size={10} />
                         </button>
@@ -336,7 +448,7 @@ export function CalendarMonthGrid({ month, entries, focusId }: Props) {
                   );
                 })}
                 {overflow > 0 && (
-                  <span className="inline-flex w-fit items-center rounded-full border border-ink-700 bg-ink-800/80 px-1.5 py-[1px] text-[9.5px] font-medium text-ink-300">
+                  <span className="inline-flex w-fit items-center rounded-full border border-ink-700 bg-ink-800/80 px-1.5 py-[1px] text-[9.5px] font-medium text-ink-700 dark:text-ink-300">
                     +{overflow} more
                   </span>
                 )}
@@ -345,6 +457,148 @@ export function CalendarMonthGrid({ month, entries, focusId }: Props) {
           );
         })}
       </div>
+
+      {openEntry && open && (
+        <CalendarItemPopover
+          entry={openEntry}
+          anchor={open.rect}
+          isDeleting={deletingId === openEntry.id}
+          onClose={closePopover}
+          onDelete={() => void deleteCalendarItem(openEntry.id, openEntry.title)}
+        />
+      )}
     </div>
+  );
+}
+
+// Detail popover for a single calendar item. Shows the real stored detail
+// (type, full date/time, description) and exposes a working delete. Rendered
+// in a portal with `fixed` positioning anchored to the trigger chip's rect, so
+// the grid's `overflow-hidden` can never clip it. A full-screen transparent
+// backdrop closes it on outside click. Surfaces use dual light/dark classes
+// because the popover must read on both pure white and the dark canvas.
+function CalendarItemPopover({
+  entry,
+  anchor,
+  isDeleting,
+  onClose,
+  onDelete,
+}: {
+  entry: CalendarEntry;
+  anchor: { top: number; bottom: number; left: number; right: number };
+  isDeleting: boolean;
+  onClose: () => void;
+  onDelete: () => void;
+}) {
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
+  // Portals only exist client-side; gate the render until after mount so SSR
+  // never touches `document`. The positioning effect depends on `mounted` so it
+  // re-measures once the card node actually exists.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  // Position after layout so we can measure the card's real size and flip /
+  // clamp it inside the viewport.
+  useLayoutEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+    const margin = 8;
+    const { innerWidth, innerHeight } = window;
+    const rect = el.getBoundingClientRect();
+    const w = rect.width || 240;
+    const h = rect.height || 160;
+    // Horizontal: align to the chip's left edge, clamped to the viewport.
+    let left = anchor.left;
+    if (left + w + margin > innerWidth) left = innerWidth - w - margin;
+    if (left < margin) left = margin;
+    // Vertical: prefer below the chip; flip above if it would overflow.
+    let top = anchor.bottom + 4;
+    if (top + h + margin > innerHeight) {
+      const above = anchor.top - h - 4;
+      top = above >= margin ? above : Math.max(margin, innerHeight - h - margin);
+    }
+    setPos({ left, top });
+  }, [anchor, mounted]);
+
+  const when = new Date(entry.whenIso).toLocaleString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  const description = entry.description?.trim();
+
+  if (!mounted) return null;
+
+  return createPortal(
+    <>
+      {/* Click-outside backdrop. Transparent; just captures the dismiss. */}
+      <button
+        type="button"
+        aria-label="Close detail"
+        onClick={onClose}
+        className="fixed inset-0 z-[60] cursor-default"
+      />
+      <div
+        ref={cardRef}
+        role="dialog"
+        aria-label={`${entry.title || "Untitled"} details`}
+        style={{
+          left: pos?.left ?? anchor.left,
+          top: pos?.top ?? anchor.bottom + 4,
+          visibility: pos ? "visible" : "hidden",
+        }}
+        className="fixed z-[61] w-[240px] max-w-[calc(100vw-16px)] rounded-xl border border-ink-200 bg-white p-3 text-left shadow-xl dark:border-ink-700 dark:bg-ink-900"
+      >
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-accent-gold">
+            {itemTypeLabel(entry.itemType)}
+          </p>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="-mr-1 -mt-1 rounded-md p-0.5 text-ink-600 transition hover:bg-ink-100 hover:text-ink-900 dark:text-ink-400 dark:hover:bg-ink-800 dark:hover:text-ink-100"
+          >
+            <X size={13} />
+          </button>
+        </div>
+        <p className="mt-1 break-words text-sm font-semibold leading-snug text-ink-900 dark:text-ink-100">
+          {entry.title || "Untitled"}
+        </p>
+        <p className="mt-1 text-[11px] text-ink-700 dark:text-ink-300">{when}</p>
+        {description ? (
+          <p className="mt-2 whitespace-pre-wrap break-words text-xs leading-relaxed text-ink-700 dark:text-ink-300">
+            {description}
+          </p>
+        ) : (
+          <p className="mt-2 text-xs italic text-ink-600 dark:text-ink-400">
+            No description.
+          </p>
+        )}
+        <div className="mt-3 flex items-center justify-end gap-2 border-t border-ink-200 pt-2 dark:border-ink-800">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg px-2.5 py-1 text-[11px] font-medium text-ink-700 transition hover:bg-ink-100 dark:text-ink-300 dark:hover:bg-ink-800"
+          >
+            Close
+          </button>
+          <button
+            type="button"
+            onClick={onDelete}
+            disabled={isDeleting}
+            className="inline-flex items-center gap-1 rounded-lg border border-status-err/40 bg-status-err/10 px-2.5 py-1 text-[11px] font-semibold text-status-err transition hover:bg-status-err/20 disabled:opacity-50"
+          >
+            <Trash2 size={12} />
+            {isDeleting ? "Deleting…" : "Delete"}
+          </button>
+        </div>
+      </div>
+    </>,
+    document.body
   );
 }

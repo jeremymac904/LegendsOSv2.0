@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   CheckCircle,
@@ -12,6 +13,7 @@ import {
   Save,
   Send,
   Sparkles,
+  Upload,
   UserCheck,
   Users2,
 } from "lucide-react";
@@ -228,16 +230,14 @@ export function EmailComposer({
         if (action === "approve") setInfo("Marked ready.");
         if (action === "request_send") {
           setInfo(
-            data.job?.status === "sent"
-              ? "Send queued and dispatched to n8n."
-              : `Send queued. n8n status: ${data.job?.status ?? "queued"}.`
+            "Saved. External sending is disabled, so no email was delivered to recipients."
           );
         }
         if (action === "request_test") {
           setInfo(
             data.job?.status === "sent"
               ? `Test sent to ${data.test_recipient ?? "owner inbox"}.`
-              : `Test prepared for ${data.test_recipient ?? "owner inbox"}. n8n status: ${data.job?.status ?? "queued"} — no audience emails went out.`
+              : `Saved a test request for ${data.test_recipient ?? "the owner inbox"}. External sending is disabled, so no email was delivered.`
           );
         }
         router.refresh();
@@ -444,7 +444,7 @@ export function EmailComposer({
       <div className="section-title">
         <div>
           <h2>{campaignId ? "Edit campaign" : "Compose newsletter"}</h2>
-          <p>Drafts save instantly. External sending only runs when the owner enables it.</p>
+          <p>Drafts save to your account. External sending is disabled in this build — nothing is delivered to recipients.</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -517,18 +517,31 @@ export function EmailComposer({
                 ))}
               </select>
             ) : (
-              <input
-                className="input"
-                placeholder="Recipient list (e.g. all-leads) — import a CSV under Audiences to switch to a list picker"
-                value={recipients}
-                onChange={(e) => setRecipients(e.target.value)}
-                maxLength={120}
-              />
-            )}
-            {audiences.length === 0 && (
-              <p className="text-[10px] text-ink-300">
-                No audiences yet. Open Audiences (top-right) to import a CSV.
-              </p>
+              // No audiences exist yet. A free-text recipient string maps to
+              // nobody, so we never accept an arbitrary list name — the only
+              // honest path to real recipients is importing a CSV.
+              <Link
+                href="/email/audiences"
+                className="flex items-center justify-between gap-3 rounded-xl border border-ink-200 bg-white/70 p-3 transition hover:border-accent-gold/40 dark:border-ink-800 dark:bg-ink-900/40"
+              >
+                <span className="flex items-center gap-3">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-accent-gold/15 text-accent-gold">
+                    <Upload size={16} />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-medium text-ink-900 dark:text-ink-100">
+                      Import a CSV to send
+                    </span>
+                    <span className="block text-[11px] text-ink-600 dark:text-ink-400">
+                      No audiences yet. Import contacts before you can address a
+                      send to real recipients.
+                    </span>
+                  </span>
+                </span>
+                <span className="text-[11px] font-medium text-accent-gold">
+                  Open Audiences →
+                </span>
+              </Link>
             )}
             {selectedAudience && (
               <div className="flex items-start gap-3 rounded-xl border border-accent-gold/30 bg-accent-gold/5 p-3">
@@ -547,15 +560,16 @@ export function EmailComposer({
                     {selectedAudience.active === 1 ? "" : "s"} ·{" "}
                     {selectedAudience.total.toLocaleString()} total
                   </p>
-                  <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-ink-300">
-                    Blast size when you Queue send
+                  <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-ink-600 dark:text-ink-300">
+                    Audience size (external sending disabled — nothing is sent)
                   </p>
                 </div>
               </div>
             )}
             {!selectedAudience && audiences.length > 0 && (
-              <p className="text-[10px] text-ink-300">
-                Pick an audience above to see the blast size before sending.
+              <p className="text-[10px] text-ink-600 dark:text-ink-400">
+                Pick an audience above to see its size. External sending is
+                disabled — nothing is delivered.
               </p>
             )}
           </div>
@@ -585,7 +599,7 @@ export function EmailComposer({
                   Inbox preview
                 </p>
                 <p className="text-[10px] text-ink-400">
-                  Same shell ships to n8n on Queue send
+                  Rendering preview only — no email is sent
                 </p>
               </div>
               <div className="border-b border-ink-800 bg-ink-900/40 px-4 py-3">
@@ -654,27 +668,20 @@ export function EmailComposer({
           className="btn-primary"
           onClick={() => submit("request_send")}
           disabled={isPending || !body.trim()}
-          title={
-            liveSendEnabled
-              ? "Queue a send through n8n"
-              : "External sending is owner-controlled. Will be queued only."
-          }
+          title="Saves the campaign and marks it ready to send. External sending is disabled — no email leaves the app."
         >
           <Send size={14} />
-          {selectedAudience
-            ? `Queue send · ${selectedAudience.active.toLocaleString()} contacts`
-            : "Queue send"}
+          Save draft (external send disabled)
         </button>
-        <span className="ml-auto inline-flex items-center gap-1 text-[11px] text-ink-300">
+        <span className="ml-auto inline-flex items-center gap-1 text-[11px] text-ink-600 dark:text-ink-400">
           <Mail size={12} />
-          {liveSendEnabled
-            ? "External sending enabled — n8n must be configured."
-            : "External sending disabled — drafts queue without dispatch."}
+          External sending is disabled. Drafts save to your account only — no
+          email is delivered to recipients.
         </span>
       </div>
 
       {isOwner && (
-        <div className="rounded-xl border border-ink-800 bg-ink-900/40 px-3 py-2.5">
+        <div className="rounded-xl border border-ink-200 bg-white/70 px-3 py-2.5 dark:border-ink-800 dark:bg-ink-900/40">
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
@@ -683,7 +690,7 @@ export function EmailComposer({
               disabled={testBusy || !campaignId || !body.trim() || !ownerEmail}
               title={
                 ownerEmail
-                  ? `Sends only to ${ownerEmail}, even if an audience is selected.`
+                  ? `Routes only to ${ownerEmail}, even if an audience is selected. Requires the owner to enable live send.`
                   : "Owner email is not configured."
               }
             >
@@ -694,9 +701,10 @@ export function EmailComposer({
                     ownerEmail ? ` (${ownerEmail})` : ""
                   }`}
             </button>
-            <p className="text-[11px] text-ink-300">
-              Owner-only, single-recipient. Audience is ignored for this
-              button — only your inbox is hit.
+            <p className="text-[11px] text-ink-600 dark:text-ink-300">
+              Owner-only, single-recipient. Only fires if the owner has enabled
+              live send; otherwise it reports back disabled. Your audience is
+              never emailed by this button.
             </p>
           </div>
           {testNote && (
@@ -801,18 +809,18 @@ export function StarterTemplatesPanel({ templates }: StarterTemplatesPanelProps)
             onClick={() => pick(t)}
             disabled={busyKey !== null}
             className={cn(
-              "group flex flex-col gap-2 rounded-xl border border-ink-800 bg-ink-900/40 p-3 text-left transition",
+              "group flex flex-col gap-2 rounded-xl border border-ink-200 bg-white/70 p-3 text-left transition dark:border-ink-800 dark:bg-ink-900/40",
               busyKey === t.key
                 ? "border-accent-gold/40 bg-accent-gold/10"
-                : "hover:border-accent-gold/30 hover:bg-ink-900/60"
+                : "hover:border-accent-gold/30 dark:hover:bg-ink-900/60"
             )}
           >
-            <p className="text-[10px] uppercase tracking-[0.18em] text-ink-300">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-ink-600 dark:text-ink-300">
               Newsletter starter
             </p>
-            <p className="text-sm font-semibold text-ink-100">{t.subject}</p>
-            <p className="text-[11px] text-ink-300">{t.preview_text}</p>
-            <p className="mt-auto pt-1 text-[10px] text-ink-400 group-hover:text-accent-gold">
+            <p className="text-sm font-semibold text-ink-900 dark:text-ink-100">{t.subject}</p>
+            <p className="text-[11px] text-ink-600 dark:text-ink-300">{t.preview_text}</p>
+            <p className="mt-auto pt-1 text-[10px] text-ink-600 dark:text-ink-400 group-hover:text-accent-gold">
               {busyKey === t.key ? "Creating draft…" : t.blurb}
             </p>
           </button>

@@ -4,7 +4,6 @@ import {
   ExternalLink,
   FolderTree,
   Lock,
-  PlayCircle,
   PlugZap,
   Users2,
 } from "lucide-react";
@@ -305,56 +304,82 @@ function KnowledgeSetupGuide({ tutorialUrl }: { tutorialUrl: string }) {
   const steps = [
     {
       title: "Upload source files",
-      body: "PDF, DOCX, PPTX, Markdown, text, CSV, JSON, and image files route into collections for Atlas retrieval.",
+      body: "Plain-text, Markdown, CSV and JSON have their body text indexed for Atlas keyword search. PDF, DOCX, PPTX and images are stored but their text is not extracted yet — Atlas only matches their file name.",
     },
     {
       title: "Share the right collections",
       body: "Keep private material locked down, then promote team-safe sources when Atlas should use them for everyone.",
     },
     {
-      title: "Connect automations",
-      body: "Use Settings to review n8n and MCP connection status before asking Atlas to act on source material.",
+      title: "Connect the collection to an assistant",
+      body: "Atlas only reads a collection once it is wired to an assistant in Settings. Uploading alone does not put a file in front of any chat.",
     },
   ];
 
+  const hasTutorial = Boolean(tutorialUrl);
+
   return (
-    <section className="card-padded">
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+    <details className="card-padded group">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
         <div>
-          <div className="section-title">
-            <div>
-              <h2>Knowledge setup guide</h2>
-              <p>
-                A visible onboarding lane for source uploads, collection
-                routing, and Atlas retrieval checks.
-              </p>
-            </div>
-          </div>
-          <div className="mt-4 grid gap-2">
+          <h2 className="text-base font-semibold text-ink-900 dark:text-ink-100">
+            Knowledge setup guide
+          </h2>
+          <p className="text-xs text-ink-600 dark:text-ink-400">
+            How uploads, sharing, and Atlas retrieval actually work. Tap to
+            expand.
+          </p>
+        </div>
+        <span className="text-[10px] uppercase tracking-[0.18em] text-ink-600 dark:text-ink-400 group-open:hidden">
+          Show
+        </span>
+        <span className="hidden text-[10px] uppercase tracking-[0.18em] text-ink-600 dark:text-ink-400 group-open:inline">
+          Hide
+        </span>
+      </summary>
+
+      <div
+        className={
+          hasTutorial
+            ? "mt-4 grid gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]"
+            : "mt-4"
+        }
+      >
+        <div>
+          <div className="grid gap-2">
             {steps.map((s, index) => (
               <div
                 key={s.title}
-                className="rounded-xl border border-ink-800 bg-ink-900/40 p-3"
+                className="rounded-xl border border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-900/40 p-3"
               >
                 <p className="text-[10px] uppercase tracking-[0.18em] text-accent-gold">
                   Step {index + 1}
                 </p>
-                <p className="mt-1 text-sm font-medium text-ink-100">
+                <p className="mt-1 text-sm font-medium text-ink-900 dark:text-ink-100">
                   {s.title}
                 </p>
-                <p className="mt-1 text-xs leading-relaxed text-ink-300">
+                <p className="mt-1 text-xs leading-relaxed text-ink-700 dark:text-ink-300">
                   {s.body}
                 </p>
               </div>
             ))}
           </div>
-          <Link href="/settings" className="btn-ghost mt-4 w-fit text-xs">
-            <PlugZap size={14} />
-            Review connections
-          </Link>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <Link href="/settings" className="btn-ghost w-fit text-xs">
+              <PlugZap size={14} />
+              Review connections
+            </Link>
+            <Link
+              href="/atlas"
+              className="inline-flex items-center gap-1 text-xs text-accent-gold hover:text-accent-gold-300"
+            >
+              Open Atlas
+              <ExternalLink size={12} />
+            </Link>
+          </div>
         </div>
-        <div className="overflow-hidden rounded-2xl border border-ink-800 bg-ink-950/80">
-          {tutorialUrl ? (
+        {hasTutorial && (
+          <div className="overflow-hidden rounded-2xl border border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-950/80">
             <iframe
               src={tutorialUrl}
               title="Knowledge setup tutorial"
@@ -362,33 +387,16 @@ function KnowledgeSetupGuide({ tutorialUrl }: { tutorialUrl: string }) {
               allow="autoplay; fullscreen; picture-in-picture"
               allowFullScreen
             />
-          ) : (
-            <div className="grid aspect-video place-items-center bg-gradient-to-br from-ink-900 via-ink-950 to-black p-6 text-center">
-              <div className="max-w-sm">
-                <PlayCircle
-                  size={38}
-                  className="mx-auto text-accent-gold/90"
-                />
-                <p className="mt-3 text-sm font-medium text-ink-100">
-                  Tutorial video slot
-                </p>
-                <p className="mt-1 text-xs leading-relaxed text-ink-300">
-                  Add a hosted walkthrough URL with{" "}
-                  <code>NEXT_PUBLIC_KNOWLEDGE_TUTORIAL_URL</code> to embed the
-                  setup video here.
-                </p>
-              </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-ink-200 dark:border-ink-800 px-3 py-2 text-xs text-ink-700 dark:text-ink-300">
+              <span>Connect a collection, then test retrieval</span>
+              <Link href="/atlas" className="inline-flex items-center gap-1 text-accent-gold hover:text-accent-gold-300">
+                Open Atlas
+                <ExternalLink size={12} />
+              </Link>
             </div>
-          )}
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-ink-800 px-3 py-2 text-xs text-ink-300">
-            <span>Atlas-ready source setup</span>
-            <Link href="/atlas" className="inline-flex items-center gap-1 text-accent-gold hover:text-accent-gold-300">
-              Test retrieval
-              <ExternalLink size={12} />
-            </Link>
           </div>
-        </div>
+        )}
       </div>
-    </section>
+    </details>
   );
 }
