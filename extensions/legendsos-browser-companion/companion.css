@@ -1,0 +1,334 @@
+/* LegendsOS Browser Companion — shared styles
+ * Pure white + silver + gold accent, matching LegendsOS light-mode ink palette.
+ * No external assets, no remote fonts. */
+
+:root {
+  --ink-900: #0b0f17;
+  --ink-700: #2a2f3a;
+  --ink-500: #5b6472;
+  --ink-300: #9aa3b2;
+  --line: #e6e8ee;
+  --line-strong: #d2d6e0;
+  --surface: #ffffff;
+  --surface-2: #f7f8fb;
+  --gold: #c9a24b;
+  --gold-ink: #8a6d22;
+  --ok: #1f8a4c;
+  --warn: #b45309;
+  --danger: #b42318;
+  --radius: 10px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--surface);
+  color: var(--ink-900);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.brand .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--gold);
+  box-shadow: 0 0 0 3px rgba(201, 162, 75, 0.18);
+}
+
+.brand small {
+  display: block;
+  font-weight: 500;
+  color: var(--ink-500);
+  font-size: 11px;
+}
+
+/* Status pill */
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-2);
+  color: var(--ink-700);
+  white-space: nowrap;
+}
+
+.status .led {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--ink-300);
+}
+
+.status.authed {
+  color: var(--ok);
+  border-color: rgba(31, 138, 76, 0.35);
+  background: rgba(31, 138, 76, 0.08);
+}
+.status.authed .led {
+  background: var(--ok);
+}
+
+.status.unauthed,
+.status.setup {
+  color: var(--warn);
+  border-color: rgba(180, 83, 9, 0.35);
+  background: rgba(180, 83, 9, 0.08);
+}
+.status.unauthed .led,
+.status.setup .led {
+  background: var(--warn);
+}
+
+.status.unreachable {
+  color: var(--danger);
+  border-color: rgba(180, 35, 24, 0.35);
+  background: rgba(180, 35, 24, 0.08);
+}
+.status.unreachable .led {
+  background: var(--danger);
+}
+
+.card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 11px 12px;
+}
+
+.card h2 {
+  margin: 0 0 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--ink-500);
+}
+
+.page-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.page-meta .title {
+  font-weight: 600;
+  color: var(--ink-900);
+  word-break: break-word;
+}
+.page-meta .url {
+  font-size: 11px;
+  color: var(--ink-500);
+  word-break: break-all;
+}
+.page-meta .badge {
+  align-self: flex-start;
+  margin-top: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  color: var(--ink-500);
+  background: var(--surface-2);
+}
+.page-meta .badge.supported {
+  color: var(--gold-ink);
+  border-color: rgba(201, 162, 75, 0.45);
+  background: rgba(201, 162, 75, 0.12);
+}
+
+/* Routing target selector */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.field label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-500);
+}
+select,
+input[type="text"] {
+  width: 100%;
+  padding: 7px 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink-900);
+  font: inherit;
+}
+select:focus,
+input[type="text"]:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(201, 162, 75, 0.18);
+}
+
+.btn-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+  border-radius: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-2);
+  color: var(--ink-900);
+  font-weight: 600;
+  transition: border-color 0.12s ease, background 0.12s ease, transform 0.04s ease;
+}
+button:hover:not(:disabled) {
+  border-color: var(--gold);
+}
+button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+button.primary {
+  background: var(--ink-900);
+  color: #fff;
+  border-color: var(--ink-900);
+}
+button.primary:hover:not(:disabled) {
+  border-color: var(--gold);
+}
+
+button.accent {
+  background: var(--gold);
+  color: #1a1406;
+  border-color: var(--gold);
+}
+
+.full {
+  grid-column: 1 / -1;
+}
+
+/* Output box */
+.output-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+textarea.output {
+  width: 100%;
+  min-height: 120px;
+  resize: vertical;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--ink-700);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+}
+textarea.output[readonly] {
+  cursor: default;
+}
+
+.muted {
+  color: var(--ink-500);
+  font-size: 11px;
+}
+
+.toast {
+  font-size: 11px;
+  font-weight: 600;
+  min-height: 14px;
+}
+.toast.ok {
+  color: var(--ok);
+}
+.toast.warn {
+  color: var(--warn);
+}
+.toast.err {
+  color: var(--danger);
+}
+
+a.link {
+  color: var(--gold-ink);
+  font-weight: 600;
+  text-decoration: none;
+}
+a.link:hover {
+  text-decoration: underline;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings details {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 8px 11px;
+  background: var(--surface);
+}
+.settings summary {
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-500);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.settings .field {
+  margin-top: 9px;
+}
+
+.footnote {
+  font-size: 10px;
+  color: var(--ink-300);
+  text-align: center;
+}
+
+/* Popup is narrower than the side panel. */
+body.popup {
+  width: 360px;
+}

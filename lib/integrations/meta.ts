@@ -32,6 +32,11 @@ function readEnv(name: string): string {
   return v && v.trim() !== "" ? v : "";
 }
 
+// Presence-only check. NEVER returns the value — only whether it is set.
+function envPresent(name: string): boolean {
+  return readEnv(name) !== "";
+}
+
 function readBool(name: string, fallback = false): boolean {
   const raw = process.env[name];
   if (!raw) return fallback;
@@ -136,4 +141,194 @@ export function publishStub(input: MetaPublishInput): MetaPublishStubResult {
       scheduled: Boolean(input.scheduled_at),
     },
   };
+}
+
+// ---------------------------------------------------------------------------
+// publishReadiness — honest checklist for the Social Studio readiness panel.
+// ---------------------------------------------------------------------------
+
+export interface MetaReadinessCheck {
+  id:
+    | "app_configured"
+    | "identity_present"
+    | "page_connected"
+    | "owner_publish_enabled"
+    | "live_safety_flag";
+  label: string;
+  /** True only when this requirement is actually satisfied. Never optimistic. */
+  passed: boolean;
+  /** Honest one-liner shown to the operator. No secrets, no values. */
+  detail: string;
+}
+
+export interface MetaReadiness {
+  /** Every gate the live path requires. Order = display order. */
+  checks: MetaReadinessCheck[];
+  /** True only when EVERY check passes. Even then we do not send this sprint. */
+  all_passed: boolean;
+  /** Convenience mirror of detectMetaConfig().configured. */
+  configured: boolean;
+  /** True iff app+identity env is present (Graph credentials side). */
+  app_configured: boolean;
+  /** True iff a Facebook Page or IG account env id is present. */
+  identity_present: boolean;
+}
+
+/**
+ * Build the publish-readiness checklist. Inputs that come from the database
+ * (the owner-approval switch row) are passed in so this helper stays a pure
+ * function of env-presence + the provided flags — it reads NO secret values
+ * and performs NO I/O.
+ *
+ * @param opts.pageConnected   social_account_connections row exists for Meta
+ * @param opts.publishEnabled  social_account_connections.is_publish_enabled
+ */
+export function publishReadiness(opts: {
+  pageConnected: boolean;
+  publishEnabled: boolean;
+}): MetaReadiness {
+  const appConfigured =
+    envPresent("META_APP_ID") &&
+    envPresent("META_APP_SECRET") &&
+    envPresent("META_ACCESS_TOKEN");
+
+  const identityPresent =
+    envPresent("META_PAGE_ID") || envPresent("META_INSTAGRAM_ACCOUNT_ID");
+
+  const liveSafetyFlag = readBool("ALLOW_LIVE_SOCIAL_PUBLISH", false);
+
+  const checks: MetaReadinessCheck[] = [
+    {
+      id: "app_configured",
+      label: "Meta app credentials",
+      passed: appConfigured,
+      detail: appConfigured
+        ? "App ID, secret, and access token are present."
+        : "Set META_APP_ID, META_APP_SECRET, and META_ACCESS_TOKEN.",
+    },
+    {
+      id: "identity_present",
+      label: "Page or Instagram account",
+      passed: identityPresent,
+      detail: identityPresent
+        ? "A Facebook Page or Instagram account id is configured."
+        : "Set META_PAGE_ID or META_INSTAGRAM_ACCOUNT_ID.",
+    },
+    {
+      id: "page_connected",
+      label: "Account connection record",
+      passed: opts.pageConnected,
+      detail: opts.pageConnected
+        ? "A Meta account connection exists in LegendsOS."
+        : "No Meta account connection saved yet (setup needed).",
+    },
+    {
+      id: "owner_publish_enabled",
+      label: "Owner approval switch",
+      passed: opts.publishEnabled,
+      detail: opts.publishEnabled
+        ? "Owner has turned the publish-enabled switch on."
+        : "Owner has not enabled publishing for this account.",
+    },
+    {
+      id: "live_safety_flag",
+      label: "Live-publish safety flag",
+      passed: liveSafetyFlag,
+      detail: liveSafetyFlag
+        ? "ALLOW_LIVE_SOCIAL_PUBLISH is on."
+        : "ALLOW_LIVE_SOCIAL_PUBLISH is off (server-side master switch).",
+    },
+  ];
+
+  const all_passed = checks.every((c) => c.passed);
+
+  return {
+    checks,
+    all_passed,
+    configured: appConfigured && identityPresent,
+    app_configured: appConfigured,
+    identity_present: identityPresent,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// publishToMeta — REAL direct Graph API publisher SHAPE, fully GATED.
+//
+// IMPORTANT: This function is built but NEVER invoked this sprint. It is the
+// capability scaffold for a later "live wiring" PR. It refuses to run unless
+// EVERY gate is satisfied, and even then the network call is left as an
+// explicit TODO so no PR in this sprint can accidentally send. The owner
+// approval switch (is_publish_enabled) and the live safety flag must BOTH be
+// passed in / on, in addition to full env configuration.
+// ---------------------------------------------------------------------------
+
+export interface MetaPublishPost {
+  surface: "facebook" | "instagram";
+  message?: string;
+  image_url?: string;
+  video_url?: string;
+  /** Caller-supplied row id from social_account_connections (audit trail). */
+  connection_id?: string;
+}
+
+export interface MetaPublishGateContext {
+  /** social_account_connections.is_publish_enabled for the target account. */
+  is_publish_enabled: boolean;
+}
+
+export class MetaPublishGateError extends Error {
+  constructor(
+    public readonly reason:
+      | "not_configured"
+      | "owner_not_approved"
+      | "live_flag_off"
+      | "live_wiring_pending"
+  ) {
+    super(`meta_publish_refused:${reason}`);
+    this.name = "MetaPublishGateError";
+  }
+}
+
+export interface MetaPublishResult {
+  ok: true;
+  platform_post_id: string;
+}
+
+/**
+ * Direct Graph-API publisher. GATED and INERT for this sprint.
+ *
+ * Refuses (throws MetaPublishGateError) unless:
+ *   1. detectMetaConfig().configured                       (env present)
+ *   2. ctx.is_publish_enabled === true                     (owner switch)
+ *   3. ALLOW_LIVE_SOCIAL_PUBLISH is on                     (master safety)
+ *
+ * When all three pass, it STILL refuses with reason "live_wiring_pending"
+ * because the actual fetch() to graph.facebook.com is intentionally not wired
+ * this sprint. Build the capability; do not invoke it.
+ */
+export async function publishToMeta(
+  _post: MetaPublishPost,
+  ctx: MetaPublishGateContext
+): Promise<MetaPublishResult> {
+  const state = detectMetaConfig();
+  if (!state.configured) {
+    throw new MetaPublishGateError("not_configured");
+  }
+  if (!ctx.is_publish_enabled) {
+    throw new MetaPublishGateError("owner_not_approved");
+  }
+  if (!readBool("ALLOW_LIVE_SOCIAL_PUBLISH", false)) {
+    throw new MetaPublishGateError("live_flag_off");
+  }
+
+  // All gates passed. The real Graph API request lives here in the live-wiring
+  // PR. Shape it would take (NOT executed):
+  //
+  //   const endpoint = state.capabilities... /v19.0/<page-or-ig-id>/feed
+  //   const res = await fetch(endpoint, { method: "POST", body: ... });
+  //   const json = await res.json();
+  //   return { ok: true, platform_post_id: json.id };
+  //
+  // Until that PR lands, we refuse rather than send.
+  throw new MetaPublishGateError("live_wiring_pending");
 }

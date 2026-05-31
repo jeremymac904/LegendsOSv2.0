@@ -2,7 +2,9 @@ import Link from "next/link";
 import {
   Cpu,
   HardDrive,
+  Link2,
   Plug,
+  Route,
   Sparkles,
   UserCircle,
   Video,
@@ -10,8 +12,10 @@ import {
 
 import { LegendsOSHelpCoaches } from "@/components/help/LegendsOSHelpCoaches";
 import { DriveLoanBrainSetup } from "@/components/settings/DriveLoanBrainSetup";
+import { IntegrationConnections } from "@/components/settings/IntegrationConnections";
 import { ProviderToggle } from "@/components/settings/ProviderToggle";
 import { MCPConnections } from "@/components/settings/MCPConnections";
+import { RouteOwnershipAudit } from "@/components/settings/RouteOwnershipAudit";
 import {
   SettingsConnectionSetup,
   type ConnectionSetupGuide,
@@ -352,6 +356,25 @@ export default async function SettingsPage() {
       defaultOpen: true,
       children: <SettingsConnectionSetup guides={connectionGuides} />,
     },
+    {
+      id: "google-integrations",
+      title: "Google integrations (per-user)",
+      icon: Link2,
+      defaultOpen: true,
+      children: <IntegrationConnections />,
+    },
+    // Owner/admin only: informational route-ownership matrix. Activates nothing.
+    ...(owner
+      ? [
+          {
+            id: "route-ownership",
+            title: "Route ownership audit",
+            meta: "informational",
+            icon: Route,
+            children: <RouteOwnershipAudit />,
+          } satisfies AccordionItemData,
+        ]
+      : []),
     {
       id: "drive-loan-brain",
       title: "Drive & Loan Brain",

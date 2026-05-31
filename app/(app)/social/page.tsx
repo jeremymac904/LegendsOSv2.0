@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ExternalLink, PlayCircle, PlugZap, Share2 } from "lucide-react";
 
 import { SocialComposer } from "@/components/social/SocialComposer";
+import { MetaPublishReadiness } from "@/components/social/MetaPublishReadiness";
 import { Accordion, type AccordionItemData } from "@/components/ui/Accordion";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionHeader } from "@/components/ui/SectionHeader";
@@ -15,6 +16,7 @@ import { getServerEnv, PUBLIC_ENV } from "@/lib/env";
 import { getN8nConfigState } from "@/lib/automation/n8n";
 import { isZapierMcpConfigured } from "@/lib/automation/zapier-mcp";
 import { detectMetaConfig } from "@/lib/integrations/meta";
+import { isOwner } from "@/lib/permissions";
 import type { PublishingRoute } from "@/components/social/SocialComposer";
 import {
   getCurrentProfile,
@@ -369,6 +371,8 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
       />
 
       <Accordion items={setupItems} />
+
+      <MetaPublishReadiness canManage={isOwner(profile)} />
 
       <section className="card-padded">
         <div className="section-title">

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LegendsOS Browser Companion</title>
+    <link rel="stylesheet" href="companion.css" />
+  </head>
+  <body class="popup">
+    <div class="wrap">
+      <header class="header">
+        <div class="brand">
+          <span class="dot" aria-hidden="true"></span>
+          <span
+            >LegendsOS Companion
+            <small>Loan portal context, routed safely</small></span
+          >
+        </div>
+        <span id="status" class="status" title="LegendsOS sign-in status">
+          <span class="led" aria-hidden="true"></span>
+          <span id="status-text">Checking…</span>
+        </span>
+      </header>
+
+      <section class="card" id="auth-card" hidden>
+        <p class="muted" id="auth-detail"></p>
+        <a class="link" id="auth-action" href="#" target="_blank" rel="noopener"
+          >Sign in to LegendsOS</a
+        >
+      </section>
+
+      <section class="card">
+        <h2>Current page</h2>
+        <div class="page-meta">
+          <span class="title" id="page-title">—</span>
+          <span class="url" id="page-url"></span>
+          <span class="badge" id="page-badge" hidden></span>
+        </div>
+      </section>
+
+      <section class="card field">
+        <label for="assistant">Route to</label>
+        <select id="assistant" aria-label="Route captured context to"></select>
+      </section>
+
+      <section class="card">
+        <h2>Send capture</h2>
+        <div class="btn-grid">
+          <button class="primary full" data-action="send">
+            Send to assistant
+          </button>
+          <button data-action="summarize">Summarize page</button>
+          <button data-action="draftNote">Draft note</button>
+          <button data-action="missingItems">Find missing items</button>
+          <button data-action="borrowerQuestions">Borrower questions</button>
+        </div>
+        <p class="toast" id="toast" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="card">
+        <div class="output-head">
+          <h2>Output</h2>
+          <button id="copy-btn" disabled>Copy</button>
+        </div>
+        <textarea
+          id="output"
+          class="output"
+          readonly
+          placeholder="Captured context / seeded prompt will appear here."
+        ></textarea>
+        <div class="row" style="margin-top: 8px">
+          <button id="open-btn" class="accent" disabled>
+            Open in LegendsOS
+          </button>
+        </div>
+      </section>
+
+      <section class="settings">
+        <details>
+          <summary>Settings</summary>
+          <div class="field">
+            <label for="base-url">LegendsOS base URL</label>
+            <input
+              type="text"
+              id="base-url"
+              spellcheck="false"
+              autocomplete="off"
+              placeholder="https://legndsosv20.netlify.app"
+            />
+          </div>
+          <div class="row" style="margin-top: 8px">
+            <button id="save-url">Save</button>
+            <button id="recheck">Re-check sign-in</button>
+          </div>
+          <p class="muted" style="margin-top: 8px">
+            No tokens or secrets are ever stored. The companion uses your
+            existing LegendsOS sign-in cookie.
+          </p>
+        </details>
+      </section>
+
+      <p class="footnote">
+        Cookie-session auth · no tokens stored · safe visible context only
+      </p>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="companion.js"></script>
+    <script src="ui.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>
