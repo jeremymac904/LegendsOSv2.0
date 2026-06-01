@@ -23,8 +23,21 @@ export const dynamic = "force-dynamic";
 //   chrome-extension:// (or same-site) Origin with credentials allowed. We do
 //   NOT reflect arbitrary web origins.
 
-const PROVIDERS = ["google", "gmail", "google_drive", "google_calendar"] as const;
+const PROVIDERS = [
+  "google",
+  "gmail",
+  "google_drive",
+  "google_calendar",
+  "youtube",
+  "google_business_profile",
+] as const;
 type ProviderId = (typeof PROVIDERS)[number];
+
+// Canonical OAuth redirect URI. MUST be identical in connect + callback and
+// MUST match what's registered in the Google Cloud console. We use a fixed
+// constant (not the request origin) so the redirect_uri is stable across hosts,
+// previews, and the desktop shell. Override via GOOGLE_OAUTH_REDIRECT_URI.
+const DEFAULT_REDIRECT_URI = "https://legndsosv20.netlify.app/api/integrations/connect/callback";
 
 // Google OAuth scopes per capability. Requested at connect time later; listed
 // here so the contract is explicit and the UI can show what will be asked.
@@ -33,6 +46,8 @@ const PROVIDER_SCOPES: Record<ProviderId, string[]> = {
   gmail: ["https://www.googleapis.com/auth/gmail.readonly"],
   google_drive: ["https://www.googleapis.com/auth/drive.readonly"],
   google_calendar: ["https://www.googleapis.com/auth/calendar.events"],
+  youtube: ["https://www.googleapis.com/auth/youtube.upload"],
+  google_business_profile: ["https://www.googleapis.com/auth/business.manage"],
 };
 
 function envPresent(name: string): boolean {
@@ -144,9 +159,7 @@ export async function POST(req: Request) {
   // server-side token storage are deferred. The client_id is a PUBLIC OAuth
   // identifier (safe to expose); the client SECRET is never read or returned.
   const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID ?? "";
-  const redirectUri =
-    process.env.GOOGLE_OAUTH_REDIRECT_URI ??
-    `${new URL(req.url).origin}/api/integrations/connect/callback`;
+  const redirectUri = process.env.GOOGLE_OAUTH_REDIRECT_URI || DEFAULT_REDIRECT_URI;
   const scopes = PROVIDER_SCOPES[provider];
 
   // Build a standard Google OAuth 2.0 authorize URL (consent + offline so a

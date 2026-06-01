@@ -659,6 +659,35 @@ export default async function SettingsPage() {
             <LiveActionToggles scope="user" />
           </div>
 
+          {owner && (
+            <div className="mt-6">
+              <h3 className="text-sm font-semibold text-ink-900 dark:text-ink-100">
+                Team-wide live actions (owner)
+              </h3>
+              <p className="mb-2 mt-1 text-[11px] text-ink-600 dark:text-ink-400">
+                Org-wide defaults and the safe-mode master kill switch. These gate
+                whether email/social/calendar/Drive actions run for everyone.
+                Manage all integrations in the{" "}
+                <Link
+                  href="/admin/connections"
+                  className="font-medium text-accent-gold underline-offset-2 hover:underline"
+                >
+                  Connection Center
+                </Link>
+                .
+              </p>
+              <LiveActionToggles scope="global" />
+            </div>
+          )}
+
+          {!owner && (
+            <p className="mt-4 text-[11px] text-ink-600 dark:text-ink-400">
+              Team-wide defaults and external connections are managed by the
+              owner in the Connection Center. Your toggles above only take effect
+              once the owner has enabled the matching team default.
+            </p>
+          )}
+
           <h3 className="mt-6 text-sm font-semibold text-ink-900 dark:text-ink-100">
             Environment master flags
           </h3>
