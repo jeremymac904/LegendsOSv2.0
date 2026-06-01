@@ -3,8 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   AlertTriangle,
+  Bot,
   Building2,
   CalendarDays,
+  ChevronDown,
+  ChevronRight,
+  Chrome,
+  ExternalLink,
   Facebook,
   HardDrive,
   Instagram,
@@ -13,6 +18,8 @@ import {
   Mail,
   PlugZap,
   ShieldCheck,
+  Video,
+  Webhook,
   Workflow,
   Youtube,
   Zap,
@@ -20,6 +27,7 @@ import {
 
 import { StatusPill } from "@/components/ui/StatusPill";
 import { LiveActionToggles } from "@/components/settings/LiveActionToggles";
+import { EnvChecklist } from "@/components/admin/EnvChecklist";
 import { cn } from "@/lib/utils";
 
 // Owner-facing OAuth Connection Center (client).
@@ -87,6 +95,17 @@ interface StatusResponse {
   safety_flags: Record<string, boolean>;
   owner_email: string | null;
   supabase_project_url: string | null;
+  // New fields added in the extended status route
+  lead_intake?: {
+    configured: boolean;
+    webhook_url: string;
+  };
+  browser_companion?: {
+    extension_origins_configured: boolean;
+  };
+  heygen?: {
+    configured: boolean;
+  };
 }
 
 type ConnStatus = "connected" | "setup_needed" | "error" | "disconnected";
@@ -327,6 +346,51 @@ function SetupChecklist({
   );
 }
 
+// Collapsible wrapper that houses the full <EnvChecklist /> panel.
+// Default: collapsed so it doesn't overwhelm the main view.
+function EnvChecklistSection() {
+  const [open, setOpen] = useState(false);
+  return (
+    <section className="card-padded space-y-3">
+      <button
+        type="button"
+        onClick={() => setOpen((x) => !x)}
+        className="flex w-full items-center justify-between gap-3 text-left"
+        aria-expanded={open}
+      >
+        <div className="section-title w-full">
+          <div>
+            <h2 className="flex items-center gap-2">
+              <KeyRound size={15} className="text-accent-gold" />
+              Environment Variables
+            </h2>
+            <p>
+              Full checklist of every required Netlify env var — presence only,
+              no values. Expand to audit your configuration.
+            </p>
+          </div>
+          <span className="flex shrink-0 items-center gap-1 text-[11px] text-ink-500 dark:text-ink-400">
+            {open ? (
+              <>
+                <ChevronDown size={13} /> Collapse
+              </>
+            ) : (
+              <>
+                <ChevronRight size={13} /> Expand
+              </>
+            )}
+          </span>
+        </div>
+      </button>
+      {open && (
+        <div className="pt-1">
+          <EnvChecklist />
+        </div>
+      )}
+    </section>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
@@ -502,6 +566,56 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
   const gbp = status?.integrations.google_business_profile;
   const instagram = status?.integrations.instagram;
   const zapierMcp = status?.integrations.zapier_mcp;
+
+  // New sections derived state
+  const leadIntake = status?.lead_intake;
+  const browserCompanion = status?.browser_companion;
+  const heygenStatus = status?.heygen ?? status?.providers?.heygen;
+
+  // AI provider display list (from providers map + heygen)
+  const AI_PROVIDER_DISPLAY: {
+    key: string;
+    label: string;
+    unlocks: string;
+    envVar: string;
+  }[] = [
+    {
+      key: "openrouter",
+      label: "OpenRouter",
+      unlocks: "Primary AI routing (Claude, GPT-4, Gemini, etc.)",
+      envVar: "OPENROUTER_API_KEY",
+    },
+    {
+      key: "deepseek",
+      label: "DeepSeek",
+      unlocks: "DeepSeek R1/V3 reasoning models",
+      envVar: "DEEPSEEK_API_KEY",
+    },
+    {
+      key: "nvidia",
+      label: "NVIDIA",
+      unlocks: "Kimi K2.5, Nemotron, Mistral 4 via NVIDIA API",
+      envVar: "NVIDIA_API_KEY",
+    },
+    {
+      key: "fal",
+      label: "Fal.ai",
+      unlocks: "AI image generation (FLUX, etc.)",
+      envVar: "FAL_KEY",
+    },
+    {
+      key: "huggingface",
+      label: "Hugging Face",
+      unlocks: "HF Inference API and model downloads",
+      envVar: "HF_TOKEN",
+    },
+    {
+      key: "heygen",
+      label: "HeyGen",
+      unlocks: "AI avatar video generation",
+      envVar: "HEYGEN_API_KEY",
+    },
+  ];
 
   // The canonical redirect URI to register in Google Cloud. Prefer the
   // top-level value; fall back to the per-provider expected value if present.
@@ -875,6 +989,13 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
                 </p>
               )}
             </div>
+            <a
+              href="/admin/n8n"
+              className="btn-ghost mt-auto flex h-8 items-center gap-1.5 px-3 text-xs"
+            >
+              <ExternalLink size={11} />
+              n8n control panel
+            </a>
           </CardShell>
 
           {/* Zapier MCP */}
@@ -1020,6 +1141,169 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
           </table>
         </div>
       </section>
+
+      {/* 5) AI Providers -------------------------------------------------- */}
+      <section className="card-padded space-y-4">
+        <div className="section-title">
+          <div>
+            <h2 className="flex items-center gap-2">
+              <Bot size={15} className="text-accent-gold" />
+              AI Providers
+            </h2>
+            <p>
+              API keys configured in Netlify env vars. No connect button needed
+              — set the key in Netlify to enable. Status is presence-only.
+            </p>
+          </div>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {AI_PROVIDER_DISPLAY.map(({ key, label, unlocks, envVar }) => {
+            const providerData = status?.providers?.[key];
+            // HeyGen comes from heygen field or providers map
+            const configured =
+              key === "heygen"
+                ? Boolean(heygenStatus?.configured)
+                : Boolean(providerData?.configured);
+            return (
+              <CardShell
+                key={key}
+                icon={key === "heygen" ? Video : Bot}
+                title={label}
+                subtitle={unlocks}
+                pillTone={configured ? "ok" : "warn"}
+                pillLabel={configured ? "Configured" : "Not configured"}
+              >
+                <SetupChecklist
+                  title="Required env var"
+                  vars={[{ name: envVar, present: configured }]}
+                  note={
+                    configured
+                      ? undefined
+                      : `Set ${envVar} in Netlify → Site settings → Environment variables.`
+                  }
+                />
+              </CardShell>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* 6) Lead Intake --------------------------------------------------- */}
+      <section className="card-padded space-y-4">
+        <div className="section-title">
+          <div>
+            <h2 className="flex items-center gap-2">
+              <Webhook size={15} className="text-accent-gold" />
+              Lead Intake
+            </h2>
+            <p>
+              Inbound webhook for new lead data from n8n, Zapier, or other
+              automation platforms.
+            </p>
+          </div>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <CardShell
+            icon={Webhook}
+            title="Webhook Secret"
+            subtitle="LEGENDSOS_WEBHOOK_SECRET authenticates inbound lead intake calls. Set it in Netlify env vars."
+            pillTone={leadIntake?.configured ? "ok" : "warn"}
+            pillLabel={leadIntake?.configured ? "Configured" : "Not configured"}
+          >
+            <SetupChecklist
+              title="Required env var"
+              vars={[
+                {
+                  name: "LEGENDSOS_WEBHOOK_SECRET",
+                  present: leadIntake?.configured,
+                },
+              ]}
+              note={
+                leadIntake?.configured
+                  ? undefined
+                  : "Generate a random secret and set LEGENDSOS_WEBHOOK_SECRET in Netlify → Environment variables."
+              }
+            />
+            {leadIntake?.webhook_url && (
+              <div className="rounded-lg border border-ink-200 bg-ink-50/60 p-2 dark:border-ink-800 dark:bg-ink-950/30">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-500 dark:text-ink-400">
+                  Webhook endpoint
+                </p>
+                <p className="mt-0.5 break-all font-mono text-[10px] text-ink-700 dark:text-ink-300">
+                  {leadIntake.webhook_url}
+                </p>
+                <p className="mt-0.5 text-[10px] text-ink-500 dark:text-ink-400">
+                  POST to this path with the webhook secret in the
+                  X-Webhook-Secret header.
+                </p>
+              </div>
+            )}
+            <a
+              href="/admin/leads"
+              className="btn-ghost mt-auto flex h-8 items-center gap-1.5 px-3 text-xs"
+            >
+              <ExternalLink size={11} />
+              View leads
+            </a>
+          </CardShell>
+        </div>
+      </section>
+
+      {/* 7) Browser Companion --------------------------------------------- */}
+      <section className="card-padded space-y-4">
+        <div className="section-title">
+          <div>
+            <h2 className="flex items-center gap-2">
+              <Chrome size={15} className="text-accent-gold" />
+              Browser Companion
+            </h2>
+            <p>
+              Browser extension origins whitelist. Controls which extension
+              origins may communicate with the LegendsOS API.
+            </p>
+          </div>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <CardShell
+            icon={Chrome}
+            title="Extension Origins"
+            subtitle="LEGENDSOS_BROWSER_EXTENSION_ORIGINS is a comma-separated list of allowed extension origins."
+            pillTone={
+              browserCompanion?.extension_origins_configured ? "ok" : "warn"
+            }
+            pillLabel={
+              browserCompanion?.extension_origins_configured
+                ? "Configured"
+                : "Not configured"
+            }
+          >
+            <SetupChecklist
+              title="Required env var"
+              vars={[
+                {
+                  name: "LEGENDSOS_BROWSER_EXTENSION_ORIGINS",
+                  present: browserCompanion?.extension_origins_configured,
+                },
+              ]}
+              note={
+                browserCompanion?.extension_origins_configured
+                  ? undefined
+                  : "Set LEGENDSOS_BROWSER_EXTENSION_ORIGINS to a comma-separated list of chrome-extension://... origins."
+              }
+            />
+            <a
+              href="/browser-companion/setup"
+              className="btn-ghost mt-auto flex h-8 items-center gap-1.5 px-3 text-xs"
+            >
+              <ExternalLink size={11} />
+              Extension setup guide
+            </a>
+          </CardShell>
+        </div>
+      </section>
+
+      {/* 8) Environment Variables checklist (collapsible) ---------------- */}
+      <EnvChecklistSection />
     </div>
   );
 }

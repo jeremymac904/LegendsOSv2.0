@@ -208,3 +208,27 @@ export async function writeSettings(args: {
   if (error) throw new Error(`insert settings failed: ${error.message}`);
   return data as SettingsRow;
 }
+
+// ---------------------------------------------------------------------------
+// Provider-flags helpers (allow_n8n_dispatch, allow_lead_intake).
+// These are owner-global settings stored in provider_flags jsonb so they
+// don't require a schema migration.  Fail-closed (false) when no row exists.
+// ---------------------------------------------------------------------------
+
+export async function isN8nDispatchAllowed(organizationId: string | null): Promise<boolean> {
+  try {
+    const row = await readGlobalSettings(organizationId);
+    return Boolean((row?.provider_flags as Record<string, unknown> | null)?.allow_n8n_dispatch);
+  } catch {
+    return false;
+  }
+}
+
+export async function isLeadIntakeAllowed(organizationId: string | null): Promise<boolean> {
+  try {
+    const row = await readGlobalSettings(organizationId);
+    return Boolean((row?.provider_flags as Record<string, unknown> | null)?.allow_lead_intake);
+  } catch {
+    return false;
+  }
+}

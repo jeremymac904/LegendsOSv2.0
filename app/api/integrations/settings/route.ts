@@ -87,6 +87,10 @@ export async function GET() {
           live_calendar: globalRow.live_calendar,
           live_drive_write: globalRow.live_drive_write,
           safe_mode: globalRow.safe_mode,
+          // provider_flags holds extra owner toggles that don't need new columns:
+          // allow_n8n_dispatch and allow_lead_intake.
+          allow_n8n_dispatch: Boolean((globalRow.provider_flags as Record<string,unknown> | null)?.allow_n8n_dispatch),
+          allow_lead_intake: Boolean((globalRow.provider_flags as Record<string,unknown> | null)?.allow_lead_intake),
           source: "db" as const,
           updated_at: globalRow.updated_at,
         }
@@ -97,6 +101,8 @@ export async function GET() {
           live_calendar: false,
           live_drive_write: false,
           safe_mode: false,
+          allow_n8n_dispatch: false,
+          allow_lead_intake: false,
           source: "env_default" as const,
           updated_at: null,
         },
@@ -131,6 +137,9 @@ const boolPatch = z
     live_calendar: z.boolean().optional(),
     live_drive_write: z.boolean().optional(),
     safe_mode: z.boolean().optional(),
+    // Extra owner-global flags stored in provider_flags jsonb (no new column needed)
+    allow_n8n_dispatch: z.boolean().optional(),
+    allow_lead_intake: z.boolean().optional(),
   })
   .refine((p) => Object.keys(p).length > 0, { message: "Provide at least one toggle to set." });
 
@@ -179,10 +188,10 @@ export async function POST(req: Request) {
         { status: 403 }
       );
     }
-    // safe_mode is a global-only concept.
-    if ("safe_mode" in patch) {
+    // safe_mode and provider_flags toggles are global-only.
+    if ("safe_mode" in patch || "allow_n8n_dispatch" in patch || "allow_lead_intake" in patch) {
       return NextResponse.json(
-        { ok: false, error: "bad_request", message: "safe_mode is a global setting." },
+        { ok: false, error: "bad_request", message: "safe_mode, allow_n8n_dispatch, and allow_lead_intake are global settings." },
         { status: 400 }
       );
     }
@@ -190,12 +199,26 @@ export async function POST(req: Request) {
 
   const targetUserId = scope === "user" ? target_user_id ?? profile.id : null;
 
+  // Extract provider_flags keys before passing the rest to writeSettings.
+  const { allow_n8n_dispatch, allow_lead_intake, ...coreSettingsPatch } = parsed.data.patch;
+  const mergedPatch = { ...coreSettingsPatch } as Parameters<typeof writeSettings>[0]["patch"];
+  if (allow_n8n_dispatch !== undefined || allow_lead_intake !== undefined) {
+    // Read current provider_flags to merge (not overwrite) the jsonb.
+    const currentGlobal = scope === "global" ? await readGlobalSettings(profile.organization_id) : null;
+    const existingFlags = (currentGlobal?.provider_flags as Record<string,unknown> | null) ?? {};
+    mergedPatch.provider_flags = {
+      ...existingFlags,
+      ...(allow_n8n_dispatch !== undefined ? { allow_n8n_dispatch } : {}),
+      ...(allow_lead_intake !== undefined ? { allow_lead_intake } : {}),
+    };
+  }
+
   try {
     const row = await writeSettings({
       scope,
       organizationId: profile.organization_id,
       userId: targetUserId,
-      patch,
+      patch: mergedPatch,
       updatedBy: profile.id,
     });
 
