@@ -336,6 +336,10 @@ export interface AuditCaptureInput {
   source_url: string | null;
   routed_assistant: string | null;
   capture_id: string | null;
+  // The outcome of the capture attempt — recorded so EVERY attempt (including
+  // setup_needed and insert-failed) leaves a trail, not only successes. This is
+  // non-PII metadata: it carries no borrower/selected content.
+  outcome?: string;
 }
 
 export async function auditCapture(
@@ -354,6 +358,7 @@ export async function auditCapture(
       metadata: {
         routed_assistant: input.routed_assistant,
         capture_id: input.capture_id,
+        outcome: input.outcome ?? "captured",
         at: new Date().toISOString(),
       },
     });

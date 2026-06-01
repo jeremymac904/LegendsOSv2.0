@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { signState } from "@/lib/integrations/oauthState";
 import { isAdminOrOwner } from "@/lib/permissions";
 import { getCurrentProfile } from "@/lib/supabase/server";
 
@@ -159,10 +160,9 @@ export async function POST(req: Request) {
   authorize.searchParams.set("access_type", "offline");
   authorize.searchParams.set("include_granted_scopes", "true");
   authorize.searchParams.set("prompt", "consent");
-  authorize.searchParams.set(
-    "state",
-    JSON.stringify({ provider, target_user_id: targetUserId })
-  );
+  // HMAC-signed state so the callback can verify the round-trip and attribute
+  // the grant to the right user without trusting a forgeable plain JSON blob.
+  authorize.searchParams.set("state", signState({ provider, target_user_id: targetUserId }));
 
   return NextResponse.json(
     {
@@ -171,11 +171,12 @@ export async function POST(req: Request) {
       provider,
       authorize_url: authorize.toString(),
       scopes,
-      // Token exchange is deferred this sprint — the connect contract returns
-      // the first step only and is honest that completion is not wired yet.
+      // The callback (/api/integrations/connect/callback) now completes the
+      // exchange: it swaps the code for tokens server-side, stores them in the
+      // RLS-locked oauth_token_grants table, and records the connection.
       next_step:
-        "Open authorize_url to grant access. Token exchange + server-side storage are not enabled yet (deferred).",
-      completion_enabled: false,
+        "Open authorize_url to grant access. On redirect, the server completes the token exchange and stores the grant server-side.",
+      completion_enabled: true,
     },
     { headers: cors }
   );

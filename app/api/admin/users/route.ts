@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { PUBLIC_ENV } from "@/lib/env";
 import { isOwner } from "@/lib/permissions";
 import {
   getCurrentProfile,
@@ -126,6 +127,18 @@ export async function POST(req: Request) {
   const service = getSupabaseServiceClient();
   const supabase = getSupabaseServerClient();
 
+  // Where minted setup/recovery links should land after the token is verified.
+  // Prefer the live request origin (handles preview/custom domains) and fall
+  // back to the configured app URL. The set-password screen lives OUTSIDE the
+  // auth-gated (app) group so a brand-new user can reach it.
+  let origin = PUBLIC_ENV.APP_URL.replace(/\/$/, "");
+  try {
+    origin = new URL(req.url).origin;
+  } catch {
+    // Keep the configured fallback.
+  }
+  const setPasswordRedirect = `${origin}/auth/set-password`;
+
   if (data.action === "add") {
     // Don't allow creating new `owner` rows — there's only one owner per org
     // and promotion has to go through promote_owner() so audit logs are
@@ -210,10 +223,12 @@ export async function POST(req: Request) {
         if (inviteErr) throw inviteErr;
         email_sent = true;
         // inviteUserByEmail confirms the invite was queued; mint a setup link
-        // too so the owner has a copyable fallback if the email bounces.
+        // too so the owner has a copyable fallback if the email bounces. The
+        // link lands on /auth/set-password after the token is verified.
         const { data: linkData } = await service.auth.admin.generateLink({
           type: "magiclink",
           email: data.email,
+          options: { redirectTo: setPasswordRedirect },
         });
         invite_link = linkData?.properties?.action_link ?? null;
       } catch (e) {
@@ -225,6 +240,7 @@ export async function POST(req: Request) {
           const { data: linkData } = await service.auth.admin.generateLink({
             type: "magiclink",
             email: data.email,
+            options: { redirectTo: setPasswordRedirect },
           });
           invite_link = linkData?.properties?.action_link ?? null;
         } catch (e2) {
@@ -232,11 +248,13 @@ export async function POST(req: Request) {
         }
       }
     } else {
-      // Non-emailing default: mint a setup link only. No email is sent.
+      // Non-emailing default: mint a setup link only. No email is sent. The
+      // link lands on /auth/set-password after the token is verified.
       try {
         const { data: linkData } = await service.auth.admin.generateLink({
           type: "magiclink",
           email: data.email,
+          options: { redirectTo: setPasswordRedirect },
         });
         invite_link = linkData?.properties?.action_link ?? null;
       } catch (e) {
@@ -362,6 +380,7 @@ export async function POST(req: Request) {
         await service.auth.admin.generateLink({
           type: "recovery",
           email: target.email,
+          options: { redirectTo: setPasswordRedirect },
         });
       if (linkErr) throw linkErr;
       reset_link = linkData?.properties?.action_link ?? null;

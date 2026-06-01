@@ -6,6 +6,7 @@ export type ReadinessGroup =
   | "browser_companion"
   | "integrations"
   | "agent_runtime"
+  | "mortgage"
   | "loan_memory"
   | "team_onboarding";
 
@@ -39,9 +40,20 @@ export const REQUIRED_PRODUCTION_TABLES: RequiredTableCheck[] = [
   { table: "agent_tool_calls", group: "agent_runtime", required: true },
   { table: "agent_traces", group: "agent_runtime", required: true },
   { table: "agent_handoffs", group: "agent_runtime", required: true },
+  // Mortgage core — the real prerequisite for loan memory. These tables are
+  // created by the mortgage migration; loan_memory layers on top of them.
+  { table: "loans", group: "mortgage", required: true },
+  { table: "borrowers", group: "mortgage", required: true },
+  { table: "loan_conditions", group: "mortgage", required: true },
+  { table: "loan_tasks", group: "mortgage", required: true },
+  { table: "loan_approvals", group: "mortgage", required: true },
+  { table: "loan_status_events", group: "mortgage", required: true },
+  { table: "loan_activity_log", group: "mortgage", required: true },
+  { table: "loan_contacts", group: "mortgage", required: true },
+  { table: "loan_documents", group: "mortgage", required: true },
+  { table: "drive_folder_links", group: "mortgage", required: true },
   { table: "loan_memory", group: "loan_memory", required: true },
   { table: "loan_memory_events", group: "loan_memory", required: true },
-  { table: "loan_documents", group: "loan_memory", required: true },
   { table: "loan_ai_retrieval_logs", group: "loan_memory", required: true },
   { table: "user_ai_preferences", group: "loan_memory", required: true },
   { table: "profiles", group: "team_onboarding", required: true },

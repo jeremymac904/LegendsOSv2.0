@@ -63,8 +63,6 @@ export async function GET() {
     envPresent("GOOGLE_OAUTH_CLIENT_ID") &&
     envPresent("GOOGLE_OAUTH_CLIENT_SECRET");
 
-  const allowLiveSocial = env.SAFETY.allowLiveSocialPublish;
-
   return NextResponse.json({
     ok: true,
     providers: {
@@ -89,19 +87,29 @@ export async function GET() {
       },
       gbp: {
         configured: gbpConfigured,
-        paid_enabled: gbpConfigured && allowLiveSocial,
-        capabilities: gbpConfigured ? ["publish_post"] : [],
+        // HONEST: no GBP publisher is implemented yet, so the platform cannot
+        // publish regardless of env presence or the live-social flag. Do not
+        // imply a capability the code cannot perform.
+        paid_enabled: false,
+        publish_implemented: false,
+        capabilities: [],
       },
       youtube: {
         configured: youtubeConfigured,
-        paid_enabled: youtubeConfigured && allowLiveSocial,
-        capabilities: youtubeConfigured ? ["publish_video"] : [],
+        paid_enabled: false,
+        publish_implemented: false,
+        capabilities: [],
       },
       google_oauth: {
         configured: googleOauthConfigured,
-        // OAuth is plumbing, not a paid surface. Mirror configured.
+        // OAuth plumbing IS implemented (connect + callback + token store).
         paid_enabled: googleOauthConfigured,
-        capabilities: googleOauthConfigured ? ["oauth_grant"] : [],
+        // The exact redirect URI that must be registered in the Google Cloud
+        // OAuth client (non-secret — helps the owner complete setup).
+        redirect_uri_expected:
+          process.env.GOOGLE_OAUTH_REDIRECT_URI ||
+          `${PUBLIC_ENV.APP_URL.replace(/\/$/, "")}/api/integrations/connect/callback`,
+        capabilities: googleOauthConfigured ? ["oauth_grant", "token_exchange"] : [],
       },
     },
     safety_flags: {

@@ -1,11 +1,46 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { getServerEnv } from "@/lib/env";
 import { enqueueAutomationJob } from "@/lib/automation/n8n";
-import { getCurrentProfile, getSupabaseServerClient } from "@/lib/supabase/server";
+import { recordPublishAttempt } from "@/lib/integrations/audit";
+import { resolveLiveAction } from "@/lib/integrations/liveSettings";
+import {
+  getCurrentProfile,
+  getSupabaseServerClient,
+  getSupabaseServiceClient,
+  isMissingDatabaseObjectError,
+} from "@/lib/supabase/server";
 import { logUsage, recordAudit } from "@/lib/usage";
 import type { SocialChannel } from "@/types/database";
+
+// Each social channel maps to the social_account_connections.platform whose
+// owner-approval switch (is_publish_enabled) must be ON for a live publish.
+// Facebook + Instagram are both gated by the single "meta" connection.
+const CHANNEL_PLATFORM: Record<(typeof channels)[number], string> = {
+  facebook: "meta",
+  instagram: "meta",
+  google_business_profile: "google_business_profile",
+  youtube: "youtube",
+};
+
+// Returns the set of platforms whose owner-approval switch is ON. Best-effort:
+// a missing table / no rows yields an empty set (fail-closed -> stays draft).
+async function publishEnabledPlatforms(organizationId: string | null): Promise<Set<string>> {
+  try {
+    const service = getSupabaseServiceClient();
+    let q = service
+      .from("social_account_connections")
+      .select("platform,is_publish_enabled")
+      .eq("is_publish_enabled", true);
+    q = organizationId ? q.eq("organization_id", organizationId) : q.is("organization_id", null);
+    const { data, error } = await q;
+    if (error || !data) return new Set();
+    return new Set((data as { platform: string }[]).map((r) => r.platform));
+  } catch (err) {
+    if (!isMissingDatabaseObjectError(err)) console.error("publishEnabledPlatforms failed", err);
+    return new Set();
+  }
+}
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -64,7 +99,6 @@ export async function POST(req: Request) {
   }
   const data = parsed.data;
   const supabase = getSupabaseServerClient();
-  const env = getServerEnv();
 
   // Pick the first UUID-shaped media as the primary; persist EVERY id in
   // metadata.media_ids so the composer can re-render the full list later
@@ -158,10 +192,34 @@ export async function POST(req: Request) {
     metadata: { post_id: post.id, channels: data.channels, edited: !!data.post_id },
   });
 
-  // If scheduling, enqueue an automation job. NEVER dispatch live unless the
-  // owner has flipped ALLOW_LIVE_SOCIAL_PUBLISH=true AND a webhook is set.
+  // If scheduling, enqueue an automation job. A live dispatch requires BOTH
+  // the owner's in-app live-social toggle (integration_settings, resolved per
+  // user) AND, for every selected channel, the owner-approval switch on that
+  // platform's connection (social_account_connections.is_publish_enabled).
+  // If either is off, the post stays queued/draft — it is NEVER published.
   let job: { job_id: string; status: string; reason?: string } | null = null;
+  let publishGate: { live: boolean; reason: string } | null = null;
   if (data.action === "schedule") {
+    const liveSetting = await resolveLiveAction("social", {
+      organizationId: profile.organization_id,
+      userId: profile.id,
+    });
+    const enabledPlatforms = await publishEnabledPlatforms(profile.organization_id);
+    const blockedChannels = data.channels.filter(
+      (c) => !enabledPlatforms.has(CHANNEL_PLATFORM[c])
+    );
+    const accountsAllEnabled = blockedChannels.length === 0;
+    const dispatchLive = liveSetting.allowed && accountsAllEnabled;
+
+    publishGate = {
+      live: dispatchLive,
+      reason: dispatchLive
+        ? "ok"
+        : !liveSetting.allowed
+        ? `live_social_${liveSetting.reason}`
+        : `account_publish_disabled:${blockedChannels.join(",")}`,
+    };
+
     job = await enqueueAutomationJob({
       profile,
       job_type: "social_publish",
@@ -180,8 +238,29 @@ export async function POST(req: Request) {
             : null,
       },
       scheduled_at: data.scheduled_at,
-      dispatch: env.SAFETY.allowLiveSocialPublish,
+      dispatch: dispatchLive,
     });
+
+    // Record one publish_attempts row per selected channel for the audit trail.
+    const attemptStatus = !dispatchLive
+      ? ("disabled" as const)
+      : job.status === "dispatched"
+      ? ("dispatched" as const)
+      : ("queued" as const);
+    await Promise.all(
+      data.channels.map((channel) =>
+        recordPublishAttempt({
+          organization_id: profile.organization_id,
+          social_post_id: post!.id,
+          platform: CHANNEL_PLATFORM[channel],
+          route: "n8n",
+          status: attemptStatus,
+          error: dispatchLive ? null : publishGate!.reason,
+          metadata: { channel, job_id: job!.job_id },
+        })
+      )
+    );
+
     await recordAudit({
       actor: profile,
       action: "social_publish_requested",
@@ -189,11 +268,12 @@ export async function POST(req: Request) {
       target_id: post.id,
       metadata: {
         channels: data.channels,
-        dispatch: env.SAFETY.allowLiveSocialPublish,
+        dispatch: dispatchLive,
+        gate_reason: publishGate.reason,
         job_id: job.job_id,
       },
     });
   }
 
-  return NextResponse.json({ ok: true, post, job });
+  return NextResponse.json({ ok: true, post, job, publish: publishGate });
 }

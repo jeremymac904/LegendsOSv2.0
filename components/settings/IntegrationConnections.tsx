@@ -102,6 +102,8 @@ export function IntegrationConnections() {
   // Per-provider connect feedback ("setup needed", "opening Google…", error).
   const [connectMsg, setConnectMsg] = useState<Record<string, string>>({});
   const [connecting, setConnecting] = useState<string | null>(null);
+  // Tracks an in-flight test/revoke action, keyed `${provider}:${action}`.
+  const [actionBusy, setActionBusy] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -163,6 +165,49 @@ export function IntegrationConnections() {
       }));
     } finally {
       setConnecting(null);
+    }
+  }
+
+  async function test(provider: ConnectionView["provider"]) {
+    setActionBusy(`${provider}:test`);
+    setConnectMsg((m) => ({ ...m, [provider]: "Testing connection…" }));
+    try {
+      const res = await fetch("/api/integrations/test", {
+        method: "POST",
+        credentials: "include",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ provider }),
+      });
+      const json = (await res.json()) as { ok: boolean; message?: string; error?: string };
+      setConnectMsg((m) => ({ ...m, [provider]: json.message ?? json.error ?? "Test complete." }));
+      await load();
+    } catch {
+      setConnectMsg((m) => ({ ...m, [provider]: "Network error testing connection." }));
+    } finally {
+      setActionBusy(null);
+    }
+  }
+
+  async function revoke(provider: ConnectionView["provider"]) {
+    setActionBusy(`${provider}:revoke`);
+    setConnectMsg((m) => ({ ...m, [provider]: "Revoking…" }));
+    try {
+      const res = await fetch("/api/integrations/revoke", {
+        method: "POST",
+        credentials: "include",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ provider }),
+      });
+      const json = (await res.json()) as { ok: boolean; message?: string; error?: string };
+      setConnectMsg((m) => ({
+        ...m,
+        [provider]: json.ok ? "Disconnected. Tokens deleted server-side." : json.message ?? "Revoke failed.",
+      }));
+      await load();
+    } catch {
+      setConnectMsg((m) => ({ ...m, [provider]: "Network error revoking." }));
+    } finally {
+      setActionBusy(null);
     }
   }
 
@@ -237,6 +282,24 @@ export function IntegrationConnections() {
                       ? "Reconnect"
                       : "Connect"}
                 </button>
+                <button
+                  type="button"
+                  onClick={() => test(c.provider)}
+                  disabled={actionBusy === `${c.provider}:test`}
+                  className="btn-ghost h-8 px-3 text-xs disabled:opacity-40"
+                >
+                  {actionBusy === `${c.provider}:test` ? "Testing…" : "Test"}
+                </button>
+                {(isConnected || c.status === "error") && (
+                  <button
+                    type="button"
+                    onClick={() => revoke(c.provider)}
+                    disabled={actionBusy === `${c.provider}:revoke`}
+                    className="btn-ghost h-8 px-3 text-xs text-status-err disabled:opacity-40"
+                  >
+                    {actionBusy === `${c.provider}:revoke` ? "Revoking…" : "Revoke"}
+                  </button>
+                )}
                 {c.updated_at && (
                   <span className="text-[10px] text-ink-600 dark:text-ink-400">
                     updated {new Date(c.updated_at).toLocaleDateString()}

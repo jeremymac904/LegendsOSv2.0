@@ -14,6 +14,7 @@ import {
 import { LegendsOSHelpCoaches } from "@/components/help/LegendsOSHelpCoaches";
 import { DriveLoanBrainSetup } from "@/components/settings/DriveLoanBrainSetup";
 import { IntegrationConnections } from "@/components/settings/IntegrationConnections";
+import { LiveActionToggles } from "@/components/settings/LiveActionToggles";
 import { ProviderToggle } from "@/components/settings/ProviderToggle";
 import { MCPConnections } from "@/components/settings/MCPConnections";
 import { RouteOwnershipAudit } from "@/components/settings/RouteOwnershipAudit";
@@ -645,14 +646,28 @@ export default async function SettingsPage() {
         <section className="card-padded">
           <div className="section-title">
             <div>
-              <h2>External actions</h2>
-              {/* HONEST: these are read-only status pills derived from
-                  environment flags, not interactive toggles. The header must
-                  not imply you can flip them here. */}
-              <p>Outbound action status (set via environment).</p>
+              <h2>Live actions (your account)</h2>
+              <p>
+                Control whether YOUR outbound actions run live or stay draft.
+                These are real, saved settings — enforced server-side. They only
+                take effect when the owner has also enabled the matching team
+                default and your account is connected.
+              </p>
             </div>
           </div>
-          <ul className="mt-4 space-y-2 text-sm">
+          <div className="mt-4">
+            <LiveActionToggles scope="user" />
+          </div>
+
+          <h3 className="mt-6 text-sm font-semibold text-ink-900 dark:text-ink-100">
+            Environment master flags
+          </h3>
+          <p className="mb-2 mt-1 text-[11px] text-ink-600 dark:text-ink-400">
+            Deploy-level defaults set in the hosting environment. The toggles
+            above are the in-app controls; these show the underlying master
+            state.
+          </p>
+          <ul className="space-y-2 text-sm">
             {externalToggles.map((s) => (
               <li
                 key={s.env_var}
@@ -669,11 +684,6 @@ export default async function SettingsPage() {
               </li>
             ))}
           </ul>
-          <p className="mt-3 text-[11px] text-ink-600 dark:text-ink-400">
-            Read-only status. These flags are set in the hosting environment, not
-            from this screen. Outbound sending and publishing stay disabled
-            (draft only) until the owner enables the matching environment flag.
-          </p>
         </section>
       </div>
 

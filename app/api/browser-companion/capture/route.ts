@@ -36,6 +36,53 @@ export async function OPTIONS(req: Request) {
   return preflight(req);
 }
 
+// Compatibility shim. The canonical POST contract is snake_case:
+//   { source_url, source_title, selected_text, structured_context,
+//     task: <instruction string>, assistant: owner|loan_officer|processor|coordinator }
+// Older/extension clients historically sent camelCase keys (sourceUrl,
+// sourceTitle, selectedText, structuredContext, routedAssistant, task:<task id>).
+// We normalize BOTH shapes here so a camelCase body is never silently dropped.
+// snake_case always wins when both are present.
+//
+// The `framing` value (owner|processor|coordinator) some clients send maps onto
+// the assistant enum; `seededPrompt`/`taskLabel`/`sourceDomain` are ignored.
+function normalizeCaptureBody(raw: unknown): Record<string, unknown> {
+  if (!raw || typeof raw !== "object") return {};
+  const body = raw as Record<string, unknown>;
+  const pick = (...keys: string[]): unknown => {
+    for (const key of keys) {
+      const value = body[key];
+      if (value !== undefined && value !== null) return value;
+    }
+    return undefined;
+  };
+
+  // Map any of the framing/routed-assistant shapes onto the canonical enum.
+  const rawAssistant = pick("assistant", "routedAssistant", "framing");
+  let assistant: unknown = rawAssistant;
+  if (rawAssistant === "loan_officer" || rawAssistant === "atlas") {
+    assistant = "loan_officer";
+  } else if (
+    rawAssistant === "owner" ||
+    rawAssistant === "processor" ||
+    rawAssistant === "coordinator"
+  ) {
+    assistant = rawAssistant;
+  } else if (rawAssistant !== undefined) {
+    // Unknown string — drop it and let normalizeAssistant pick the default.
+    assistant = undefined;
+  }
+
+  return {
+    source_url: pick("source_url", "sourceUrl"),
+    source_title: pick("source_title", "sourceTitle"),
+    selected_text: pick("selected_text", "selectedText"),
+    structured_context: pick("structured_context", "structuredContext"),
+    task: pick("task"),
+    assistant,
+  };
+}
+
 const captureSchema = z.object({
   source_url: z.string().url().max(2000).optional().or(z.literal("")),
   source_title: z.string().max(500).optional(),
@@ -59,7 +106,7 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json().catch(() => null);
-  const parsed = captureSchema.safeParse(body);
+  const parsed = captureSchema.safeParse(normalizeCaptureBody(body));
   if (!parsed.success) {
     return corsJson(
       req,
@@ -104,10 +151,35 @@ export async function POST(req: Request) {
     routed_assistant: assistant,
   });
 
+  // Audit EVERY capture attempt — including the setup_needed and insert-failed
+  // outcomes — so a user is never routed to an assistant with no trail. The
+  // audit row carries ONLY non-PII metadata (action, source_url, actor,
+  // timestamp, routed assistant, outcome): never selected_text / borrower
+  // content. It is fully best-effort — a throw or a missing audit table never
+  // breaks the capture response.
+  const recordAudit = async (
+    captureId: string | null,
+    outcome: string
+  ): Promise<{ ok: boolean }> => {
+    try {
+      return await auditCapture({
+        actor_user_id: profile.id,
+        organization_id: profile.organization_id,
+        source_url: sourceUrl,
+        routed_assistant: assistant,
+        capture_id: captureId,
+        outcome,
+      });
+    } catch {
+      return { ok: false };
+    }
+  };
+
   // Honest "setup needed" when the table is missing. We still return the
   // routing href so the extension's fallback (open /atlas) keeps working, but
   // we flag provisioned:false so the UI shows "setup needed" not "saved".
   if (!stored.provisioned) {
+    await recordAudit(null, "setup_needed");
     return corsJson(
       req,
       {
@@ -122,6 +194,7 @@ export async function POST(req: Request) {
   }
 
   if (!stored.ok || !stored.data) {
+    await recordAudit(null, stored.error ?? "capture_failed");
     return corsJson(
       req,
       {
@@ -135,15 +208,8 @@ export async function POST(req: Request) {
     );
   }
 
-  // Audit — non-content metadata only. Never blocks the capture; a missing
-  // audit table is swallowed honestly.
-  const audit = await auditCapture({
-    actor_user_id: profile.id,
-    organization_id: profile.organization_id,
-    source_url: sourceUrl,
-    routed_assistant: assistant,
-    capture_id: stored.data.id,
-  });
+  // Audit the successful capture — non-content metadata only.
+  const audit = await recordAudit(stored.data.id, "captured");
 
   let loanBrain:
     | {
@@ -155,7 +221,15 @@ export async function POST(req: Request) {
       }
     | null = null;
 
-  if (isLoanFactoryContext(sourceUrl, sourceTitle)) {
+  // Loan Brain side-effect is gated behind the loan-memory feature flag. The
+  // whole loan-memory layer ships dormant until the owner applies the migration
+  // and sets LOAN_MEMORY_ENABLED=true (same flag the loan-memory routes and
+  // retrieval middleware check). While dormant we DON'T touch resolveLoanContext
+  // / writeMemoryEvent on every Loan Factory capture — we report it honestly as
+  // not attempted so a dormant system isn't quietly invoked in production.
+  const loanMemoryEnabled = process.env.LOAN_MEMORY_ENABLED === "true";
+
+  if (loanMemoryEnabled && isLoanFactoryContext(sourceUrl, sourceTitle)) {
     loanBrain = { attempted: true };
     try {
       const resolved = await resolveLoanContext(userClient, {
@@ -200,6 +274,10 @@ export async function POST(req: Request) {
       loanBrain.match_status = "unavailable";
       loanBrain.event_written = false;
     }
+  } else if (isLoanFactoryContext(sourceUrl, sourceTitle)) {
+    // Loan Factory page captured, but the loan-memory layer is dormant. Report
+    // honestly: we did not attempt resolution / memory writes.
+    loanBrain = { attempted: false, match_status: "unavailable" };
   }
 
   return corsJson(req, {
