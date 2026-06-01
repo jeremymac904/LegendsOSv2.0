@@ -129,11 +129,7 @@ export default async function AdminLeadReviewPage({
     ? allRows.filter((row) => Boolean((row.lead.metadata as Record<string, unknown>)?.test))
     : showAll
       ? allRows
-      : allRows.filter((row) =>
-          (["new", "needs_review", "contact_drafted", "assigned"] as string[]).includes(
-            row.lead.status
-          )
-        );
+      : allRows.filter((row) => (REVIEW_STATUSES as string[]).includes(row.lead.status));
   const pendingApprovals = allRows.reduce(
     (count, row) =>
       count +
