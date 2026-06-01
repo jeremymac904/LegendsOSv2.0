@@ -259,8 +259,6 @@ export function publishReadiness(opts: {
 // Instagram: POST /{ig-user-id}/media → /{ig-user-id}/media_publish (two-step)
 // ---------------------------------------------------------------------------
 
-import { recordIntegrationAudit } from "@/lib/integrations/audit";
-
 export interface MetaPublishPost {
   surface: "facebook" | "instagram";
   message?: string;

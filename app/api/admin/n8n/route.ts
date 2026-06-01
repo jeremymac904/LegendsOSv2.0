@@ -224,7 +224,7 @@ export async function POST(req: NextRequest) {
           { status: 404 }
         );
       }
-      jobRow = row as Record<string, unknown>;
+      jobRow = row as unknown as Record<string, unknown>;
     } catch {
       return NextResponse.json(
         { ok: false, error: "server_error", message: "Could not read job." },
