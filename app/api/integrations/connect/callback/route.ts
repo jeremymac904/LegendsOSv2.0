@@ -27,11 +27,19 @@ export const dynamic = "force-dynamic";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const GOOGLE_USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo";
 
+// Canonical OAuth redirect URI. MUST be identical to the connect route's value
+// and MUST match the Google Cloud console registration. Fixed constant (not the
+// request origin) so the token exchange's redirect_uri always matches the one
+// used to obtain the code. Override via GOOGLE_OAUTH_REDIRECT_URI.
+const DEFAULT_REDIRECT_URI = "https://legndsosv20.netlify.app/api/integrations/connect/callback";
+
 const PROVIDER_SCOPES: Record<string, string[]> = {
   google: ["openid", "email", "profile"],
   gmail: ["https://www.googleapis.com/auth/gmail.readonly"],
   google_drive: ["https://www.googleapis.com/auth/drive.readonly"],
   google_calendar: ["https://www.googleapis.com/auth/calendar.events"],
+  youtube: ["https://www.googleapis.com/auth/youtube.upload"],
+  google_business_profile: ["https://www.googleapis.com/auth/business.manage"],
 };
 
 function settingsRedirect(origin: string, params: Record<string, string>) {
@@ -69,8 +77,7 @@ export async function GET(req: Request) {
   if (!clientId || !clientSecret) {
     return settingsRedirect(origin, { integration_error: "oauth_not_configured", provider });
   }
-  const redirectUri =
-    process.env.GOOGLE_OAUTH_REDIRECT_URI ?? `${origin}/api/integrations/connect/callback`;
+  const redirectUri = process.env.GOOGLE_OAUTH_REDIRECT_URI || DEFAULT_REDIRECT_URI;
 
   // 3) Exchange the code for tokens (server-side).
   let tokenJson: {

@@ -125,8 +125,11 @@ async function run() {
     profiles = data || [];
   }
   const owner = profiles.find((p) => p.role === "owner") || profiles[0] || { id: "dry-run", organization_id: null };
-  const byName = (name) =>
-    profiles.find((p) => (p.full_name || "").toLowerCase().trim() === name.toLowerCase().trim());
+  // Diacritic-insensitive name match so "Christina Bús" (profile) matches the
+  // persona title "Christina Bus" and vice-versa.
+  const norm = (s) =>
+    (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+  const byName = (name) => profiles.find((p) => norm(p.full_name) === norm(name));
 
   const plan = { memories: 0, userSkills: 0, roleSkills: 0, sharedSkills: 0, pending: [] };
 

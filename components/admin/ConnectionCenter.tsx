@@ -7,6 +7,7 @@ import {
   CalendarDays,
   Facebook,
   HardDrive,
+  Instagram,
   KeyRound,
   Loader2,
   Mail,
@@ -34,8 +35,25 @@ import { cn } from "@/lib/utils";
 // API response types (mirrors of the route contracts; client-side only).
 // ---------------------------------------------------------------------------
 
+interface PublishIntegration {
+  configured: boolean;
+  publish_capability?: boolean;
+  env_required?: string[];
+  capabilities?: string[];
+}
+
+interface GoogleIntegration {
+  configured: boolean;
+  actions_available?: boolean;
+  redirect_uri_expected?: string;
+  env_required?: string[];
+  capabilities?: string[];
+}
+
 interface StatusResponse {
   ok: boolean;
+  // Top-level canonical OAuth callback to register in Google Cloud (non-secret).
+  redirect_uri: string;
   providers: Record<string, { configured: boolean; paid_enabled: boolean }>;
   automations: {
     n8n: {
@@ -45,21 +63,25 @@ interface StatusResponse {
     };
   };
   integrations: {
-    meta: { configured: boolean; paid_enabled: boolean; capabilities: string[] };
-    gbp: {
+    google_oauth: GoogleIntegration;
+    gmail: GoogleIntegration;
+    drive: GoogleIntegration;
+    calendar: GoogleIntegration;
+    meta: PublishIntegration;
+    instagram: PublishIntegration;
+    youtube: PublishIntegration;
+    google_business_profile: PublishIntegration;
+    n8n: {
       configured: boolean;
-      publish_implemented: boolean;
-      capabilities: string[];
+      base_url_present: boolean;
+      actions_available?: boolean;
+      webhooks: Record<string, boolean>;
     };
-    youtube: {
+    zapier_mcp: {
       configured: boolean;
-      publish_implemented: boolean;
-      capabilities: string[];
-    };
-    google_oauth: {
-      configured: boolean;
-      redirect_uri_expected: string;
-      capabilities: string[];
+      actions_available?: boolean;
+      connection_count: number;
+      scope: string;
     };
   };
   safety_flags: Record<string, boolean>;
@@ -157,6 +179,46 @@ function formatWhen(iso: string | null): string {
 
 function prettyAction(action: string): string {
   return action.replace(/[_.]/g, " ");
+}
+
+// Copy-to-clipboard button for the canonical redirect URI. Guards a missing
+// clipboard API (older webviews / insecure contexts) without throwing.
+function CopyableUri({ uri }: { uri: string }) {
+  const [copied, setCopied] = useState(false);
+  async function copy() {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(uri);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }
+    } catch {
+      // Clipboard unavailable — the URI is still shown below for manual copy.
+    }
+  }
+  return (
+    <div className="rounded-lg border border-ink-200 bg-ink-50/60 p-2.5 dark:border-ink-800 dark:bg-ink-950/30">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-500 dark:text-ink-400">
+          Canonical redirect URI
+        </p>
+        <button
+          type="button"
+          onClick={copy}
+          className="btn-ghost h-6 px-2 text-[10px]"
+          title="Copy the redirect URI"
+        >
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
+      <p className="mt-1 break-all font-mono text-[10px] text-ink-700 dark:text-ink-300">
+        {uri}
+      </p>
+      <p className="mt-0.5 text-[10px] text-ink-500 dark:text-ink-400">
+        Register this exact URL in your Google Cloud OAuth client.
+      </p>
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -437,7 +499,14 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
   const metaCanManage = meta?.can_manage ?? true;
 
   const youtube = status?.integrations.youtube;
-  const gbp = status?.integrations.gbp;
+  const gbp = status?.integrations.google_business_profile;
+  const instagram = status?.integrations.instagram;
+  const zapierMcp = status?.integrations.zapier_mcp;
+
+  // The canonical redirect URI to register in Google Cloud. Prefer the
+  // top-level value; fall back to the per-provider expected value if present.
+  const redirectUri =
+    status?.redirect_uri ?? googleOauth?.redirect_uri_expected ?? "";
 
   return (
     <div className="space-y-6">
@@ -521,8 +590,8 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
                 { name: "GOOGLE_OAUTH_CLIENT_SECRET", present: oauthConfigured ? true : undefined },
                 { name: "GOOGLE_OAUTH_REDIRECT_URI" },
               ]}
-              redirectUri={googleOauth?.redirect_uri_expected}
             />
+            {redirectUri && <CopyableUri uri={redirectUri} />}
           </CardShell>
 
           {/* Gmail / Drive / Calendar */}
@@ -612,11 +681,11 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
             );
           })}
 
-          {/* Meta (Facebook + Instagram) */}
+          {/* Meta (Facebook) */}
           <CardShell
             icon={Facebook}
-            title="Meta (Facebook + Instagram)"
-            subtitle="Page + Instagram publishing. Requires a connected account, owner approval, and the live-social toggle. Publisher wiring is pending."
+            title="Meta (Facebook)"
+            subtitle="Facebook Page publishing. Requires a connected account, owner approval, and the live-social toggle. Publisher wiring is pending."
             pillTone={
               !metaConfigured
                 ? "warn"
@@ -698,6 +767,32 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
                 {actionMsg.meta}
               </p>
             )}
+          </CardShell>
+
+          {/* Instagram (via Meta) */}
+          <CardShell
+            icon={Instagram}
+            title="Instagram"
+            subtitle="Instagram Business publishing rides the Meta connector. Requires an Instagram account id plus the Meta app credentials. Publisher wiring is pending."
+            pillTone={instagram?.configured ? "info" : "warn"}
+            pillLabel={
+              instagram?.configured
+                ? "Configured (publisher pending)"
+                : "Not configured"
+            }
+          >
+            <SetupChecklist
+              vars={[
+                { name: "META_APP_ID", present: instagram?.configured ? true : undefined },
+                { name: "META_APP_SECRET", present: instagram?.configured ? true : undefined },
+                { name: "META_ACCESS_TOKEN", present: instagram?.configured ? true : undefined },
+                {
+                  name: "META_INSTAGRAM_ACCOUNT_ID",
+                  present: instagram?.configured ? true : undefined,
+                },
+              ]}
+              note="Publishing not implemented yet — there is no Test/Publish action because the platform cannot post to Instagram. Owner approval is managed on the Meta (Facebook) card."
+            />
           </CardShell>
 
           {/* YouTube */}
@@ -787,8 +882,14 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
             icon={Zap}
             title="Zapier MCP"
             subtitle="Per-user automation bridge. Configured individually under Settings → MCP connections, not globally here."
-            pillTone="info"
-            pillLabel="Configured per user"
+            pillTone={
+              zapierMcp && zapierMcp.connection_count > 0 ? "ok" : "info"
+            }
+            pillLabel={
+              zapierMcp && zapierMcp.connection_count > 0
+                ? `${zapierMcp.connection_count} connected`
+                : "Configured per user"
+            }
           >
             <p className="text-[11px] leading-relaxed text-ink-600 dark:text-ink-300">
               Zapier MCP is connected per team member in{" "}
@@ -796,6 +897,9 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
                 Settings → MCP connections
               </span>
               . There is no org-wide credential to set here.
+              {zapierMcp && zapierMcp.connection_count === 0 && (
+                <> No team member has saved a Zapier MCP connection yet.</>
+              )}
             </p>
           </CardShell>
         </div>

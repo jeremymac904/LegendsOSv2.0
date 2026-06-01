@@ -4,6 +4,7 @@ import { z } from "zod";
 import { runChat } from "@/lib/ai/providers";
 import { loadAgentMemory, renderMemoryBlock } from "@/lib/agents/memory";
 import { defaultAgentForRole } from "@/lib/agents/registry";
+import { ensureAgentSession, logAgentMessages } from "@/lib/agents/sessionLog";
 import {
   loadAgentSkills,
   renderSkillsBlock,
@@ -46,7 +47,7 @@ import {
   getSupabaseServerClient,
   getSupabaseServiceClient,
 } from "@/lib/supabase/server";
-import { checkDailyCap, logUsage } from "@/lib/usage";
+import { checkDailyCap, logUsage, recordAudit } from "@/lib/usage";
 
 // Human-readable label per tool — used in both the assistant text response
 // for capability queries and in the friendly error text when a tool insert
@@ -764,15 +765,21 @@ export async function POST(req: Request) {
   // saved/shared skills and inject them so Atlas answers AS them. Degrade-safe:
   // if the agent_* tables aren't applied, this silently no-ops.
   let personaBlock = "";
+  // Captured for the agent-runtime session log (best-effort persistence below).
+  const agentType = defaultAgentForRole(profile.role);
+  let loadedMemoryCount = 0;
+  let loadedSkillCount = 0;
   try {
-    const agentType = defaultAgentForRole(profile.role);
     const [mem, skl] = await Promise.all([
       loadAgentMemory(supabase, profile.id, agentType),
       loadAgentSkills(supabase, profile.id, agentType),
     ]);
+    const relevantSkills = selectRelevantSkills(skl.skills, message);
+    loadedMemoryCount = mem.memories.length;
+    loadedSkillCount = relevantSkills.length;
     const blocks = [
       renderMemoryBlock(mem.memories),
-      renderSkillsBlock(selectRelevantSkills(skl.skills, message)),
+      renderSkillsBlock(relevantSkills),
     ].filter(Boolean);
     if (blocks.length) {
       personaBlock = ["## Your persona & saved skills (answer in this voice)", ...blocks].join("\n\n");
@@ -869,6 +876,62 @@ export async function POST(req: Request) {
     .from("chat_threads")
     .update({ last_message_at: new Date().toISOString() })
     .eq("id", threadId);
+
+  // ---- Agent runtime session log (ADDITIVE, best-effort) ------------------
+  // Mirror this turn into the role-based agent runtime tables so the runtime
+  // has a real session + transcript (memory/traces/handoffs build on these).
+  // Strictly additive: any failure is swallowed so the chat response above is
+  // never affected and its shape never changes. No secrets or raw PII written.
+  try {
+    // Tools the retrieval layer actually exercised this turn (summaries only).
+    const runtimeToolCalls: string[] = [];
+    if (knowledgeHits.length > 0) runtimeToolCalls.push("knowledge_search");
+    if (loanRetrievalResult?.loanRelated) runtimeToolCalls.push("loan_memory_lookup");
+    const sourceContextSummary = [
+      loanContextText ? "loan_memory" : null,
+      personaBlock ? "user_persona" : null,
+      projectBlock ? "atlas_project" : null,
+      knowledgeBlock ? "knowledge" : null,
+    ]
+      .filter(Boolean)
+      .join(", ") || null;
+
+    const sessionId = await ensureAgentSession({
+      userId: profile.id,
+      organizationId: profile.organization_id,
+      agentType,
+      threadId: threadId ?? null,
+      title: message.slice(0, 80),
+    });
+    if (sessionId) {
+      await logAgentMessages({
+        sessionId,
+        userId: profile.id,
+        organizationId: profile.organization_id,
+        agentType,
+        userText: message,
+        assistantText: result.content,
+        loadedMemoryCount,
+        loadedSkillCount,
+        toolCalls: runtimeToolCalls,
+        sourceContext: sourceContextSummary,
+        model: result.model,
+      });
+    }
+    await recordAudit({
+      actor: profile,
+      action: "atlas_response_logged",
+      metadata: {
+        agent_type: agentType,
+        session_id: sessionId,
+        assistant_len: result.content?.length ?? 0,
+        tool_call_count: runtimeToolCalls.length,
+      },
+    });
+  } catch (e) {
+    // Logging must never break the chat response. Swallow and continue.
+    console.error("agent runtime session log failed", e);
+  }
 
   // Persist retrieval_references so the message → item link can be replayed
   // later (and surfaced in the UI as citations once we build that out).
