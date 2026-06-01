@@ -2,18 +2,22 @@
 -- Tracks MCP connectors and automation bridges available to Atlas.
 -- Three tiers: owner_global, lo_personal, future
 
-create type if not exists connector_tier as enum (
-  'owner_global',
-  'lo_personal',
-  'future'
-);
+do $$ begin
+  create type connector_tier as enum (
+    'owner_global',
+    'lo_personal',
+    'future'
+  );
+exception when duplicate_object then null; end $$;
 
-create type if not exists connector_status as enum (
-  'active',
-  'inactive',
-  'error',
-  'coming_soon'
-);
+do $$ begin
+  create type connector_status as enum (
+    'active',
+    'inactive',
+    'error',
+    'coming_soon'
+  );
+exception when duplicate_object then null; end $$;
 
 create table if not exists atlas_connectors (
   id              uuid primary key default gen_random_uuid(),
@@ -33,9 +37,10 @@ create table if not exists atlas_connectors (
 );
 
 -- updated_at trigger
+drop trigger if exists atlas_connectors_updated_at on atlas_connectors;
 create trigger atlas_connectors_updated_at
   before update on atlas_connectors
-  for each row execute function set_updated_at();
+  for each row execute function public.touch_updated_at();
 
 -- RLS
 alter table atlas_connectors enable row level security;
