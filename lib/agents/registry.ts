@@ -28,6 +28,7 @@ export const TOOLS = {
   create_training_summary: "create_training_summary",
   create_youtube_repurpose_plan: "create_youtube_repurpose_plan",
   review_output: "review_output",
+  trigger_zap: "trigger_zap",
 } as const;
 
 const READ_TOOLS = [
@@ -66,7 +67,7 @@ export const AGENT_REGISTRY: Record<AgentType, AgentDefinition> = {
     "Owner command assistant",
     "Jeremy's operator brain — strategy, ops, pipeline, marketing direction, agent orchestration.",
     ["owner", "admin"],
-    [...READ_TOOLS, TOOLS.loan_memory_lookup, TOOLS.draft_email, TOOLS.draft_social_post, TOOLS.create_builder_prompt, TOOLS.review_output],
+    [...READ_TOOLS, TOOLS.loan_memory_lookup, TOOLS.draft_email, TOOLS.draft_social_post, TOOLS.create_builder_prompt, TOOLS.review_output, TOOLS.trigger_zap],
     true
   ),
   lo_atlas: def(
@@ -93,7 +94,7 @@ export const AGENT_REGISTRY: Record<AgentType, AgentDefinition> = {
     "Loan coordination assistant",
     "The follow-up engine — document chasing, realtor updates, milestone tracking, handoffs.",
     ["owner", "admin", "coordinator"],
-    [...READ_TOOLS, TOOLS.loan_memory_lookup, TOOLS.create_coordinator_followup, TOOLS.draft_email, TOOLS.draft_text],
+    [...READ_TOOLS, TOOLS.loan_memory_lookup, TOOLS.create_coordinator_followup, TOOLS.draft_email, TOOLS.draft_text, TOOLS.trigger_zap],
     true
   ),
   builder_agent: def(
@@ -102,7 +103,7 @@ export const AGENT_REGISTRY: Record<AgentType, AgentDefinition> = {
     "Build assistant",
     "Websites, landing pages, blog/training content, Claude Code/Codex/AionUI prompts, resource pages.",
     ["owner", "admin", "loan_officer"],
-    [...READ_TOOLS, TOOLS.create_builder_prompt, TOOLS.create_training_summary, TOOLS.review_output],
+    [...READ_TOOLS, TOOLS.create_builder_prompt, TOOLS.create_training_summary, TOOLS.review_output, TOOLS.trigger_zap],
     false
   ),
   marketing_agent: def(
@@ -111,7 +112,7 @@ export const AGENT_REGISTRY: Record<AgentType, AgentDefinition> = {
     "Marketing content assistant",
     "Social, email, image prompts, YouTube repurposing, GBP/Meta posts, content calendars, compliance.",
     ["owner", "admin", "marketing", "loan_officer"],
-    [...READ_TOOLS, TOOLS.draft_social_post, TOOLS.draft_email, TOOLS.create_youtube_repurpose_plan, TOOLS.review_output],
+    [...READ_TOOLS, TOOLS.draft_social_post, TOOLS.draft_email, TOOLS.create_youtube_repurpose_plan, TOOLS.review_output, TOOLS.trigger_zap],
     false
   ),
   academy_agent: def(

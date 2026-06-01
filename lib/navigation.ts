@@ -239,6 +239,14 @@ export const NAV_ITEMS: NavItem[] = [
   },
   {
     section: "owner",
+    href: "/admin/n8n",
+    label: "n8n Automations",
+    description: "Workflow registry, test webhooks, job queue, dispatch controls",
+    icon: Workflow,
+    gate: { ownerOnly: true },
+  },
+  {
+    section: "owner",
     href: "/admin/security",
     label: "Security",
     description: "Borrower data protections, RLS, OAuth, webhooks, audit coverage",

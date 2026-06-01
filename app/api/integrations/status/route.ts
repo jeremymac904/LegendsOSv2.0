@@ -118,6 +118,10 @@ export async function GET() {
       nvidia: providers.nvidia,
       fal: providers.fal,
       huggingface: providers.huggingface,
+      heygen: {
+        configured: envPresent("HEYGEN_API_KEY"),
+        paid_enabled: envPresent("HEYGEN_API_KEY"),
+      },
     },
     automations: {
       n8n: {
@@ -228,5 +232,153 @@ export async function GET() {
     // Public Supabase project URL is the only URL ever returned. Everything
     // else is boolean-only by design.
     supabase_project_url: PUBLIC_ENV.SUPABASE_URL,
+    // ----- NEW ADDITIONS -----
+    // Additional integration sections — presence booleans only, no values.
+    lead_intake: {
+      configured: envPresent("LEGENDSOS_WEBHOOK_SECRET"),
+      webhook_url: "/api/webhooks/lead-intake",
+    },
+    browser_companion: {
+      extension_origins_configured: envPresent("LEGENDSOS_BROWSER_EXTENSION_ORIGINS"),
+    },
+    heygen: {
+      configured: envPresent("HEYGEN_API_KEY"),
+    },
+    // Full env checklist — maps every required var name → {present, category, description}.
+    // Values are NEVER included. Used by the EnvChecklist component.
+    env_checklist: {
+      // Google OAuth
+      GOOGLE_OAUTH_CLIENT_ID: {
+        present: envPresent("GOOGLE_OAUTH_CLIENT_ID"),
+        category: "google_oauth",
+        description: "Google OAuth client ID — unlocks Gmail, Drive, and Calendar connections.",
+      },
+      GOOGLE_OAUTH_CLIENT_SECRET: {
+        present: envPresent("GOOGLE_OAUTH_CLIENT_SECRET"),
+        category: "google_oauth",
+        description: "Google OAuth client secret — pair with Client ID to authenticate users.",
+      },
+      GOOGLE_OAUTH_REDIRECT_URI: {
+        present: envPresent("GOOGLE_OAUTH_REDIRECT_URI"),
+        category: "google_oauth",
+        description: "Override the canonical redirect URI if your domain differs from the default.",
+      },
+      // Webhooks
+      LEGENDSOS_WEBHOOK_SECRET: {
+        present: envPresent("LEGENDSOS_WEBHOOK_SECRET"),
+        category: "webhooks",
+        description: "Shared secret validating inbound webhook calls (lead intake, n8n callbacks).",
+      },
+      N8N_WEBHOOK_BASE_URL: {
+        present: envPresent("N8N_WEBHOOK_BASE_URL"),
+        category: "webhooks",
+        description: "Base URL of your n8n instance — required for all n8n workflow dispatches.",
+      },
+      N8N_WEBHOOK_SECRET: {
+        present: envPresent("N8N_WEBHOOK_SECRET"),
+        category: "webhooks",
+        description: "Shared secret for n8n webhook verification.",
+      },
+      N8N_API_KEY: {
+        present: envPresent("N8N_API_KEY"),
+        category: "webhooks",
+        description: "n8n API key for programmatic workflow management.",
+      },
+      // Meta / Social
+      META_APP_ID: {
+        present: envPresent("META_APP_ID"),
+        category: "meta_social",
+        description: "Meta (Facebook) app ID — required for Facebook and Instagram publishing.",
+      },
+      META_APP_SECRET: {
+        present: envPresent("META_APP_SECRET"),
+        category: "meta_social",
+        description: "Meta app secret — pair with App ID to authenticate Meta API calls.",
+      },
+      META_ACCESS_TOKEN: {
+        present: envPresent("META_ACCESS_TOKEN"),
+        category: "meta_social",
+        description: "Long-lived Meta access token for publishing to Facebook/Instagram.",
+      },
+      META_PAGE_ID: {
+        present: envPresent("META_PAGE_ID"),
+        category: "meta_social",
+        description: "Facebook Page ID to publish posts to.",
+      },
+      META_INSTAGRAM_ACCOUNT_ID: {
+        present: envPresent("META_INSTAGRAM_ACCOUNT_ID"),
+        category: "meta_social",
+        description: "Instagram Business Account ID linked to your Facebook Page.",
+      },
+      ALLOW_LIVE_SOCIAL_PUBLISH: {
+        present: envPresent("ALLOW_LIVE_SOCIAL_PUBLISH"),
+        category: "meta_social",
+        description: "Safety toggle — set to 'true' to allow live social publishing.",
+      },
+      ALLOW_LIVE_EMAIL_SEND: {
+        present: envPresent("ALLOW_LIVE_EMAIL_SEND"),
+        category: "meta_social",
+        description: "Safety toggle — set to 'true' to allow live email sending.",
+      },
+      // Google Services
+      GBP_ACCOUNT_ID: {
+        present: envPresent("GBP_ACCOUNT_ID"),
+        category: "google_services",
+        description: "Google Business Profile account ID for posting and review replies.",
+      },
+      GBP_LOCATION_ID: {
+        present: envPresent("GBP_LOCATION_ID"),
+        category: "google_services",
+        description: "GBP location ID — required alongside GBP_ACCOUNT_ID.",
+      },
+      YOUTUBE_CHANNEL_ID: {
+        present: envPresent("YOUTUBE_CHANNEL_ID"),
+        category: "google_services",
+        description: "YouTube channel ID for future video publishing.",
+      },
+      // Zapier
+      ZAP_MCP_KEY: {
+        present: envPresent("ZAP_MCP_KEY") || envPresent("ZAPIER_MCP_KEY"),
+        category: "zapier",
+        description: "Zapier MCP key — used for per-user Zapier automation bridges.",
+      },
+      // AI Providers
+      OPENROUTER_API_KEY: {
+        present: envPresent("OPENROUTER_API_KEY"),
+        category: "ai_providers",
+        description: "OpenRouter API key — enables the primary AI routing layer (Claude, GPT-4, etc.).",
+      },
+      DEEPSEEK_API_KEY: {
+        present: envPresent("DEEPSEEK_API_KEY"),
+        category: "ai_providers",
+        description: "DeepSeek API key — enables DeepSeek R1/V3 reasoning models.",
+      },
+      NVIDIA_API_KEY: {
+        present: envPresent("NVIDIA_API_KEY"),
+        category: "ai_providers",
+        description: "NVIDIA API key — enables Kimi K2.5, Nemotron, and other NVIDIA-hosted models.",
+      },
+      FAL_KEY: {
+        present: envPresent("FAL_KEY"),
+        category: "ai_providers",
+        description: "Fal.ai API key — enables AI image generation (FLUX, etc.).",
+      },
+      HF_TOKEN: {
+        present: envPresent("HF_TOKEN"),
+        category: "ai_providers",
+        description: "Hugging Face token — enables HF Inference API and model downloads.",
+      },
+      HEYGEN_API_KEY: {
+        present: envPresent("HEYGEN_API_KEY"),
+        category: "ai_providers",
+        description: "HeyGen API key — enables AI avatar video generation.",
+      },
+      // Browser Companion
+      LEGENDSOS_BROWSER_EXTENSION_ORIGINS: {
+        present: envPresent("LEGENDSOS_BROWSER_EXTENSION_ORIGINS"),
+        category: "browser_companion",
+        description: "Comma-separated allowed origins for the browser companion extension.",
+      },
+    },
   });
 }
