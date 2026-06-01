@@ -16,6 +16,7 @@ import {
   LayoutDashboard,
   Mail,
   MessageCircle,
+  Plug,
   Puzzle,
   Rocket,
   Settings,
@@ -226,6 +227,14 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Team Setup",
     description: "Roster provisioning, invites, integration status",
     icon: UserPlus,
+    gate: { ownerOnly: true },
+  },
+  {
+    section: "owner",
+    href: "/admin/connections",
+    label: "Connection Center",
+    description: "OAuth + integrations: connect, approve, enable live actions, audit",
+    icon: Plug,
     gate: { ownerOnly: true },
   },
   {

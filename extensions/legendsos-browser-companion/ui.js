@@ -181,14 +181,153 @@
     }
   }
 
-  async function handleAction(taskId) {
+  // The currently-staged-but-unsent capture (review-before-send gate). Set by a
+  // data-action click when the review pane exists; cleared on send/cancel.
+  let pendingReview = null;
+
+  function reviewPaneExists() {
+    return Boolean($("review-card"));
+  }
+
+  // Render the EXACT payload into the review pane and reveal it. NO network call
+  // or tab open happens here — the user must click "Send to LegendsOS".
+  function showReview(reviewed) {
+    const card = $("review-card");
+    if (!card) return;
+    const payload = reviewed.payload || {};
+
+    const titleEl = $("review-title");
+    if (titleEl)
+      titleEl.textContent = payload.source_title || "(untitled page)";
+    const urlEl = $("review-url");
+    if (urlEl) urlEl.textContent = payload.source_url || "(no URL captured)";
+
+    const selWrap = $("review-selected-wrap");
+    const selBox = $("review-selected");
+    const selText = payload.selected_text || "";
+    if (selWrap) selWrap.hidden = !selText;
+    if (selBox) selBox.value = selText;
+
+    const structWrap = $("review-structured-wrap");
+    const structBox = $("review-structured");
+    let structText = "";
+    const sc = payload.structured_context;
+    if (sc && typeof sc === "object") {
+      const items = Array.isArray(sc.items) ? sc.items : [];
+      if (items.length) {
+        structText = items
+          .map((i) => "• " + (i.kind ? i.kind + ": " : "") + (i.text || ""))
+          .join("\n");
+      } else if (sc.summary) {
+        structText = String(sc.summary);
+      }
+    }
+    if (structWrap) structWrap.hidden = !structText;
+    if (structBox) structBox.value = structText;
+
+    const promptBox = $("review-prompt");
+    if (promptBox) promptBox.value = reviewed.seededPrompt || "";
+
+    card.hidden = false;
+  }
+
+  function hideReview() {
+    pendingReview = null;
+    const card = $("review-card");
+    if (card) card.hidden = true;
+  }
+
+  // STEP 1: capture the page and stage it for review (no send). Used when the
+  // review pane exists (side panel).
+  async function captureForReview(taskId) {
+    const assistantId = selectedAssistant();
+    setToast("Capturing page…", null);
+    disableActions(true);
+    setOpenUrl(null);
+    hideReview();
+
+    try {
+      const reviewed = await Companion.captureForReview(assistantId, taskId);
+      if (!reviewed.ok) {
+        if (reviewed.error === "unauthed") {
+          setToast("Sign in to LegendsOS first.", "warn");
+          await runSessionCheck();
+        } else {
+          setToast(describeCaptureError(reviewed.error), "err");
+        }
+        return;
+      }
+      pendingReview = reviewed;
+      // Show the seeded prompt in the output box too so it's copyable.
+      setOutput(reviewed.seededPrompt || "");
+      showReview(reviewed);
+      setToast("Review the captured payload below, then send.", null);
+    } catch (e) {
+      setToast(describeCaptureError((e && e.message) || ""), "err");
+    } finally {
+      disableActions(false);
+    }
+  }
+
+  // STEP 2: the user confirmed — send the already-reviewed capture.
+  async function confirmSend() {
+    if (!pendingReview) return;
+    const reviewed = pendingReview;
+    setToast("Sending to LegendsOS…", null);
+    disableActions(true);
+    const sendBtn = $("review-send");
+    if (sendBtn) sendBtn.disabled = true;
+
+    try {
+      const result = await Companion.sendCapture(
+        reviewed.assistantId,
+        reviewed.taskId,
+        reviewed.capture
+      );
+      if (!result.ok) {
+        if (result.error === "unauthed") {
+          setToast("Sign in to LegendsOS first.", "warn");
+          await runSessionCheck();
+        } else {
+          setToast(describeCaptureError(result.error), "err");
+        }
+        return;
+      }
+
+      setOutput(result.seededPrompt || reviewed.seededPrompt || "");
+      setOpenUrl(result.openedUrl || null);
+      hideReview();
+
+      if (result.mode === "direct") {
+        setToast(
+          result.opened
+            ? "Sent and saved. Opened LegendsOS."
+            : "Sent and saved. Use “Open in LegendsOS”.",
+          "ok"
+        );
+      } else {
+        setToast(
+          result.opened
+            ? "Direct save unavailable — opened LegendsOS to finish saving."
+            : "Direct save unavailable — use “Open in LegendsOS”.",
+          "warn"
+        );
+      }
+    } catch (e) {
+      setToast(describeCaptureError((e && e.message) || ""), "err");
+    } finally {
+      disableActions(false);
+      if (sendBtn) sendBtn.disabled = false;
+    }
+  }
+
+  // One-shot capture+send for surfaces WITHOUT a review pane (e.g. the popup).
+  async function runOneShot(taskId) {
     const assistantId = selectedAssistant();
     setToast("Capturing page…", null);
     disableActions(true);
     setOpenUrl(null);
 
-    // For the two "local draft" tasks we still capture, show a local preview in
-    // the output box, AND route to Atlas so the user gets a real completion.
     try {
       const result = await Companion.runAction(assistantId, taskId);
       if (!result.ok) {
@@ -201,8 +340,6 @@
         return;
       }
 
-      // Show the seeded prompt in the read-only output box so the user can copy
-      // it even if the tab didn't open.
       setOutput(result.seededPrompt || "");
       setOpenUrl(result.openedUrl || null);
 
@@ -228,6 +365,17 @@
     }
   }
 
+  // Route a task-button click. With a review pane present, this only CAPTURES
+  // and stages a review; the send happens on explicit confirm. Without a review
+  // pane (popup), it's the one-shot capture+send.
+  async function handleAction(taskId) {
+    if (reviewPaneExists()) {
+      await captureForReview(taskId);
+    } else {
+      await runOneShot(taskId);
+    }
+  }
+
   async function runSessionCheck() {
     const base = await Config.getBaseUrl();
     const urlInput = $("base-url");
@@ -241,6 +389,19 @@
     document.querySelectorAll("button[data-action]").forEach((btn) => {
       btn.addEventListener("click", () => handleAction(btn.dataset.action));
     });
+
+    // Review-before-send confirm / cancel (side panel only — absent in popup).
+    const reviewSend = $("review-send");
+    if (reviewSend) {
+      reviewSend.addEventListener("click", () => confirmSend());
+    }
+    const reviewCancel = $("review-cancel");
+    if (reviewCancel) {
+      reviewCancel.addEventListener("click", () => {
+        hideReview();
+        setToast("Capture discarded — nothing was sent.", null);
+      });
+    }
 
     const copyBtn = $("copy-btn");
     if (copyBtn) {
@@ -294,9 +455,19 @@
 
     const assistant = $("assistant");
     if (assistant) {
-      assistant.addEventListener("change", () =>
-        Config.setLastAssistant(assistant.value)
-      );
+      assistant.addEventListener("change", () => {
+        Config.setLastAssistant(assistant.value);
+        // A staged review was built for the previously-selected assistant; the
+        // routing/framing would now be stale, so discard it (re-capture to send
+        // to the new target). Nothing was ever sent.
+        if (pendingReview) {
+          hideReview();
+          setToast(
+            "Route changed — re-capture to send to the new assistant.",
+            null
+          );
+        }
+      });
     }
   }
 

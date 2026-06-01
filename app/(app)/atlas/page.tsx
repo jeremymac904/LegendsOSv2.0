@@ -5,7 +5,10 @@ import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { AtlasAssistant, KnowledgeCollection } from "@/types/database";
 
 import { buildAtlasModelCatalog } from "./model-catalog";
-import { loadAtlasRuntimeContext } from "@/lib/atlas/runtimeContext";
+import {
+  loadAtlasRuntimeContext,
+  type AtlasRuntimeContext,
+} from "@/lib/atlas/runtimeContext";
 
 export const dynamic = "force-dynamic";
 
@@ -22,41 +25,59 @@ export default async function AtlasIndexPage({
   const supabase = getSupabaseServerClient();
   const env = getServerEnv();
 
-  const [
-    { data: assistants },
-    { data: threadRows },
-    { data: collections },
-    { data: itemCounts },
-  ] = await Promise.all([
-    supabase
-      .from("atlas_assistants")
-      .select("*")
-      .eq("is_active", true)
-      .order("name", { ascending: true }),
-    supabase
-      .from("chat_threads")
-      .select("*")
-      .eq("user_id", profile.id)
-      .eq("is_archived", false)
-      .order("last_message_at", { ascending: false })
-      .limit(24),
-    supabase
-      .from("knowledge_collections")
-      .select("id,name,description,visibility")
-      .order("updated_at", { ascending: false }),
-    supabase.from("knowledge_items").select("collection_id"),
-  ]);
+  // Render-safety: a transient query-promise rejection should degrade to an
+  // empty workspace rather than a 500 dropping the authed shell. We default
+  // every dataset to null (→ empty arrays below) and only fill them on the
+  // happy path. Casts are unchanged from the original happy-path code.
+  let assistants: unknown = null;
+  let threadRows: unknown = null;
+  let collections: unknown = null;
+  let itemCounts: unknown = null;
+  let accessRows: { assistant_id: string; collection_id: string }[] = [];
+
+  try {
+    const [a, t, c, i] = await Promise.all([
+      supabase
+        .from("atlas_assistants")
+        .select("*")
+        .eq("is_active", true)
+        .order("name", { ascending: true }),
+      supabase
+        .from("chat_threads")
+        .select("*")
+        .eq("user_id", profile.id)
+        .eq("is_archived", false)
+        .order("last_message_at", { ascending: false })
+        .limit(24),
+      supabase
+        .from("knowledge_collections")
+        .select("id,name,description,visibility")
+        .order("updated_at", { ascending: false }),
+      supabase.from("knowledge_items").select("collection_id"),
+    ]);
+    assistants = a.data;
+    threadRows = t.data;
+    collections = c.data;
+    itemCounts = i.data;
+  } catch {
+    // Leave the defaults (null → empty arrays below); render an empty workspace.
+  }
 
   const assistantList = (assistants ?? []) as AtlasAssistant[];
-  const { data: accessRows } = assistantList.length
-    ? await supabase
-        .from("assistant_knowledge_access")
-        .select("assistant_id,collection_id")
-        .in(
-          "assistant_id",
-          assistantList.map((a) => a.id)
-        )
-    : { data: [] as { assistant_id: string; collection_id: string }[] };
+  try {
+    const { data } = assistantList.length
+      ? await supabase
+          .from("assistant_knowledge_access")
+          .select("assistant_id,collection_id")
+          .in(
+            "assistant_id",
+            assistantList.map((a) => a.id)
+          )
+      : { data: [] as { assistant_id: string; collection_id: string }[] };
+    accessRows = (data ?? []) as { assistant_id: string; collection_id: string }[];
+  } catch {
+    accessRows = [];
+  }
   const itemCountMap = new Map<string, number>();
   for (const row of (itemCounts ?? []) as { collection_id: string | null }[]) {
     if (!row.collection_id) continue;
@@ -88,13 +109,20 @@ export default async function AtlasIndexPage({
       ? envDefault
       : (fallback?.id as "openrouter" | "deepseek" | "nvidia" | "minimax" | undefined)) ??
     "openrouter";
-  const initialRuntimeContext = await loadAtlasRuntimeContext({
-    client: supabase,
-    profile,
-    assistantId: null,
-    provider: defaultProvider,
-    model: null,
-  });
+  let initialRuntimeContext: Awaited<ReturnType<typeof loadAtlasRuntimeContext>>;
+  try {
+    initialRuntimeContext = await loadAtlasRuntimeContext({
+      client: supabase,
+      profile,
+      assistantId: null,
+      provider: defaultProvider,
+      model: null,
+    });
+  } catch {
+    // Transient runtime-context failure degrades to an empty (but valid)
+    // context so the workspace still renders instead of 500-ing the shell.
+    initialRuntimeContext = emptyAtlasRuntimeContext(defaultProvider);
+  }
 
   return (
     <AtlasWorkspace
@@ -133,4 +161,41 @@ export default async function AtlasIndexPage({
       }[]}
     />
   );
+}
+
+// Minimal, valid runtime context used when loadAtlasRuntimeContext() throws on a
+// transient failure. Every sub-section reports an honest "error" status so the
+// workspace renders empty instead of dropping the authed shell to the root
+// boundary.
+function emptyAtlasRuntimeContext(
+  provider: string | null
+): AtlasRuntimeContext {
+  return {
+    agent_type: "owner_atlas",
+    current_assistant: {
+      id: null,
+      name: "Default Atlas",
+      description: null,
+      instructions_loaded: false,
+    },
+    model: { provider: provider ?? null, model: null },
+    memory: { status: "error", items: [] },
+    skills: { status: "error", items: [] },
+    loan: {
+      status: "not_requested",
+      match_status: null,
+      borrower_name: null,
+      loan_number: null,
+      current_stage: null,
+      main_blocker: null,
+      sources_checked: [],
+    },
+    browser: { status: "error", captures: [] },
+    knowledge: {
+      status: "error",
+      attached_sources: [],
+      retrieved_sources: [],
+    },
+    tools: { loaded: false, items: [] },
+  };
 }

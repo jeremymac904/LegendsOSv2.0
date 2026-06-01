@@ -84,6 +84,51 @@
     return TASKS[id] ? { id, ...TASKS[id] } : { id: "send", ...TASKS.send };
   }
 
+  // The capture API's canonical `assistant` enum is owner|loan_officer|
+  // processor|coordinator (see lib/browserCompanion/store.ts normalizeAssistant).
+  // The extension's ASSISTANTS framing is owner|processor|coordinator; map it
+  // onto the enum. Unknown values fall back to the server default (loan_officer).
+  function assistantEnumFor(assistant) {
+    switch (assistant && assistant.framing) {
+      case "owner":
+        return "owner";
+      case "processor":
+        return "processor";
+      case "coordinator":
+        return "coordinator";
+      default:
+        return "loan_officer";
+    }
+  }
+
+  // The capture API validates source_url as a real http(s) URL (or empty). Only
+  // forward a value that actually parses so an odd scheme never 400s the POST.
+  function httpUrlOrEmpty(url) {
+    if (!url || typeof url !== "string") return "";
+    try {
+      const u = new URL(url);
+      return u.protocol === "http:" || u.protocol === "https:" ? url : "";
+    } catch (_e) {
+      return "";
+    }
+  }
+
+  // Build the canonical snake_case POST body the capture API expects. We send
+  // the task INSTRUCTION text (not the task id) as `task`, and map the assistant
+  // framing onto the server enum. The redaction already happened in content.js.
+  function buildCapturePayload(assistantId, taskId, capture) {
+    const assistant = assistantById(assistantId);
+    const task = taskById(taskId);
+    return {
+      source_url: httpUrlOrEmpty(capture.sourceUrl),
+      source_title: capture.sourceTitle || "",
+      selected_text: capture.selectedText || "",
+      structured_context: capture.structuredContext || {},
+      task: task.instruction,
+      assistant: assistantEnumFor(assistant),
+    };
+  }
+
   // Build the seeded Atlas prompt: role framing + captured context summary +
   // the task instruction. Never includes raw form values (content.js excludes
   // them) and never includes secrets (content.js redacts them).
@@ -175,25 +220,15 @@
 
   // ---- Routing / POST -----------------------------------------------------
 
-  // POST the capture to LegendsOS. On success returns { routedTo, captureId? }.
-  // On network/CORS failure throws so the caller can fall back to the hand-off.
+  // POST the capture to LegendsOS using the canonical snake_case contract.
+  // On success returns { captureId, routingLink, seededPrompt, assistant, task }.
+  // On network/CORS failure throws with `.fallback` so the caller can fall back
+  // to the #payload= hand-off. A 401 throws with `.unauthed`.
   async function postCapture(base, assistantId, taskId, capture) {
     const assistant = assistantById(assistantId);
     const task = taskById(taskId);
     const seededPrompt = buildSeededPrompt(assistantId, taskId, capture);
-
-    const payload = {
-      sourceUrl: capture.sourceUrl,
-      sourceTitle: capture.sourceTitle,
-      sourceDomain: capture.sourceDomain,
-      selectedText: capture.selectedText,
-      structuredContext: capture.structuredContext,
-      routedAssistant: assistant.id,
-      framing: assistant.framing,
-      task: task.id,
-      taskLabel: task.label,
-      seededPrompt,
-    };
+    const payload = buildCapturePayload(assistantId, taskId, capture);
 
     let res;
     try {
@@ -231,11 +266,25 @@
     } catch (_e) {
       body = null;
     }
+
+    // The capture API answers HTTP 200 with { ok:false, error:"setup_needed" }
+    // when storage isn't provisioned yet — still returns a routing href so the
+    // capture is never a dead end. Treat a non-ok body as fallback-able.
+    if (body && body.ok === false) {
+      const err = new Error(body.error || "capture_not_saved");
+      err.fallback = true;
+      // Carry the server routing href so the caller can still open Atlas.
+      err.routingLink =
+        (body.routing && body.routing.href && base + body.routing.href) || null;
+      throw err;
+    }
+
+    const routing = (body && body.routing) || null;
     return {
-      captureId: (body && body.id) || null,
-      // The server may return an explicit routing link; otherwise we build one.
-      routingLink: (body && body.routingLink) || null,
-      seededPrompt,
+      captureId: (body && body.capture_id) || null,
+      // The server returns a routing href (path); make it absolute for openTab.
+      routingLink: (routing && routing.href && base + routing.href) || null,
+      seededPrompt: (routing && routing.seeded_prompt) || seededPrompt,
       assistant,
       task,
     };
@@ -248,22 +297,11 @@
 
   // Build the web fallback URL: the authenticated web app reads #payload= and
   // saves the capture server-side, then routes to Atlas. Payload is encoded
-  // JSON (no tokens, redacted content only).
+  // JSON in the SAME snake_case shape the web hand-off parser expects (see
+  // CompanionClient.parseHandoffFromHash) so no field is silently dropped.
+  // No tokens; redacted content only (content.js already redacted it).
   function fallbackLink(base, assistantId, taskId, capture) {
-    const assistant = assistantById(assistantId);
-    const task = taskById(taskId);
-    const seededPrompt = buildSeededPrompt(assistantId, taskId, capture);
-    const payload = {
-      sourceUrl: capture.sourceUrl,
-      sourceTitle: capture.sourceTitle,
-      sourceDomain: capture.sourceDomain,
-      selectedText: capture.selectedText,
-      structuredContext: capture.structuredContext,
-      routedAssistant: assistant.id,
-      framing: assistant.framing,
-      task: task.id,
-      seededPrompt,
-    };
+    const payload = buildCapturePayload(assistantId, taskId, capture);
     const encoded = encodeURIComponent(JSON.stringify(payload));
     return base + Config.WEB_FALLBACK_PATH + "#payload=" + encoded;
   }
@@ -283,12 +321,12 @@
     }
   }
 
-  // High-level "Send to X" / action runner. Captures, builds prompt, attempts
-  // direct POST, falls back to hand-off, then opens the right LegendsOS tab.
-  // Returns { ok, mode: 'direct'|'fallback', seededPrompt, openedUrl } or
-  // { ok:false, error }.
-  async function runAction(assistantId, taskId) {
-    const base = await Config.getBaseUrl();
+  // STEP 1 of the review-before-send gate. Capture the active tab and build the
+  // EXACT payload + seeded prompt WITHOUT any fetch or tab open. The side panel
+  // renders this into a review pane and waits for an explicit confirm before
+  // calling sendCapture(). Returns { ok, capture, payload, seededPrompt,
+  // assistant, task } or { ok:false, error }.
+  async function captureForReview(assistantId, taskId) {
     await Config.setLastAssistant(assistantId);
 
     let capture;
@@ -298,6 +336,30 @@
       return { ok: false, error: (e && e.message) || "capture_failed" };
     }
 
+    const assistant = assistantById(assistantId);
+    const task = taskById(taskId);
+    const seededPrompt = buildSeededPrompt(assistantId, taskId, capture);
+    const payload = buildCapturePayload(assistantId, taskId, capture);
+
+    return {
+      ok: true,
+      assistantId,
+      taskId,
+      capture,
+      payload,
+      seededPrompt,
+      assistant,
+      task,
+    };
+  }
+
+  // STEP 2 of the gate. Given an already-captured payload (from
+  // captureForReview), POST it, fall back to the web hand-off on failure, then
+  // open the right LegendsOS tab. NO capture happens here — the user already
+  // reviewed exactly this payload. Returns { ok, mode, seededPrompt, openedUrl,
+  // opened, captureId } or { ok:false, error }.
+  async function sendCapture(assistantId, taskId, capture) {
+    const base = await Config.getBaseUrl();
     const seededPrompt = buildSeededPrompt(assistantId, taskId, capture);
 
     // Try direct authenticated POST first (preferred).
@@ -319,7 +381,9 @@
         return { ok: false, error: "unauthed" };
       }
       // Fall back to the web hand-off: the authenticated web app saves it.
-      const url = fallbackLink(base, assistantId, taskId, capture);
+      // Prefer any routing href the server already returned (setup_needed case).
+      const url =
+        (e && e.routingLink) || fallbackLink(base, assistantId, taskId, capture);
       const opened = await openTab(url);
       return {
         ok: true,
@@ -330,6 +394,14 @@
         captureId: null,
       };
     }
+  }
+
+  // One-shot runner (capture + send) for surfaces without a review pane (e.g.
+  // the toolbar popup). The side panel uses the two-step gate instead.
+  async function runAction(assistantId, taskId) {
+    const reviewed = await captureForReview(assistantId, taskId);
+    if (!reviewed.ok) return reviewed;
+    return sendCapture(assistantId, taskId, reviewed.capture);
   }
 
   // Local-only action: produce output text in the panel WITHOUT routing.
@@ -368,9 +440,13 @@
     FRAMING,
     assistantById,
     taskById,
+    assistantEnumFor,
+    buildCapturePayload,
     buildSeededPrompt,
     checkSession,
     captureActiveTab,
+    captureForReview,
+    sendCapture,
     postCapture,
     atlasLink,
     fallbackLink,

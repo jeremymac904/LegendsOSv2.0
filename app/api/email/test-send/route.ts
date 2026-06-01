@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { enqueueAutomationJob } from "@/lib/automation/n8n";
-import { getServerEnv, PUBLIC_ENV } from "@/lib/env";
+import { PUBLIC_ENV } from "@/lib/env";
+import { resolveLiveAction } from "@/lib/integrations/liveSettings";
 import { isOwner } from "@/lib/permissions";
 import {
   getCurrentProfile,
@@ -67,16 +68,21 @@ export async function POST(req: Request) {
     );
   }
 
-  const env = getServerEnv();
-  if (!env.SAFETY.allowLiveEmailSend) {
-    // Important: we still return 200 here. The UI shows the
-    // "flip ALLOW_LIVE_EMAIL_SEND in Netlify env vars when ready" hint
-    // — this isn't a server error, it's a deliberate owner gate.
+  // Live email is gated by the in-app owner/per-user toggle (integration_settings),
+  // resolved fail-closed. The owner can enable it from Settings → live actions.
+  const live = await resolveLiveAction("email", {
+    organizationId: profile.organization_id,
+    userId: profile.id,
+  });
+  if (!live.allowed) {
+    // Important: we still return 200 here. This isn't a server error, it's a
+    // deliberate owner gate the owner controls from inside the app.
     return NextResponse.json({
       ok: false,
       error: "live_send_disabled",
       message:
-        "Test send disabled — flip ALLOW_LIVE_EMAIL_SEND in Netlify env vars when ready.",
+        "Test send disabled — enable live email in Settings → Live actions (the safe-mode / live-email toggle), then try again.",
+      reason: live.reason,
     });
   }
 
