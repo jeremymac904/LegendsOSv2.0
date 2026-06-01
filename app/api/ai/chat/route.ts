@@ -2,11 +2,27 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { runChat } from "@/lib/ai/providers";
+import { loadAgentMemory, renderMemoryBlock } from "@/lib/agents/memory";
+import { defaultAgentForRole } from "@/lib/agents/registry";
+import { ensureAgentSession, logAgentMessages } from "@/lib/agents/sessionLog";
+import {
+  loadAgentSkills,
+  renderSkillsBlock,
+  selectRelevantSkills,
+} from "@/lib/agents/skills";
 import { detectAtlasIntent } from "@/lib/atlas/intentDetection";
 import {
   retrieveForAssistant,
   renderKnowledgeBlock,
 } from "@/lib/atlas/retrieval";
+import {
+  attachKnowledgeHitsToRuntimeContext,
+  loadAtlasRuntimeContext,
+  publicRuntimeContext,
+  renderAtlasRuntimeContextBlock,
+  withLoanRuntimeContext,
+  type AtlasRuntimeContext,
+} from "@/lib/atlas/runtimeContext";
 import {
   canRunAtlasTools,
   renderCapabilityMessage,
@@ -19,6 +35,7 @@ import { writeMemoryEvent } from "@/lib/loanMemory/events";
 import {
   buildLoanSystemPrompt,
   runLoanRetrieval,
+  type LoanRetrievalResult,
 } from "@/lib/loanMemory/retrievalMiddleware";
 import {
   DEFAULT_VOICE_ID,
@@ -30,7 +47,7 @@ import {
   getSupabaseServerClient,
   getSupabaseServiceClient,
 } from "@/lib/supabase/server";
-import { checkDailyCap, logUsage } from "@/lib/usage";
+import { checkDailyCap, logUsage, recordAudit } from "@/lib/usage";
 
 // Human-readable label per tool — used in both the assistant text response
 // for capability queries and in the friendly error text when a tool insert
@@ -191,6 +208,20 @@ export async function POST(req: Request) {
     );
   }
 
+  let loanRetrievalResult: LoanRetrievalResult | null = null;
+  let runtimeContext: AtlasRuntimeContext | null = null;
+  const loadRuntime = async () => {
+    runtimeContext = await loadAtlasRuntimeContext({
+      client: supabase,
+      profile,
+      assistantId: effectiveAssistantId,
+      provider: provider ?? null,
+      model: model ?? null,
+      loanRetrieval: loanRetrievalResult,
+    });
+    return runtimeContext;
+  };
+
   // ---- Loan Memory retrieval (additive, fully guarded) --------------------
   // BEFORE the model is called: if the message is loan-related, ATTEMPT
   // retrieval first. The assistant must never answer a loan question without
@@ -209,6 +240,7 @@ export async function POST(req: Request) {
         queryText: message,
         threadId: threadId ?? undefined,
       });
+      loanRetrievalResult = retrieval;
 
       if (retrieval.loanRelated) {
         // Resolve the writer's voice for loan-shaped responses. Guarded: a
@@ -279,6 +311,7 @@ export async function POST(req: Request) {
             event_type: "loan_pipeline_update",
             metadata: { thread_id: threadId, loan_memory_id: retrieval.memory.id },
           });
+          const loadedRuntime = await loadRuntime();
           return NextResponse.json({
             ok: true,
             thread_id: threadId,
@@ -289,6 +322,19 @@ export async function POST(req: Request) {
             provider: "loan_memory",
             model: null,
             loan: { match_status: "matched", panel: retrieval.panel ?? null },
+            loan_context: {
+              borrower_name: retrieval.memory.borrower_name,
+              loan_number: retrieval.memory.loan_number,
+              current_stage: retrieval.memory.current_stage,
+              last_update: retrieval.memory.last_known_activity ?? retrieval.memory.updated_at ?? null,
+              main_blocker: retrieval.memory.main_blocker,
+              next_action: retrieval.memory.next_action,
+              confidence: retrieval.memory.confidence,
+              sources_checked: retrieval.sourcesChecked ?? retrieval.panel?.sources_checked ?? [],
+              match_status: "matched",
+              is_sample: retrieval.memory.is_sample,
+            },
+            runtime_context: publicRuntimeContext(loadedRuntime),
             usage: { daily_count: cap.used + 1, daily_limit: cap.cap },
             knowledge: { count: 0, sources: [] },
           });
@@ -350,6 +396,7 @@ export async function POST(req: Request) {
             event_type: "loan_retrieval_clarify",
             metadata: { thread_id: threadId, match_status: retrieval.matchStatus },
           });
+          const loadedRuntime = await loadRuntime();
           return NextResponse.json({
             ok: true,
             thread_id: threadId,
@@ -363,6 +410,7 @@ export async function POST(req: Request) {
               match_status: retrieval.matchStatus,
               candidates: candidates.slice(0, 5),
             },
+            runtime_context: publicRuntimeContext(loadedRuntime),
             usage: { daily_count: cap.used + 1, daily_limit: cap.cap },
             knowledge: { count: 0, sources: [] },
           });
@@ -406,6 +454,7 @@ export async function POST(req: Request) {
             event_type: "loan_retrieval_no_match",
             metadata: { thread_id: threadId },
           });
+          const loadedRuntime = await loadRuntime();
           return NextResponse.json({
             ok: true,
             thread_id: threadId,
@@ -419,6 +468,7 @@ export async function POST(req: Request) {
               match_status: "no_match",
               required_clarification: retrieval.requiredClarification ?? [],
             },
+            runtime_context: publicRuntimeContext(loadedRuntime),
             usage: { daily_count: cap.used + 1, daily_limit: cap.cap },
             knowledge: { count: 0, sources: [] },
           });
@@ -430,7 +480,10 @@ export async function POST(req: Request) {
     // normal chat path so non-loan and loan chat both keep working.
     console.error("loan retrieval failed", e);
     loanContextText = null;
+    loanRetrievalResult = null;
   }
+
+  runtimeContext = await loadRuntime();
 
   // ---- Atlas tool router --------------------------------------------------
   // Before paying the provider, check whether the message is a deterministic
@@ -503,6 +556,7 @@ export async function POST(req: Request) {
       assistant_message: assistantText,
       provider: "atlas_tool",
       model: null,
+      runtime_context: publicRuntimeContext(runtimeContext),
       usage: { daily_count: cap.used + 1, daily_limit: cap.cap },
       knowledge: { count: 0, sources: [] },
     });
@@ -543,6 +597,7 @@ export async function POST(req: Request) {
           role: "assistant",
           content: assistantText,
           metadata: {
+            runtime_context: publicRuntimeContext(runtimeContext),
             tool_result: {
               kind: toolResult.kind,
               itemId: toolResult.itemId,
@@ -594,6 +649,7 @@ export async function POST(req: Request) {
         assistant_message: assistantText,
         provider: "atlas_tool",
         model: null,
+        runtime_context: publicRuntimeContext(runtimeContext),
         usage: { daily_count: cap.used + 1, daily_limit: cap.cap },
         knowledge: { count: 0, sources: [] },
       });
@@ -610,6 +666,7 @@ export async function POST(req: Request) {
         role: "assistant",
         content: friendly,
         metadata: {
+          runtime_context: publicRuntimeContext(runtimeContext),
           source: "atlas_tool_failure",
           kind: toolResult.kind,
           error: toolResult.error,
@@ -639,6 +696,7 @@ export async function POST(req: Request) {
       assistant_message: friendly,
       provider: "atlas_tool",
       model: null,
+      runtime_context: publicRuntimeContext(runtimeContext),
       usage: { daily_count: cap.used + 1, daily_limit: cap.cap },
       knowledge: { count: 0, sources: [] },
     });
@@ -685,9 +743,13 @@ export async function POST(req: Request) {
         limit: 5,
       });
       knowledgeBlock = renderKnowledgeBlock(knowledgeHits);
+      runtimeContext = attachKnowledgeHitsToRuntimeContext(runtimeContext, knowledgeHits);
     }
   } catch (e) {
     console.error("knowledge retrieval failed", e);
+  }
+  if (loanRetrievalResult) {
+    runtimeContext = withLoanRuntimeContext(runtimeContext, loanRetrievalResult);
   }
 
   // Assemble the message list. If we have a knowledge block, append it as a
@@ -699,18 +761,49 @@ export async function POST(req: Request) {
       role: m.role as "user" | "assistant" | "system",
       content: m.content,
     }));
+  // Per-user AI Twin persona: load this user's private agent memory + relevant
+  // saved/shared skills and inject them so Atlas answers AS them. Degrade-safe:
+  // if the agent_* tables aren't applied, this silently no-ops.
+  let personaBlock = "";
+  // Captured for the agent-runtime session log (best-effort persistence below).
+  const agentType = defaultAgentForRole(profile.role);
+  let loadedMemoryCount = 0;
+  let loadedSkillCount = 0;
+  try {
+    const [mem, skl] = await Promise.all([
+      loadAgentMemory(supabase, profile.id, agentType),
+      loadAgentSkills(supabase, profile.id, agentType),
+    ]);
+    const relevantSkills = selectRelevantSkills(skl.skills, message);
+    loadedMemoryCount = mem.memories.length;
+    loadedSkillCount = relevantSkills.length;
+    const blocks = [
+      renderMemoryBlock(mem.memories),
+      renderSkillsBlock(relevantSkills),
+    ].filter(Boolean);
+    if (blocks.length) {
+      personaBlock = ["## Your persona & saved skills (answer in this voice)", ...blocks].join("\n\n");
+    }
+  } catch (e) {
+    console.error("agent persona load failed", e);
+  }
+
   // loanContextText is set above ONLY when a loan was matched in memory. It
   // leads the system blocks so the grounded loan context + response format take
-  // priority over generic project/knowledge context.
-  const systemBlocks = [loanContextText, projectBlock, knowledgeBlock].filter(
+  // priority; the persona block follows so Atlas adopts the user's voice.
+  const systemBlocks = [loanContextText, personaBlock, projectBlock, knowledgeBlock].filter(
     Boolean
   );
+  const runtimeContextBlock = renderAtlasRuntimeContextBlock(runtimeContext);
   const messages = systemBlocks.length > 0
     ? [
         ...baseMessages,
         {
           role: "system" as const,
-          content: `(Context attached by the LegendsOS retrieval layer):\n\n${systemBlocks.join(
+          content: `(Context attached by the LegendsOS retrieval layer):\n\n${[
+            runtimeContextBlock,
+            ...systemBlocks,
+          ].join(
             "\n\n"
           )}`,
         },
@@ -719,6 +812,12 @@ export async function POST(req: Request) {
         // already in baseMessages, but re-stating keeps it adjacent.
       ]
     : baseMessages;
+  if (systemBlocks.length === 0) {
+    messages.push({
+      role: "system" as const,
+      content: `(Context attached by the LegendsOS retrieval layer):\n\n${runtimeContextBlock}`,
+    });
+  }
 
   const result = await runChat({
     provider: provider ?? undefined,
@@ -763,6 +862,11 @@ export async function POST(req: Request) {
         provider: result.provider,
         model: result.model,
         knowledge_hits: knowledgeHits.length,
+        knowledge_sources: knowledgeHits.map((h) => ({
+          title: h.title,
+          source_path: h.source_path,
+        })),
+        runtime_context: publicRuntimeContext(runtimeContext),
       },
     })
     .select("id")
@@ -772,6 +876,62 @@ export async function POST(req: Request) {
     .from("chat_threads")
     .update({ last_message_at: new Date().toISOString() })
     .eq("id", threadId);
+
+  // ---- Agent runtime session log (ADDITIVE, best-effort) ------------------
+  // Mirror this turn into the role-based agent runtime tables so the runtime
+  // has a real session + transcript (memory/traces/handoffs build on these).
+  // Strictly additive: any failure is swallowed so the chat response above is
+  // never affected and its shape never changes. No secrets or raw PII written.
+  try {
+    // Tools the retrieval layer actually exercised this turn (summaries only).
+    const runtimeToolCalls: string[] = [];
+    if (knowledgeHits.length > 0) runtimeToolCalls.push("knowledge_search");
+    if (loanRetrievalResult?.loanRelated) runtimeToolCalls.push("loan_memory_lookup");
+    const sourceContextSummary = [
+      loanContextText ? "loan_memory" : null,
+      personaBlock ? "user_persona" : null,
+      projectBlock ? "atlas_project" : null,
+      knowledgeBlock ? "knowledge" : null,
+    ]
+      .filter(Boolean)
+      .join(", ") || null;
+
+    const sessionId = await ensureAgentSession({
+      userId: profile.id,
+      organizationId: profile.organization_id,
+      agentType,
+      threadId: threadId ?? null,
+      title: message.slice(0, 80),
+    });
+    if (sessionId) {
+      await logAgentMessages({
+        sessionId,
+        userId: profile.id,
+        organizationId: profile.organization_id,
+        agentType,
+        userText: message,
+        assistantText: result.content,
+        loadedMemoryCount,
+        loadedSkillCount,
+        toolCalls: runtimeToolCalls,
+        sourceContext: sourceContextSummary,
+        model: result.model,
+      });
+    }
+    await recordAudit({
+      actor: profile,
+      action: "atlas_response_logged",
+      metadata: {
+        agent_type: agentType,
+        session_id: sessionId,
+        assistant_len: result.content?.length ?? 0,
+        tool_call_count: runtimeToolCalls.length,
+      },
+    });
+  } catch (e) {
+    // Logging must never break the chat response. Swallow and continue.
+    console.error("agent runtime session log failed", e);
+  }
 
   // Persist retrieval_references so the message → item link can be replayed
   // later (and surfaced in the UI as citations once we build that out).
@@ -799,6 +959,28 @@ export async function POST(req: Request) {
     content: result.content,
     provider: result.provider,
     model: result.model,
+    runtime_context: publicRuntimeContext(runtimeContext),
+    loan_context:
+      loanRetrievalResult?.matchStatus === "matched" && loanRetrievalResult.memory
+        ? {
+            borrower_name: loanRetrievalResult.memory.borrower_name,
+            loan_number: loanRetrievalResult.memory.loan_number,
+            current_stage: loanRetrievalResult.memory.current_stage,
+            last_update:
+              loanRetrievalResult.memory.last_known_activity ??
+              loanRetrievalResult.memory.updated_at ??
+              null,
+            main_blocker: loanRetrievalResult.memory.main_blocker,
+            next_action: loanRetrievalResult.memory.next_action,
+            confidence: loanRetrievalResult.memory.confidence,
+            sources_checked:
+              loanRetrievalResult.sourcesChecked ??
+              loanRetrievalResult.panel?.sources_checked ??
+              [],
+            match_status: "matched",
+            is_sample: loanRetrievalResult.memory.is_sample,
+          }
+        : null,
     usage: { daily_count: cap.used + 1, daily_limit: cap.cap },
     knowledge: {
       count: knowledgeHits.length,

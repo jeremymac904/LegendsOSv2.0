@@ -14,10 +14,20 @@ export interface ResolveInput {
   user_id?: string;
   thread_id?: string;
   borrower_hint?: string;
+  co_borrower_hint?: string;
   loan_id?: string;
+  loan_number?: string;
   property_address?: string;
   email_thread_id?: string;
+  gmail_subject?: string;
+  gmail_sender?: string;
   document_id?: string;
+  document_name?: string;
+  browser_capture_id?: string;
+  source_url?: string;
+  source_title?: string;
+  selected_text?: string;
+  structured_context?: Record<string, unknown>;
 }
 
 function summarize(m: LoanMemory): string {
@@ -60,14 +70,119 @@ async function fetchMemories(
   }
 }
 
+async function fetchRows<T = Record<string, unknown>>(
+  client: SupabaseClient,
+  table: string,
+  build: (q: ReturnType<SupabaseClient["from"]>) => unknown
+): Promise<T[]> {
+  try {
+    const { data, error } = (await build(client.from(table) as any)) as {
+      data: T[] | null;
+      error: unknown;
+    };
+    if (error) return [];
+    return data ?? [];
+  } catch {
+    return [];
+  }
+}
+
+function text(value: unknown): string {
+  if (typeof value === "string") return value.trim();
+  if (value === null || value === undefined) return "";
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return "";
+}
+
+function structuredText(value: unknown, depth = 0): string[] {
+  if (!value || depth > 2) return [];
+  if (typeof value === "string" || typeof value === "number") return [String(value)];
+  if (Array.isArray(value)) return value.flatMap((item) => structuredText(item, depth + 1));
+  if (typeof value === "object") {
+    return Object.entries(value as Record<string, unknown>).flatMap(([key, item]) => [
+      key,
+      ...structuredText(item, depth + 1),
+    ]);
+  }
+  return [];
+}
+
+function uniqueNonEmpty(values: (string | undefined | null)[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const value of values) {
+    const v = text(value);
+    const key = v.toLowerCase();
+    if (!v || seen.has(key)) continue;
+    seen.add(key);
+    out.push(v);
+  }
+  return out;
+}
+
+function extractUuid(value: string): string | null {
+  return (
+    value.match(
+      /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i
+    )?.[0] ?? null
+  );
+}
+
+async function fetchByLoanIds(
+  client: SupabaseClient,
+  loanIds: string[],
+  limit = 10
+): Promise<LoanMemory[]> {
+  const ids = uniqueNonEmpty(loanIds);
+  if (!ids.length) return [];
+  return fetchMemories(client, (q) => (q as any).select("*").in("loan_id", ids).limit(limit));
+}
+
 export async function resolveLoanContext(
   client: SupabaseClient,
   input: ResolveInput
 ): Promise<ResolveResult> {
-  const hints = extractHints(input.query_text);
-  const loanNumber = hints.loanNumber;
+  const captureRows = input.browser_capture_id
+    ? await fetchRows<{
+        id: string;
+        source_url: string | null;
+        source_title: string | null;
+        selected_text: string | null;
+        structured_context: Record<string, unknown> | null;
+      }>(client, "browser_companion_captures", (q) =>
+        (q as any).select("id,source_url,source_title,selected_text,structured_context").eq("id", input.browser_capture_id).limit(1)
+      )
+    : [];
+  const capture = captureRows[0];
+
+  const corpus = [
+    input.query_text,
+    input.borrower_hint,
+    input.co_borrower_hint,
+    input.loan_number,
+    input.property_address,
+    input.gmail_subject,
+    input.gmail_sender,
+    input.document_name,
+    input.source_url,
+    input.source_title,
+    input.selected_text,
+    ...(input.structured_context ? structuredText(input.structured_context) : []),
+    capture?.source_url,
+    capture?.source_title,
+    capture?.selected_text,
+    ...(capture?.structured_context ? structuredText(capture.structured_context) : []),
+  ].join("\n");
+
+  const hints = extractHints(corpus);
+  const loanNumber = input.loan_number ?? hints.loanNumber;
   const address = input.property_address ?? hints.address;
-  const names = input.borrower_hint ? [input.borrower_hint, ...hints.names] : hints.names;
+  const names = uniqueNonEmpty([
+    input.borrower_hint,
+    input.co_borrower_hint,
+    ...hints.names,
+  ]);
+  const sourceUuid = extractUuid(`${input.source_url ?? ""}\n${capture?.source_url ?? ""}\n${corpus}`);
 
   // Direct loan_id hint short-circuits.
   if (input.loan_id) {
@@ -79,10 +194,75 @@ export async function resolveLoanContext(
       return { match_status: "multiple_matches", candidates: rows.map((m) => toMatch(m, 0.6, "loan_id")) };
   }
 
+  // Loan Factory and other portals often expose a stable UUID in the URL.
+  if (sourceUuid) {
+    const rows = await fetchMemories(client, (q) =>
+      (q as any).select("*").eq("loan_id", sourceUuid).limit(5)
+    );
+    if (rows.length === 1) return { match_status: "matched", match: toMatch(rows[0], 0.96, "portal context loan id") };
+    if (rows.length > 1)
+      return { match_status: "multiple_matches", candidates: rows.map((m) => toMatch(m, 0.6, "portal context loan id")) };
+  }
+
   const candidates = new Map<string, MemoryMatch>();
   const add = (rows: LoanMemory[], confidence: number, reason: string) => {
-    for (const m of rows) if (!candidates.has(m.id)) candidates.set(m.id, toMatch(m, confidence, reason));
+    for (const m of rows) {
+      const existing = candidates.get(m.id);
+      if (!existing || confidence > existing.confidence) {
+        candidates.set(m.id, toMatch(m, confidence, reason));
+      }
+    }
   };
+
+  // Direct document metadata. Documents can point to memory directly, or to
+  // the underlying loan row. RLS on loan_documents/loan_memory still applies.
+  if (input.document_id) {
+    const docs = await fetchRows<{
+      id: string;
+      loan_id: string | null;
+      loan_memory_id?: string | null;
+      drive_file_id?: string | null;
+      name?: string | null;
+    }>(client, "loan_documents", (q) =>
+      (q as any)
+        .select("id,loan_id,loan_memory_id,drive_file_id,name")
+        .or(`id.eq.${input.document_id},drive_file_id.eq.${input.document_id}`)
+        .limit(10)
+    );
+    const memoryIds = docs.map((d) => d.loan_memory_id).filter(Boolean) as string[];
+    if (memoryIds.length) {
+      add(
+        await fetchMemories(client, (q) => (q as any).select("*").in("id", memoryIds).limit(10)),
+        0.95,
+        "uploaded document metadata"
+      );
+    }
+    add(await fetchByLoanIds(client, docs.map((d) => d.loan_id).filter(Boolean) as string[]), 0.9, "uploaded document loan link");
+  }
+
+  // Gmail intake metadata. This does not read Gmail; it uses existing intake
+  // rows when present and falls back to subject/sender text hints.
+  if (input.email_thread_id) {
+    const emailRows = await fetchRows<{
+      id: string;
+      gmail_thread_id: string | null;
+      gmail_message_id: string | null;
+      loan_match_id: string | null;
+      subject: string | null;
+      from_address: string | null;
+      from_name: string | null;
+    }>(client, "email_intake_messages", (q) =>
+      (q as any)
+        .select("id,gmail_thread_id,gmail_message_id,loan_match_id,subject,from_address,from_name")
+        .or(`id.eq.${input.email_thread_id},gmail_thread_id.eq.${input.email_thread_id},gmail_message_id.eq.${input.email_thread_id}`)
+        .limit(10)
+    );
+    add(
+      await fetchByLoanIds(client, emailRows.map((row) => row.loan_match_id).filter(Boolean) as string[]),
+      0.88,
+      "Gmail intake loan match"
+    );
+  }
 
   // Priority 1 — loan number (highest confidence).
   if (loanNumber) {
@@ -93,6 +273,10 @@ export async function resolveLoanContext(
       0.97,
       `loan number ${loanNumber}`
     );
+    const loans = await fetchRows<{ id: string }>(client, "loans", (q) =>
+      (q as any).select("id").ilike("loan_number", `%${loanNumber}%`).limit(10)
+    );
+    add(await fetchByLoanIds(client, loans.map((loan) => loan.id)), 0.93, "pipeline loan number");
   }
   // Priority 2 — borrower full name.
   for (const name of names.slice(0, 3)) {
@@ -102,6 +286,14 @@ export async function resolveLoanContext(
       ),
       0.85,
       `borrower name "${name}"`
+    );
+    const borrowerLoans = await fetchRows<{ loan_id: string }>(client, "borrowers", (q) =>
+      (q as any).select("loan_id").ilike("full_name", `%${name}%`).limit(10)
+    );
+    add(
+      await fetchByLoanIds(client, borrowerLoans.map((row) => row.loan_id)),
+      0.82,
+      `pipeline borrower "${name}"`
     );
   }
   // Priority 3 — property address.
@@ -113,6 +305,10 @@ export async function resolveLoanContext(
       0.8,
       `property address`
     );
+    const loans = await fetchRows<{ id: string }>(client, "loans", (q) =>
+      (q as any).select("id").ilike("property_address", `%${address}%`).limit(10)
+    );
+    add(await fetchByLoanIds(client, loans.map((loan) => loan.id)), 0.82, "pipeline property address");
   }
   // Priority 4 — co-borrower name.
   for (const name of names.slice(0, 3)) {

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { signState } from "@/lib/integrations/oauthState";
 import { isAdminOrOwner } from "@/lib/permissions";
 import { getCurrentProfile } from "@/lib/supabase/server";
 
@@ -22,8 +23,21 @@ export const dynamic = "force-dynamic";
 //   chrome-extension:// (or same-site) Origin with credentials allowed. We do
 //   NOT reflect arbitrary web origins.
 
-const PROVIDERS = ["google", "gmail", "google_drive", "google_calendar"] as const;
+const PROVIDERS = [
+  "google",
+  "gmail",
+  "google_drive",
+  "google_calendar",
+  "youtube",
+  "google_business_profile",
+] as const;
 type ProviderId = (typeof PROVIDERS)[number];
+
+// Canonical OAuth redirect URI. MUST be identical in connect + callback and
+// MUST match what's registered in the Google Cloud console. We use a fixed
+// constant (not the request origin) so the redirect_uri is stable across hosts,
+// previews, and the desktop shell. Override via GOOGLE_OAUTH_REDIRECT_URI.
+const DEFAULT_REDIRECT_URI = "https://legndsosv20.netlify.app/api/integrations/connect/callback";
 
 // Google OAuth scopes per capability. Requested at connect time later; listed
 // here so the contract is explicit and the UI can show what will be asked.
@@ -32,6 +46,8 @@ const PROVIDER_SCOPES: Record<ProviderId, string[]> = {
   gmail: ["https://www.googleapis.com/auth/gmail.readonly"],
   google_drive: ["https://www.googleapis.com/auth/drive.readonly"],
   google_calendar: ["https://www.googleapis.com/auth/calendar.events"],
+  youtube: ["https://www.googleapis.com/auth/youtube.upload"],
+  google_business_profile: ["https://www.googleapis.com/auth/business.manage"],
 };
 
 function envPresent(name: string): boolean {
@@ -143,9 +159,7 @@ export async function POST(req: Request) {
   // server-side token storage are deferred. The client_id is a PUBLIC OAuth
   // identifier (safe to expose); the client SECRET is never read or returned.
   const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID ?? "";
-  const redirectUri =
-    process.env.GOOGLE_OAUTH_REDIRECT_URI ??
-    `${new URL(req.url).origin}/api/integrations/connect/callback`;
+  const redirectUri = process.env.GOOGLE_OAUTH_REDIRECT_URI || DEFAULT_REDIRECT_URI;
   const scopes = PROVIDER_SCOPES[provider];
 
   // Build a standard Google OAuth 2.0 authorize URL (consent + offline so a
@@ -159,10 +173,9 @@ export async function POST(req: Request) {
   authorize.searchParams.set("access_type", "offline");
   authorize.searchParams.set("include_granted_scopes", "true");
   authorize.searchParams.set("prompt", "consent");
-  authorize.searchParams.set(
-    "state",
-    JSON.stringify({ provider, target_user_id: targetUserId })
-  );
+  // HMAC-signed state so the callback can verify the round-trip and attribute
+  // the grant to the right user without trusting a forgeable plain JSON blob.
+  authorize.searchParams.set("state", signState({ provider, target_user_id: targetUserId }));
 
   return NextResponse.json(
     {
@@ -171,11 +184,12 @@ export async function POST(req: Request) {
       provider,
       authorize_url: authorize.toString(),
       scopes,
-      // Token exchange is deferred this sprint — the connect contract returns
-      // the first step only and is honest that completion is not wired yet.
+      // The callback (/api/integrations/connect/callback) now completes the
+      // exchange: it swaps the code for tokens server-side, stores them in the
+      // RLS-locked oauth_token_grants table, and records the connection.
       next_step:
-        "Open authorize_url to grant access. Token exchange + server-side storage are not enabled yet (deferred).",
-      completion_enabled: false,
+        "Open authorize_url to grant access. On redirect, the server completes the token exchange and stores the grant server-side.",
+      completion_enabled: true,
     },
     { headers: cors }
   );

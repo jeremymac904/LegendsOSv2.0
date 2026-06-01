@@ -61,6 +61,9 @@ type ProvisionResult = {
   ok: boolean;
   message: string;
   invite_link?: string | null;
+  // True when no account was created because the member was already
+  // provisioned — distinguishes an idempotent no-op from a real "created".
+  skipped?: boolean;
 };
 
 interface Props {
@@ -89,6 +92,16 @@ export function TeamSetupClient({
     () => rosterRows.filter((r) => r.status === "not_created"),
     [rosterRows]
   );
+  // Everything "Import all" can act on: not-yet-created accounts plus members
+  // whose live role drifted from the roster. Already-correct members are left
+  // alone (provisionOne skips them), so re-running Import all is a safe no-op.
+  const actionable = useMemo(
+    () =>
+      rosterRows.filter(
+        (r) => r.status === "not_created" || r.status === "wrong_role"
+      ),
+    [rosterRows]
+  );
   const provisionedCount = rosterCount - missing.length;
 
   async function callUsers(
@@ -115,9 +128,56 @@ export function TeamSetupClient({
     return (await res.json()) as Record<string, unknown>;
   }
 
-  // Provision one missing roster member. Always send_invite_email:false so no
-  // email is sent; we surface the returned invite_link for manual delivery.
+  // Provision one roster member — IDEMPOTENT. Re-running this (e.g. via
+  // "Import all") never errors on an already-created account:
+  //
+  //   not_created  → create the account (send_invite_email:false, no email).
+  //   wrong_role   → fix the role via update_role (no new account).
+  //   otherwise    → skip; the account is already provisioned.
+  //
+  // Returning skipped:true lets the UI say "skipped (already provisioned)"
+  // instead of pretending it created a fresh account.
   async function provisionOne(row: RosterRow): Promise<ProvisionResult> {
+    // Already provisioned with the right role — nothing to do.
+    if (row.status !== "not_created" && row.status !== "wrong_role") {
+      return {
+        ok: true,
+        skipped: true,
+        message: `Skipped ${row.email} — already provisioned.`,
+      };
+    }
+
+    // Provisioned but holding the wrong role — fix it in place instead of
+    // trying to create a duplicate account (which would error).
+    if (row.status === "wrong_role") {
+      if (!row.profileId) {
+        return {
+          ok: false,
+          message: `${row.email} has the wrong role but no profile id to update.`,
+        };
+      }
+      const data = await callUsers({
+        action: "update_role",
+        user_id: row.profileId,
+        role: row.expectedRole,
+      });
+      if (!data || data.ok !== true) {
+        return {
+          ok: false,
+          message:
+            (data?.message as string) ??
+            (data?.error as string) ??
+            "Could not update this user's role.",
+        };
+      }
+      return {
+        ok: true,
+        message: `Updated ${row.email} to ${row.expectedRole}.`,
+      };
+    }
+
+    // not_created — create the account. Always send_invite_email:false so no
+    // email is sent; we surface the returned invite_link for manual delivery.
     const data = await callUsers({
       action: "add",
       email: row.email,
@@ -158,27 +218,42 @@ export function TeamSetupClient({
     });
   }
 
-  // Sequentially provision every missing member. Each one is non-emailing.
+  // Sequentially process every actionable member. provisionOne is idempotent —
+  // it creates not_created members, fixes wrong_role members, and skips anyone
+  // already provisioned, so re-running this never produces error rows for
+  // accounts that already exist. Each create is non-emailing.
   function handleImportAll() {
     setError(null);
     setInfo(null);
     setImporting(true);
     startTransition(async () => {
-      let okCount = 0;
-      for (const row of missing) {
+      let createdCount = 0;
+      let skippedCount = 0;
+      let failedCount = 0;
+      for (const row of actionable) {
         setBusyEmail(row.email);
         // eslint-disable-next-line no-await-in-loop
         const result = await provisionOne(row);
         setResults((prev) => ({ ...prev, [row.email]: result }));
-        if (result.ok) okCount += 1;
+        if (!result.ok) failedCount += 1;
+        else if (result.skipped) skippedCount += 1;
+        else createdCount += 1;
       }
       setBusyEmail(null);
       setImporting(false);
-      setInfo(
-        `Import complete — ${okCount} of ${missing.length} missing member${
-          missing.length === 1 ? "" : "s"
-        } provisioned (no email sent).`
-      );
+      const parts = [
+        `${createdCount} processed`,
+        skippedCount > 0 ? `${skippedCount} skipped (already provisioned)` : null,
+        failedCount > 0 ? `${failedCount} failed` : null,
+      ].filter(Boolean);
+      setInfo(`Import complete — ${parts.join(", ")} (no email sent).`);
+      if (failedCount > 0) {
+        setError(
+          `${failedCount} member${
+            failedCount === 1 ? "" : "s"
+          } could not be processed — see the per-row messages below.`
+        );
+      }
       router.refresh();
     });
   }
@@ -295,8 +370,16 @@ export function TeamSetupClient({
                     missing.length === 1 ? " is" : "s are"
                   } in the roster but not yet provisioned. Provision them one at a time, or import all at once — no email is sent.`}
             </p>
+            {actionable.length > missing.length && (
+              <p className="mt-1 text-status-warn">
+                {actionable.length - missing.length} provisioned member
+                {actionable.length - missing.length === 1 ? " has" : "s have"} a
+                role that drifted from the roster. &quot;Import all&quot; fixes
+                those in place — it never creates a duplicate account.
+              </p>
+            )}
           </div>
-          {missing.length > 0 && (
+          {actionable.length > 0 && (
             <button
               type="button"
               className="btn-primary"
@@ -304,9 +387,7 @@ export function TeamSetupClient({
               disabled={isPending || importing}
             >
               <DownloadCloud size={14} />
-              {importing
-                ? "Importing…"
-                : `Import all missing (no email)`}
+              {importing ? "Importing…" : `Import all (no email)`}
             </button>
           )}
         </div>
@@ -338,7 +419,14 @@ export function TeamSetupClient({
                       </p>
                     </div>
                     {result?.ok ? (
-                      <StatusPill status="ok" label="provisioned" />
+                      <StatusPill
+                        status={result.skipped ? "info" : "ok"}
+                        label={
+                          result.skipped
+                            ? "skipped (already provisioned)"
+                            : "provisioned"
+                        }
+                      />
                     ) : (
                       <button
                         type="button"
@@ -358,7 +446,13 @@ export function TeamSetupClient({
                     </p>
                   )}
 
-                  {result?.ok && (
+                  {result?.ok && result.skipped && (
+                    <p className="mt-2 rounded border border-status-info/30 bg-status-info/10 px-2 py-1 text-[11px] text-status-info">
+                      {result.message}
+                    </p>
+                  )}
+
+                  {result?.ok && !result.skipped && (
                     <InviteLinkBlock
                       name={row.name}
                       inviteLink={result.invite_link ?? null}

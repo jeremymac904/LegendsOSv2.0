@@ -104,15 +104,34 @@ export function isMissingTableError(err: unknown): boolean {
 // the safe default).
 // ---------------------------------------------------------------------------
 
+function configuredExtensionOrigins(): Set<string> {
+  return new Set(
+    (process.env.LEGENDSOS_BROWSER_EXTENSION_ORIGINS ?? "")
+      .split(",")
+      .map((origin) => origin.trim())
+      .filter(Boolean)
+  );
+}
+
 function isAllowedOrigin(origin: string | null): boolean {
   if (!origin) return false;
-  if (origin.startsWith("chrome-extension://")) return true;
-  if (origin.startsWith("moz-extension://")) return true;
-  // Same-site (the web app itself calling the route, e.g. the /browser-companion
-  // fallback page) is always allowed.
-  if (origin.startsWith("https://") || origin.startsWith("http://localhost")) {
+
+  // Same-site (the web app itself calling the route, e.g. the
+  // /browser-companion fallback page) is always allowed.
+  if (origin === process.env.NEXT_PUBLIC_APP_URL || origin === process.env.NEXT_PUBLIC_SITE_URL) {
     return true;
   }
+  if (
+    process.env.NODE_ENV !== "production" &&
+    (origin.startsWith("http://localhost") || origin.startsWith("http://127.0.0.1"))
+  ) {
+    return true;
+  }
+
+  if (origin.startsWith("chrome-extension://") || origin.startsWith("moz-extension://")) {
+    return configuredExtensionOrigins().has(origin);
+  }
+
   return false;
 }
 
@@ -317,6 +336,10 @@ export interface AuditCaptureInput {
   source_url: string | null;
   routed_assistant: string | null;
   capture_id: string | null;
+  // The outcome of the capture attempt — recorded so EVERY attempt (including
+  // setup_needed and insert-failed) leaves a trail, not only successes. This is
+  // non-PII metadata: it carries no borrower/selected content.
+  outcome?: string;
 }
 
 export async function auditCapture(
@@ -335,6 +358,7 @@ export async function auditCapture(
       metadata: {
         routed_assistant: input.routed_assistant,
         capture_id: input.capture_id,
+        outcome: input.outcome ?? "captured",
         at: new Date().toISOString(),
       },
     });

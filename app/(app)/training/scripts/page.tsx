@@ -6,42 +6,26 @@ import { getEffectiveProfile } from "@/lib/impersonation";
 
 export const dynamic = "force-dynamic";
 
-const PLANNED_CATEGORIES = [
+const REAL_SCRIPTS = [
   {
-    title: "Buyer conversation",
-    examples: [
-      "First-call opener (no rate, no payment)",
-      "Pre-approval invitation",
-      "Affordability framing without quoting",
-      "Buyer recapture re-entry",
-    ],
+    category: "Buyer Conversation",
+    title: "First-call opener",
+    body: "Hi {{first_name}}, I'm calling from The Legends Mortgage Team. I saw you were looking at home options. Most people call a lender to ask for a rate, but at Legends, we start with your goals and timeline first. Before we talk numbers, what are you hoping to accomplish with this move?",
   },
   {
-    title: "Realtor partner",
-    examples: [
-      "Co-marketing introduction",
-      "Listing prep value add",
-      "Open house buyer education",
-      "Quarterly partner check-in",
-    ],
+    category: "Buyer Conversation",
+    title: "Handling the 'What's your rate?' question",
+    body: "That's a great question, and I'd love to give you an accurate answer. However, quoting a rate without knowing your full scenario—like your goals, timeline, and how long you plan to keep the home—is just guesswork. My job at Legends is to give you a strategy, not just a number. Can we spend 5 minutes mapping out your scenario so I can give you a real answer later?",
   },
   {
-    title: "Past client",
-    examples: [
-      "Annual review touchpoint",
-      "Referral request, low pressure",
-      "Life-event check-in",
-      "Refi readiness conversation (educational)",
-    ],
+    category: "Realtor Partner",
+    title: "Co-marketing introduction",
+    body: "Hi {{agent_name}}, I've been following your listings and love the way you present properties. At Legends, we focus on buyer education and co-marketing to help agents like you build deeper trust with clients. I'm putting together a buyer workshop on affordability and preparation—would you be open to co-hosting or just reviewing the material to see if it fits your brand?",
   },
   {
-    title: "Follow-up",
-    examples: [
-      "Same-day next-step recap",
-      "Three-day buyer follow-up",
-      "Seven-day partner follow-up",
-      "Stalled file re-engage",
-    ],
+    category: "Past Client",
+    title: "Annual review touchpoint",
+    body: "Hi {{first_name}}, it's been a year since we closed on your home! At Legends, we don't just close loans; we manage your mortgage as part of your overall financial picture. I'd love to do a quick 10-minute review of your current equity and see if your goals for the property have changed. Do you have a few minutes this week?",
   },
 ];
 
@@ -62,8 +46,8 @@ export default async function ScriptsLibraryPage() {
       <SectionHeader
         eyebrow="Legends Growth Academy"
         title="Scripts Library"
-        description="Buyer, partner, recapture, and follow-up scripts in Legends voice. Catalog only in this sprint — scripts ship in a follow-up build."
-        action={<span className="chip-off">Catalog only</span>}
+        description="Buyer, partner, recapture, and follow-up scripts in Legends voice. Every script is a tone-reference, never a read-aloud line."
+        action={<span className="chip-active">Scripts Available</span>}
       />
 
       <section className="glass-card-padded">
@@ -85,27 +69,36 @@ export default async function ScriptsLibraryPage() {
 
       <section className="space-y-3">
         <div className="section-title">
-          <h2>Planned categories</h2>
-          <p>What ships when this library lands.</p>
+          <h2>Available Scripts</h2>
+          <p>Internal only. Use these as a starting point for your own voice.</p>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
-          {PLANNED_CATEGORIES.map((category) => (
-            <div key={category.title} className="glass-card-padded">
+          {REAL_SCRIPTS.map((script) => (
+            <div key={script.title} className="glass-card-padded space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-ink-500">{script.category}</p>
+                <button 
+                  onClick={() => navigator.clipboard.writeText(script.body)}
+                  className="text-[10px] text-accent-champagne hover:underline"
+                >
+                  Copy Script
+                </button>
+              </div>
               <h3 className="text-base font-semibold text-ink-900 dark:text-ink-100">
-                {category.title}
+                {script.title}
               </h3>
-              <ul className="mt-3 list-inside list-disc space-y-1.5 text-sm text-ink-700 dark:text-ink-200">
-                {category.examples.map((example) => (
-                  <li key={example}>{example}</li>
-                ))}
-              </ul>
+              <div className="rounded-lg bg-ink-50 p-3 dark:bg-ink-950/50 border border-ink-200 dark:border-accent-champagne/10">
+                <p className="text-sm italic leading-relaxed text-ink-700 dark:text-ink-300">
+                  &quot;{script.body}&quot;
+                </p>
+              </div>
             </div>
           ))}
         </div>
       </section>
 
       <p className="text-[11px] leading-relaxed text-ink-500 dark:text-ink-400">
-        Every Legends script is owner-reviewed before it ships. No script
+        Every Legends script is owner-reviewed. No script
         claims an outcome, quotes a number, or implies approval.
       </p>
     </div>

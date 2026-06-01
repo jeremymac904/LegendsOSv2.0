@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatCard } from "@/components/ui/StatCard";
+import { StatusPill } from "@/components/ui/StatusPill";
 import { getEffectiveProfile } from "@/lib/impersonation";
 import { isOwner } from "@/lib/permissions";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
@@ -11,27 +12,55 @@ import type { Profile, UsageEvent } from "@/types/database";
 
 export const dynamic = "force-dynamic";
 
+// Mirrors the safeArrayQuery pattern in app/(app)/admin/page.tsx: degrade a
+// failed/missing-table query to an empty array + a "setup needed" flag instead
+// of throwing a 500 that would drop the authed shell.
+async function safeArrayQuery<T>(
+  query: PromiseLike<{ data: unknown; error: unknown }>
+): Promise<{ data: T[]; setupNeeded: boolean }> {
+  try {
+    const { data, error } = await query;
+    return {
+      data: Array.isArray(data) ? (data as T[]) : [],
+      setupNeeded: Boolean(error),
+    };
+  } catch {
+    return { data: [], setupNeeded: true };
+  }
+}
+
 export default async function AdminUsagePage() {
   const { profile } = await getEffectiveProfile();
   if (!profile || !isOwner(profile)) redirect("/dashboard");
   const supabase = getSupabaseServerClient();
   const since7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  const [{ data: events }, { data: profiles }] = await Promise.all([
-    supabase
-      .from("usage_events")
-      .select("*")
-      .gte("created_at", since7d)
-      .order("created_at", { ascending: false })
-      .limit(500),
-    supabase.from("profiles").select("id,full_name,email,role"),
-  ]);
+  let usageDataUnavailable = false;
+  let usage: UsageEvent[] = [];
+  let members: Pick<Profile, "id" | "full_name" | "email" | "role">[] = [];
 
-  const usage = (events ?? []) as UsageEvent[];
-  const members = (profiles ?? []) as Pick<
-    Profile,
-    "id" | "full_name" | "email" | "role"
-  >[];
+  try {
+    const [eventsResult, profilesResult] = await Promise.all([
+      safeArrayQuery<UsageEvent>(
+        supabase
+          .from("usage_events")
+          .select("*")
+          .gte("created_at", since7d)
+          .order("created_at", { ascending: false })
+          .limit(500)
+      ),
+      safeArrayQuery<Pick<Profile, "id" | "full_name" | "email" | "role">>(
+        supabase.from("profiles").select("id,full_name,email,role")
+      ),
+    ]);
+    usage = eventsResult.data;
+    members = profilesResult.data;
+    usageDataUnavailable = eventsResult.setupNeeded || profilesResult.setupNeeded;
+  } catch {
+    usage = [];
+    members = [];
+    usageDataUnavailable = true;
+  }
 
   const byUser = new Map<string, number>();
   for (const e of usage) {
@@ -49,7 +78,29 @@ export default async function AdminUsagePage() {
         eyebrow="Admin · Usage"
         title="Team activity (7 days)"
         description="Counts pulled live from usage_events. Drill into any module to see per-user breakdowns."
+        action={
+          usageDataUnavailable ? (
+            <StatusPill status="warn" label="usage data unavailable" />
+          ) : undefined
+        }
       />
+
+      {usageDataUnavailable && (
+        <section className="card-padded border-status-warn/30 bg-status-warn/10">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold text-ink-900 dark:text-ink-100">
+                Usage data unavailable
+              </h2>
+              <p className="mt-1 text-xs text-ink-700 dark:text-ink-300">
+                The usage_events or profiles tables could not be read, so this
+                page is rendering with safe empty data instead of crashing.
+              </p>
+            </div>
+            <StatusPill status="warn" label="setup needed" />
+          </div>
+        </section>
+      )}
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         {(["atlas", "images", "social", "email", "knowledge"] as const).map(
           (m) => (

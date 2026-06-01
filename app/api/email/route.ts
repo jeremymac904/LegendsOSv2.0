@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { getServerEnv, PUBLIC_ENV } from "@/lib/env";
+import { PUBLIC_ENV } from "@/lib/env";
 import { enqueueAutomationJob } from "@/lib/automation/n8n";
+import { resolveLiveAction } from "@/lib/integrations/liveSettings";
 import { isOwner } from "@/lib/permissions";
 import { getCurrentProfile, getSupabaseServerClient } from "@/lib/supabase/server";
 import { logUsage, recordAudit } from "@/lib/usage";
@@ -50,7 +51,12 @@ export async function POST(req: Request) {
   }
   const data = parsed.data;
   const supabase = getSupabaseServerClient();
-  const env = getServerEnv();
+  // Live email dispatch is gated by the in-app, owner/per-user toggle
+  // (integration_settings) — not just an env flag. Resolves fail-closed.
+  const live = await resolveLiveAction("email", {
+    organizationId: profile.organization_id,
+    userId: profile.id,
+  });
 
   // Test sends do NOT bump the campaign status — the draft stays a draft so
   // the owner can keep iterating after previewing in their own inbox.
@@ -162,14 +168,14 @@ export async function POST(req: Request) {
         subject: row.subject,
         recipient_list: row.recipient_list,
       },
-      dispatch: env.SAFETY.allowLiveEmailSend,
+      dispatch: live.allowed,
     });
     await recordAudit({
       actor: profile,
       action: "email_send_requested",
       target_type: "email_campaigns",
       target_id: row.id,
-      metadata: { dispatch: env.SAFETY.allowLiveEmailSend, job_id: job.job_id },
+      metadata: { dispatch: live.allowed, reason: live.reason, job_id: job.job_id },
     });
   } else if (data.action === "request_test") {
     // Owner-only inbox test. Two guards:
@@ -220,7 +226,7 @@ export async function POST(req: Request) {
         test_mode: true,
         test_recipient: testRecipient,
       },
-      dispatch: env.SAFETY.allowLiveEmailSend,
+      dispatch: live.allowed,
     });
     await recordAudit({
       actor: profile,
@@ -228,7 +234,7 @@ export async function POST(req: Request) {
       target_type: "email_campaigns",
       target_id: row.id,
       metadata: {
-        dispatch: env.SAFETY.allowLiveEmailSend,
+        dispatch: live.allowed,
         job_id: job.job_id,
         recipient: testRecipient,
       },

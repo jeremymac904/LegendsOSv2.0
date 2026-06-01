@@ -38,6 +38,7 @@ export interface LoanMemoryTabBundle {
   events: LoanMemoryEvent[];
   open_tasks: Record<string, unknown>[];
   documents: Record<string, unknown>[];
+  conditions?: Record<string, unknown>[];
   email_intake: Record<string, unknown>[];
   drive_links: Record<string, unknown>[];
   retrieval_summary: string;
@@ -185,6 +186,7 @@ export function LoanMemoryTab({ bundle }: { bundle: LoanMemoryTabBundle }) {
 
   const aiNotes = bundle.events.filter(eventIsAiNote);
   const timeline = bundle.events;
+  const conditions = bundle.conditions ?? [];
 
   return (
     <div className="space-y-3">
@@ -312,6 +314,34 @@ export function LoanMemoryTab({ bundle }: { bundle: LoanMemoryTabBundle }) {
                     </span>
                   </span>
                   {review && <span className="chip shrink-0">{review}</span>}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </SectionCard>
+
+      <SectionCard icon={ListChecks} title="Conditions" count={conditions.length}>
+        {conditions.length === 0 ? (
+          <EmptyLine>No open conditions linked to this loan memory yet.</EmptyLine>
+        ) : (
+          <ul className="divide-y divide-ink-100 dark:divide-ink-800/70">
+            {conditions.slice(0, 12).map((c, i) => {
+              const description = pick(c, ["description", "title", "name"]) || "Condition";
+              const status = pick(c, ["status", "state"]);
+              const source = pick(c, ["source", "citation_source"]);
+              const plan = pick(c, ["response_plan", "next_action"]);
+              return (
+                <li key={i} className="py-1.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="min-w-0 text-[12px] font-medium text-ink-900 dark:text-ink-100">
+                      {description}
+                    </span>
+                    {status && <span className="chip shrink-0">{status}</span>}
+                  </div>
+                  <p className="mt-0.5 text-[10.5px] text-ink-500 dark:text-ink-400">
+                    {[source, plan].filter(Boolean).join(" · ") || "No response plan recorded."}
+                  </p>
                 </li>
               );
             })}

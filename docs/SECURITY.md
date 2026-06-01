@@ -95,3 +95,18 @@ sensitive action:
 - (extend as new sensitive actions are added)
 
 These are visible only to the owner.
+
+## Security dashboard
+
+The owner-only `/admin/security` dashboard tracks the live security posture
+without displaying secrets or borrower content. It reports:
+
+- authentication, RLS, webhook, OAuth, integration, Browser Companion, and
+  audit coverage status
+- role access expectations for owner, loan officer, processor, and coordinator
+- the security findings registry, recommendations registry, and validation
+  checks registry
+
+Production Browser Companion extension access is allowlist-gated with
+`LEGENDSOS_BROWSER_EXTENSION_ORIGINS`. Same-origin web fallback remains usable,
+but arbitrary browser-extension origins are not trusted for credentialed CORS.

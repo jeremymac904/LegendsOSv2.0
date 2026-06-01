@@ -10,6 +10,7 @@
 // (RLS-scoped). selected_text belongs to the requesting user, so returning it
 // to them is fine — but it is never logged to console.
 
+import { routeCaptureToAgent } from "@/lib/agents/routing";
 import {
   corsJson,
   preflight,
@@ -64,18 +65,27 @@ export async function GET(req: Request) {
     );
   }
 
-  // Shape a lean, explicit payload (no raw row passthrough).
-  const captures = (result.data ?? []).map((row) => ({
-    id: row.id,
-    source_url: row.source_url,
-    source_title: row.source_title,
-    selected_text: row.selected_text,
-    structured_context: row.structured_context,
-    routed_assistant: row.routed_assistant,
-    status: row.status,
-    captured_at: row.captured_at,
-    user_id: row.user_id,
-  }));
+  // Shape a lean, explicit payload (no raw row passthrough). suggested_agent is
+  // the routing brain: which role-based agent should handle this capture — so
+  // the extension/page can open FLO/Coordinator/Builder/Marketing, not just Atlas.
+  const captures = (result.data ?? []).map((row) => {
+    const hint = [row.source_title, row.selected_text, JSON.stringify(row.structured_context ?? {})]
+      .filter(Boolean)
+      .join(" ");
+    const suggested = routeCaptureToAgent(profile.role, hint);
+    return {
+      id: row.id,
+      source_url: row.source_url,
+      source_title: row.source_title,
+      selected_text: row.selected_text,
+      structured_context: row.structured_context,
+      routed_assistant: row.routed_assistant,
+      suggested_agent: suggested,
+      status: row.status,
+      captured_at: row.captured_at,
+      user_id: row.user_id,
+    };
+  });
 
   return corsJson(req, {
     ok: true,

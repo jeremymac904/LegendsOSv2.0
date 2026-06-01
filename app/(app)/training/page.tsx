@@ -40,91 +40,57 @@ export default async function TrainingPage() {
   const items = [...sharedItems, ...DEFAULT_TRAINING_ITEMS];
 
   return (
-    <div className="space-y-6">
-      <SectionHeader
-        eyebrow="Training"
-        title="Team training command center"
-        description="Mortgage coaching, AI training, n8n walkthroughs, LegendsOS basics, Google Workspace setup, and Loan Factory workflow resources."
-        action={
-          <span className="chip-active">
-            {owner ? "Owner managed" : "Team library"}
-          </span>
-        }
-      />
-
-      <section className="card-padded overflow-hidden">
-        <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
-          <div>
-            <p className="label flex items-center gap-2">
-              <GraduationCap size={13} />
-              Learning paths
-            </p>
-            <h2 className="mt-2 text-2xl font-semibold text-ink-900 dark:text-ink-100">
-              Build repeatable loan officer execution.
-            </h2>
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-700 dark:text-ink-300">
-              Organize videos, quick tutorials, technology walkthroughs,
-              mortgage coaching, sales coaching, AI training, n8n training,
-              LegendsOS training, and Loan Factory workflow training in one
-              place.
-            </p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {["AI Tools", "Loan Factory Systems", "Atlas Training", "Mortgage Coaching"].map(
-                (label) => (
-                  <span key={label} className="chip">
-                    {label}
-                  </span>
-                )
-              )}
-            </div>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
-            <HeroStat icon={PlayCircle} label="Embeds" value="YouTube ready" />
-            <HeroStat icon={BookOpen} label="Sources" value="Drive + team" />
-            <HeroStat icon={Sparkles} label="Nuggets" value="Quick lessons" />
-          </div>
+    <div className="flex h-[calc(100vh-140px)] min-h-[650px] flex-col gap-4 overflow-hidden">
+      <div className="flex items-center justify-between gap-4">
+        <SectionHeader
+          eyebrow="Training"
+          title="Training Command Center"
+          description="Build repeatable execution with targeted coaching."
+        />
+        <div className="flex items-center gap-2">
+           <span className="chip-ok text-[10px]">{owner ? "OWNER MANAGED" : "TEAM LIBRARY"}</span>
         </div>
-      </section>
+      </div>
 
-      <section className="card-padded">
-        <div className="section-title">
-          <div>
-            <h2>Training nuggets</h2>
-            <p>Short standards for making every training item useful.</p>
-          </div>
+      <div className="grid flex-1 grid-cols-1 gap-4 overflow-hidden lg:grid-cols-[300px_1fr]">
+        {/* Sidebar: Info & Stats */}
+        <div className="flex flex-col gap-4 overflow-y-auto pr-1 scrollbar-thin">
+           <div className="card-padded py-3 space-y-3">
+              <p className="label text-[10px] uppercase tracking-wider">Learning Paths</p>
+              <h2 className="text-sm font-semibold text-ink-900 dark:text-ink-100 leading-tight">Build repeatable execution.</h2>
+              <div className="grid grid-cols-1 gap-2">
+                 <HeroStat icon={PlayCircle} label="Embeds" value="YouTube Ready" />
+                 <HeroStat icon={Sparkles} label="Nuggets" value="Quick Lessons" />
+              </div>
+           </div>
+
+           <div className="card-padded py-3">
+              <p className="label text-[10px] uppercase tracking-wider mb-2">Training Nuggets</p>
+              <div className="space-y-1.5">
+                 {TRAINING_NUGGETS.map(n => <p key={n} className="text-[11px] text-ink-400 leading-snug">· {n}</p>)}
+              </div>
+           </div>
+
+           <LegendsOSHelpCoaches coaches={["setup"]} />
         </div>
-        <div className="mt-4 grid gap-2 md:grid-cols-2">
-          {TRAINING_NUGGETS.map((nugget) => (
-            <div
-              key={nugget}
-              className="rounded-xl border border-ink-200 bg-ink-50 p-3 text-sm text-ink-700 backdrop-blur-sm dark:border-accent-champagne/10 dark:bg-ink-950/30 dark:text-ink-200"
-            >
-              {nugget}
-            </div>
-          ))}
+
+        {/* Main: Library */}
+        <div className="flex flex-col overflow-hidden rounded-2xl border border-ink-200 bg-white/40 dark:border-ink-800 dark:bg-ink-950/20">
+           <div className="flex-1 overflow-y-auto p-4 scrollbar-thin">
+              <ResourceLibrary
+                mode="training"
+                resourceType={TRAINING_RESOURCE_TYPE}
+                items={items}
+                categories={TRAINING_CATEGORIES}
+                owner={owner}
+                organizationId={profile.organization_id}
+                userId={profile.id}
+                emptyTitle="No training content yet"
+                emptyDescription="Jeremy has not published training items yet."
+              />
+           </div>
         </div>
-      </section>
-
-      <LegendsOSHelpCoaches
-        coaches={["setup"]}
-        intro="Use the Setup Coach when turning training questions into repeatable LegendsOS, n8n, Google Workspace, MCP, and provider setup guidance."
-      />
-
-      <ResourceLibrary
-        mode="training"
-        resourceType={TRAINING_RESOURCE_TYPE}
-        items={items}
-        categories={TRAINING_CATEGORIES}
-        owner={owner}
-        organizationId={profile.organization_id}
-        userId={profile.id}
-        emptyTitle="No training content yet"
-        emptyDescription={
-          owner
-            ? "Add a video, Drive link, or quick tutorial to make it visible to the team."
-            : "Jeremy has not published training items yet. Check back after the first training batch is shared."
-        }
-      />
+      </div>
     </div>
   );
 }
