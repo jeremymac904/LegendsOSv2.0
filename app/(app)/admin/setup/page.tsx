@@ -30,7 +30,10 @@ import { getEffectiveProfile } from "@/lib/impersonation";
 import { detectMetaConfig } from "@/lib/integrations/meta";
 import { getDriveConnectionStatus } from "@/lib/loanbrain/driveStatus";
 import { isOwner } from "@/lib/permissions";
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  getSupabaseServerClient,
+  getSupabaseServiceClient,
+} from "@/lib/supabase/server";
 import {
   ROSTER_COUNT,
   ROSTER_EXCLUDED,
@@ -68,6 +71,26 @@ function pillFor(label: HonestLabel): "ok" | "warn" | "off" | "info" {
     default:
       return "warn";
   }
+}
+
+// Highest-privilege-wins ordering for the roster→profile matcher. When a roster
+// member's emails (canonical + alt) resolve to more than one live profile, we
+// prefer the one whose role EQUALS the expected role; failing that, we prefer
+// the most privileged profile. This stops Jeremy's canonical loanfactory
+// loan_officer profile from out-matching his real owner profile.
+const ROLE_PRIORITY: Record<UserRole, number> = {
+  owner: 6,
+  admin: 5,
+  coordinator: 4,
+  processor: 3,
+  marketing: 2,
+  loan_officer: 1,
+  viewer: 0,
+};
+
+function rolePriority(role: UserRole | null | undefined): number {
+  if (!role) return -1;
+  return ROLE_PRIORITY[role] ?? -1;
 }
 
 export default async function TeamSetupPage() {
@@ -110,11 +133,97 @@ export default async function TeamSetupPage() {
     if (p.email) profilesByEmail.set(p.email.trim().toLowerCase(), p);
   }
 
+  // ---------------------------------------------------------------------
+  // Last-login visibility. Read auth last_sign_in_at per user via the Auth
+  // Admin API (service role). Wrapped in try/catch and paginated so a failure
+  // degrades to an empty map ("—" in the UI) rather than 500-ing the page.
+  // ---------------------------------------------------------------------
+  const lastLoginByEmail = new Map<string, string | null>();
+  // Did the lookup actually succeed? When false we render "—" (unknown) rather
+  // than misreporting everyone as "never signed in".
+  let lastLoginLookupOk = false;
+  try {
+    const service = getSupabaseServiceClient();
+    const PER_PAGE = 200;
+    for (let page = 1; page <= 50; page += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      const { data, error } = await service.auth.admin.listUsers({
+        page,
+        perPage: PER_PAGE,
+      });
+      if (error) throw error;
+      const users = data?.users ?? [];
+      for (const u of users) {
+        if (u.email) {
+          lastLoginByEmail.set(
+            u.email.trim().toLowerCase(),
+            u.last_sign_in_at ?? null
+          );
+        }
+      }
+      lastLoginLookupOk = true;
+      if (users.length < PER_PAGE) break; // last page reached
+    }
+  } catch {
+    // Service client unavailable or the call failed — mark the lookup as failed
+    // so the table renders "—" for last login instead of crashing the page.
+    lastLoginLookupOk = false;
+  }
+
   // Build one serializable RosterRow per verified member.
   const rosterRows: RosterRow[] = TEAM_ROSTER.map((member) => {
     const emails = rosterEmails(member); // already lowercased
+
+    // A roster member can resolve to more than one live profile (canonical +
+    // alt emails). Collect every match, then pick the best one: prefer a
+    // profile whose role equals the expected role; otherwise prefer the
+    // highest-privilege profile. This resolves the owner to his owner profile
+    // even when a loan_officer profile shares one of his emails.
+    const candidates = emails
+      .map((e) => profilesByEmail.get(e))
+      .filter(
+        (p): p is Pick<
+          Profile,
+          "id" | "email" | "full_name" | "role" | "is_active"
+        > => Boolean(p)
+      );
+    // De-duplicate by profile id (alt emails can point at the same row).
+    const seen = new Set<string>();
+    const uniqueCandidates = candidates.filter((p) => {
+      if (seen.has(p.id)) return false;
+      seen.add(p.id);
+      return true;
+    });
     const matched =
-      emails.map((e) => profilesByEmail.get(e)).find(Boolean) ?? null;
+      uniqueCandidates.find((p) => (p.role as UserRole) === member.role) ??
+      uniqueCandidates
+        .slice()
+        .sort(
+          (a, b) =>
+            rolePriority(b.role as UserRole) - rolePriority(a.role as UserRole)
+        )[0] ??
+      null;
+
+    // Last login for whichever email actually matched the chosen profile, or
+    // any of the roster emails if none of them carry a value yet. When the
+    // lookup itself failed, leave this undefined so the cell renders "—" instead
+    // of a misleading "never signed in".
+    const matchedEmailKey = matched?.email?.trim().toLowerCase() ?? null;
+    let lastLoginAt: string | null | undefined = lastLoginLookupOk
+      ? null
+      : undefined;
+    if (lastLoginLookupOk) {
+      if (matchedEmailKey && lastLoginByEmail.has(matchedEmailKey)) {
+        lastLoginAt = lastLoginByEmail.get(matchedEmailKey) ?? null;
+      } else {
+        for (const e of emails) {
+          if (lastLoginByEmail.has(e)) {
+            lastLoginAt = lastLoginByEmail.get(e) ?? null;
+            break;
+          }
+        }
+      }
+    }
 
     const liveRole = (matched?.role as UserRole | undefined) ?? null;
     const isActive = matched ? matched.is_active : null;
@@ -144,6 +253,7 @@ export default async function TeamSetupPage() {
       status,
       roleMatches,
       profileComplete,
+      lastLoginAt,
     };
   });
 

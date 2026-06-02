@@ -46,17 +46,75 @@
       </section>
 
       <section class="card">
-        <h2>Send capture</h2>
+        <h2>Capture &amp; review</h2>
         <div class="btn-grid">
           <button class="primary full" data-action="send">
-            Send to assistant
+            Capture for review
           </button>
           <button data-action="summarize">Summarize page</button>
           <button data-action="draftNote">Draft note</button>
           <button data-action="missingItems">Find missing items</button>
           <button data-action="borrowerQuestions">Borrower questions</button>
         </div>
+        <p class="muted" style="margin-top: 8px">
+          Nothing is sent until you review the exact payload below and confirm.
+        </p>
         <p class="toast" id="toast" role="status" aria-live="polite"></p>
+      </section>
+
+      <!-- Review-before-send pane. Hidden until a capture is staged. Renders the
+           EXACT payload (URL, title, selected text, structured items) plus a
+           redaction notice; the user must confirm "Send to LegendsOS" before any
+           network call or tab open happens. Mirrors the web card's consent UX. -->
+      <section class="card" id="review-card" hidden>
+        <h2>Review before sending</h2>
+        <div class="page-meta">
+          <span class="title" id="review-title">—</span>
+          <span class="url" id="review-url"></span>
+        </div>
+
+        <div id="review-selected-wrap" hidden style="margin-top: 8px">
+          <p class="muted">Selected text</p>
+          <textarea
+            id="review-selected"
+            class="output"
+            readonly
+            style="min-height: 64px"
+          ></textarea>
+        </div>
+
+        <div id="review-structured-wrap" hidden style="margin-top: 8px">
+          <p class="muted">Structured context (visible labels &amp; headings)</p>
+          <textarea
+            id="review-structured"
+            class="output"
+            readonly
+            style="min-height: 64px"
+          ></textarea>
+        </div>
+
+        <details style="margin-top: 8px">
+          <summary class="muted" style="cursor: pointer">
+            Preview the seeded prompt
+          </summary>
+          <textarea
+            id="review-prompt"
+            class="output"
+            readonly
+            style="margin-top: 6px"
+          ></textarea>
+        </details>
+
+        <p class="muted" id="review-redaction" style="margin-top: 8px">
+          This payload was redacted on the page before capture: no passwords,
+          SSNs, account/card/routing numbers, or secret tokens are included.
+          Review it, then send.
+        </p>
+
+        <div class="row" style="margin-top: 10px">
+          <button id="review-send" class="primary">Send to LegendsOS</button>
+          <button id="review-cancel">Cancel</button>
+        </div>
       </section>
 
       <section class="card">

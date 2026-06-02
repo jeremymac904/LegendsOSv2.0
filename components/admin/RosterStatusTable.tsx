@@ -6,6 +6,7 @@ import {
   Circle,
   MinusCircle,
 } from "lucide-react";
+import { formatDistanceToNowStrict } from "date-fns";
 
 import { StatusPill } from "@/components/ui/StatusPill";
 import { cn } from "@/lib/utils";
@@ -54,6 +55,9 @@ export interface RosterRow {
   roleMatches: boolean;
   /** True when the live profile has a non-empty full_name. */
   profileComplete: boolean;
+  /** Auth last_sign_in_at (ISO) for the matched user, null if never signed in,
+   *  undefined when the lookup itself was unavailable (renders "—"). */
+  lastLoginAt?: string | null;
 }
 
 const STATUS_META: Record<
@@ -77,6 +81,18 @@ const STATUS_META: Record<
 function roleLabel(role: UserRole | null): string {
   if (!role) return "—";
   return role === "loan_officer" ? "LO" : role;
+}
+
+// Relative "last login" string. Returns null when the value can't be parsed so
+// the caller can fall back to an em dash.
+function lastLoginRelative(iso: string): string | null {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  try {
+    return `${formatDistanceToNowStrict(d)} ago`;
+  } catch {
+    return null;
+  }
 }
 
 // Per-user integration columns. These are intentionally honest: there is no
@@ -127,6 +143,7 @@ export function RosterStatusTable({
               <th className="px-3 py-2">Phone</th>
               <th className="px-3 py-2">States</th>
               <th className="px-3 py-2">Profile</th>
+              <th className="px-3 py-2 whitespace-nowrap">Last login</th>
               {INTEGRATION_COLUMNS.map((c) => (
                 <th key={c} className="px-3 py-2 whitespace-nowrap">
                   {c}
@@ -220,6 +237,12 @@ export function RosterStatusTable({
                       <span className="text-ink-500 dark:text-ink-400">—</span>
                     )}
                   </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <LastLoginCell
+                      hasProfile={Boolean(row.profileId)}
+                      lastLoginAt={row.lastLoginAt}
+                    />
+                  </td>
                   {INTEGRATION_COLUMNS.map((c) => (
                     <td key={c} className="px-3 py-2">
                       <StatusPill status="warn" label="setup needed" />
@@ -242,5 +265,34 @@ export function RosterStatusTable({
         wiring ships. Nothing here is faked as connected.
       </p>
     </section>
+  );
+}
+
+// Honest last-login cell:
+//   - no live profile        → "—" (no account exists to sign in to)
+//   - profile, lastLoginAt undefined (lookup failed/unavailable) → "—"
+//   - profile, lastLoginAt === null → "never signed in" (warn)
+//   - profile, valid ISO     → relative date (e.g. "3 days ago")
+function LastLoginCell({
+  hasProfile,
+  lastLoginAt,
+}: {
+  hasProfile: boolean;
+  lastLoginAt?: string | null;
+}) {
+  if (!hasProfile || lastLoginAt === undefined) {
+    return <span className="text-ink-500 dark:text-ink-400">—</span>;
+  }
+  if (lastLoginAt === null) {
+    return <StatusPill status="warn" label="never signed in" />;
+  }
+  const relative = lastLoginRelative(lastLoginAt);
+  if (!relative) {
+    return <span className="text-ink-500 dark:text-ink-400">—</span>;
+  }
+  return (
+    <span className="text-ink-700 dark:text-ink-200" title={lastLoginAt}>
+      {relative}
+    </span>
   );
 }

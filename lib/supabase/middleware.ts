@@ -10,6 +10,10 @@ const PUBLIC_PATHS = [
   "/auth",
   "/api/health",
   "/api/auth",
+  // OAuth provider redirect: Google sends the user here after consent. The
+  // route verifies an HMAC-signed `state` itself, so it must be reachable even
+  // if the session cookie is momentarily stale during the redirect.
+  "/api/integrations/connect/callback",
   // Inbound automation webhooks (n8n) authenticate via the shared-secret
   // header, not a Supabase session — exempt them from session auth so they
   // can be reached. Each handler still fails closed without a valid secret.
@@ -57,6 +61,14 @@ export async function updateSession(request: NextRequest) {
 
   if (!isSupabaseConfigured()) {
     // Supabase not wired up yet — let the not-configured page render.
+    return response;
+  }
+
+  // CORS preflights are credential-less by spec, so auth.getUser() would see no
+  // user and (for /api/*) return a 401 with no Access-Control-Allow-Origin
+  // header — which makes the browser block the real request. Let OPTIONS through
+  // to the route's own OPTIONS handler (which sets the correct CORS headers).
+  if (request.method === "OPTIONS") {
     return response;
   }
 

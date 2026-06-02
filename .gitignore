@@ -91,3 +91,6 @@ Thumbs.db
 
 # merge / editor leftovers
 *.orig
+
+# Provisioning setup links (sensitive, one-time login links — never commit)
+scripts/.provision-links.local.json

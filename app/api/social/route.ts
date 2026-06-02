@@ -1,11 +1,53 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { getServerEnv } from "@/lib/env";
 import { enqueueAutomationJob } from "@/lib/automation/n8n";
-import { getCurrentProfile, getSupabaseServerClient } from "@/lib/supabase/server";
+import { recordPublishAttempt } from "@/lib/integrations/audit";
+import { createGbpPost, isGbpConnected } from "@/lib/integrations/gbp";
+import { resolveLiveAction } from "@/lib/integrations/liveSettings";
+import {
+  type MetaPublishPost,
+  MetaPublishGateError,
+  publishToMeta,
+} from "@/lib/integrations/meta";
+import { isYoutubeConnected, uploadYoutubeVideo } from "@/lib/integrations/youtube";
+import {
+  getCurrentProfile,
+  getSupabaseServerClient,
+  getSupabaseServiceClient,
+  isMissingDatabaseObjectError,
+} from "@/lib/supabase/server";
 import { logUsage, recordAudit } from "@/lib/usage";
 import type { SocialChannel } from "@/types/database";
+
+// Each social channel maps to the social_account_connections.platform whose
+// owner-approval switch (is_publish_enabled) must be ON for a live publish.
+// Facebook + Instagram are both gated by the single "meta" connection.
+const CHANNEL_PLATFORM: Record<(typeof channels)[number], string> = {
+  facebook: "meta",
+  instagram: "meta",
+  google_business_profile: "google_business_profile",
+  youtube: "youtube",
+};
+
+// Returns the set of platforms whose owner-approval switch is ON. Best-effort:
+// a missing table / no rows yields an empty set (fail-closed -> stays draft).
+async function publishEnabledPlatforms(organizationId: string | null): Promise<Set<string>> {
+  try {
+    const service = getSupabaseServiceClient();
+    let q = service
+      .from("social_account_connections")
+      .select("platform,is_publish_enabled")
+      .eq("is_publish_enabled", true);
+    q = organizationId ? q.eq("organization_id", organizationId) : q.is("organization_id", null);
+    const { data, error } = await q;
+    if (error || !data) return new Set();
+    return new Set((data as { platform: string }[]).map((r) => r.platform));
+  } catch (err) {
+    if (!isMissingDatabaseObjectError(err)) console.error("publishEnabledPlatforms failed", err);
+    return new Set();
+  }
+}
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -64,7 +106,6 @@ export async function POST(req: Request) {
   }
   const data = parsed.data;
   const supabase = getSupabaseServerClient();
-  const env = getServerEnv();
 
   // Pick the first UUID-shaped media as the primary; persist EVERY id in
   // metadata.media_ids so the composer can re-render the full list later
@@ -241,30 +282,251 @@ export async function POST(req: Request) {
     metadata: { post_id: post.id, channels: data.channels, edited: !!data.post_id },
   });
 
-  // If scheduling, enqueue an automation job. NEVER dispatch live unless the
-  // owner has flipped ALLOW_LIVE_SOCIAL_PUBLISH=true AND a webhook is set.
+  // If scheduling, enqueue an automation job. A live dispatch requires BOTH
+  // the owner's in-app live-social toggle (integration_settings, resolved per
+  // user) AND, for every selected channel, the owner-approval switch on that
+  // platform's connection (social_account_connections.is_publish_enabled).
+  // If either is off, the post stays queued/draft — it is NEVER published.
   let job: { job_id: string; status: string; reason?: string } | null = null;
+  let publishGate: { live: boolean; reason: string } | null = null;
+  let directResults: Array<{
+    channel: string;
+    platform: string;
+    status: "published" | "failed" | "skipped";
+    error?: string;
+    platform_post_id?: string;
+  }> = [];
   if (data.action === "schedule") {
-    job = await enqueueAutomationJob({
-      profile,
-      job_type: "social_publish",
-      module: "social",
-      target_table: "social_posts",
-      target_id: post.id,
-      webhook_key: "social_publish",
-      payload: {
-        post_id: post.id,
-        body: data.body,
-        channels: data.channels,
-        scheduled_at: data.scheduled_at,
-        youtube_title:
-          data.youtube_title && data.channels.includes("youtube")
-            ? data.youtube_title.trim()
-            : null,
-      },
-      scheduled_at: data.scheduled_at,
-      dispatch: env.SAFETY.allowLiveSocialPublish,
+    const liveSetting = await resolveLiveAction("social", {
+      organizationId: profile.organization_id,
+      userId: profile.id,
     });
+    const enabledPlatforms = await publishEnabledPlatforms(profile.organization_id);
+    const blockedChannels = data.channels.filter(
+      (c) => !enabledPlatforms.has(CHANNEL_PLATFORM[c])
+    );
+    const accountsAllEnabled = blockedChannels.length === 0;
+    const dispatchLive = liveSetting.allowed && accountsAllEnabled;
+
+    publishGate = {
+      live: dispatchLive,
+      reason: dispatchLive
+        ? "ok"
+        : !liveSetting.allowed
+        ? `live_social_${liveSetting.reason}`
+        : `account_publish_disabled:${blockedChannels.join(",")}`,
+    };
+
+    // ------------------------------------------------------------------
+    // Direct real-time publish — attempt before n8n enqueue.
+    // For each selected channel, if live gates pass AND the real publisher
+    // is available (token connected), call it directly. Channels that
+    // succeed are recorded as 'published'; failures fall through to n8n
+    // with status 'queued'. Channels with disabled gates fall through to
+    // n8n with status 'disabled'. This does NOT block the response on
+    // channel failures — the post is always saved; publish is best-effort.
+    // ------------------------------------------------------------------
+
+    if (dispatchLive) {
+      // Meta (Facebook + Instagram share one token/connection)
+      const metaChannels = (
+        data.channels as string[]
+      ).filter((c) => c === "facebook" || c === "instagram");
+      if (metaChannels.length > 0) {
+        for (const ch of metaChannels) {
+          const surface = ch as "facebook" | "instagram";
+          try {
+            const metaPost: MetaPublishPost = {
+              surface,
+              message: data.body,
+              image_url:
+                primaryMediaId
+                  ? undefined // resolved by caller; URL not available here
+                  : undefined,
+              connection_id: post.id,
+            };
+            const metaCtx = { is_publish_enabled: true, actor: profile };
+            const result = await publishToMeta(metaPost, metaCtx);
+            directResults.push({
+              channel: ch,
+              platform: "meta",
+              status: "published",
+              platform_post_id: result.platform_post_id,
+            });
+            await recordPublishAttempt({
+              organization_id: profile.organization_id,
+              social_post_id: post.id,
+              platform: "meta",
+              route: "meta_graph",
+              status: "published",
+              metadata: { channel: ch, platform_post_id: result.platform_post_id },
+            });
+          } catch (err) {
+            const errMsg =
+              err instanceof MetaPublishGateError
+                ? err.reason
+                : err instanceof Error
+                ? err.message
+                : "meta_publish_failed";
+            directResults.push({
+              channel: ch,
+              platform: "meta",
+              status: "failed",
+              error: errMsg,
+            });
+            await recordPublishAttempt({
+              organization_id: profile.organization_id,
+              social_post_id: post.id,
+              platform: "meta",
+              route: "meta_graph",
+              status: "failed",
+              error: errMsg,
+              metadata: { channel: ch },
+            });
+          }
+        }
+      }
+
+      // YouTube
+      if ((data.channels as string[]).includes("youtube")) {
+        const ytConnected = await isYoutubeConnected(profile.id);
+        if (ytConnected) {
+          const ytTitle =
+            (data.youtube_title ?? data.title ?? data.body.slice(0, 100)).trim();
+          const ytResult = await uploadYoutubeVideo(profile.id, {
+            title: ytTitle,
+            description: data.body,
+            social_post_id: post.id,
+          });
+          directResults.push({
+            channel: "youtube",
+            platform: "youtube",
+            status: ytResult.ok ? "published" : "failed",
+            error: ytResult.ok ? undefined : ytResult.message,
+            platform_post_id: ytResult.videoId,
+          });
+          await recordPublishAttempt({
+            organization_id: profile.organization_id,
+            social_post_id: post.id,
+            platform: "youtube",
+            route: "youtube",
+            status: ytResult.ok ? "published" : "failed",
+            error: ytResult.ok ? null : ytResult.message,
+            metadata: { video_id: ytResult.videoId ?? null },
+          });
+        } else {
+          directResults.push({
+            channel: "youtube",
+            platform: "youtube",
+            status: "skipped",
+            error: "not_connected",
+          });
+        }
+      }
+
+      // Google Business Profile
+      if ((data.channels as string[]).includes("google_business_profile")) {
+        const gbpConnected = await isGbpConnected(profile.id);
+        if (gbpConnected) {
+          const gbpResult = await createGbpPost(profile.id, {
+            summary: data.body,
+            social_post_id: post.id,
+          });
+          directResults.push({
+            channel: "google_business_profile",
+            platform: "google_business_profile",
+            status: gbpResult.ok ? "published" : "failed",
+            error: gbpResult.ok ? undefined : gbpResult.message,
+            platform_post_id: gbpResult.postName,
+          });
+          await recordPublishAttempt({
+            organization_id: profile.organization_id,
+            social_post_id: post.id,
+            platform: "google_business_profile",
+            route: "gbp",
+            status: gbpResult.ok ? "published" : "failed",
+            error: gbpResult.ok ? null : gbpResult.message,
+            metadata: { post_name: gbpResult.postName ?? null },
+          });
+        } else {
+          directResults.push({
+            channel: "google_business_profile",
+            platform: "google_business_profile",
+            status: "skipped",
+            error: "not_connected",
+          });
+        }
+      }
+    }
+
+    // Determine which channels still need n8n (not published directly)
+    const directlyPublished = new Set(
+      directResults
+        .filter((r) => r.status === "published")
+        .map((r) => r.channel)
+    );
+    const channelsForN8n = data.channels.filter(
+      (c) => !directlyPublished.has(c)
+    );
+
+    // Only enqueue n8n job if there are channels left to process
+    if (channelsForN8n.length === 0) {
+      // All channels published directly — create a no-op job record for
+      // consistency with the existing response shape.
+      job = {
+        job_id: `direct-${post.id}`,
+        status: "dispatched",
+        reason: "all_channels_published_directly",
+      };
+    } else {
+      job = await enqueueAutomationJob({
+        profile,
+        job_type: "social_publish",
+        module: "social",
+        target_table: "social_posts",
+        target_id: post.id,
+        webhook_key: "social_publish",
+        payload: {
+          post_id: post.id,
+          body: data.body,
+          channels: channelsForN8n,
+          scheduled_at: data.scheduled_at,
+          youtube_title:
+            data.youtube_title && channelsForN8n.includes("youtube")
+              ? data.youtube_title.trim()
+              : null,
+        },
+        scheduled_at: data.scheduled_at,
+        dispatch: dispatchLive,
+      });
+
+      // Record n8n attempt rows for remaining channels
+      const attemptStatus = !dispatchLive
+        ? ("disabled" as const)
+        : job.status === "dispatched"
+        ? ("dispatched" as const)
+        : ("queued" as const);
+      await Promise.all(
+        channelsForN8n
+          .filter((c) => {
+            // Skip channels already recorded via directResults
+            const already = directResults.find((r) => r.channel === c);
+            return !already;
+          })
+          .map((channel) =>
+            recordPublishAttempt({
+              organization_id: profile.organization_id,
+              social_post_id: post!.id,
+              platform: CHANNEL_PLATFORM[channel],
+              route: "n8n",
+              status: attemptStatus,
+              error: dispatchLive ? null : publishGate!.reason,
+              metadata: { channel, job_id: job!.job_id },
+            })
+          )
+      );
+    }
+
     await recordAudit({
       actor: profile,
       action: "social_publish_requested",
@@ -272,11 +534,22 @@ export async function POST(req: Request) {
       target_id: post.id,
       metadata: {
         channels: data.channels,
-        dispatch: env.SAFETY.allowLiveSocialPublish,
+        dispatch: dispatchLive,
+        gate_reason: publishGate.reason,
         job_id: job.job_id,
+        direct_published: directResults
+          .filter((r) => r.status === "published")
+          .map((r) => r.channel),
       },
     });
   }
 
-  return NextResponse.json({ ok: true, post, job });
+  return NextResponse.json({
+    ok: true,
+    post,
+    job,
+    publish: publishGate,
+    // Per-channel direct publish results (only present when action='schedule')
+    direct_results: directResults.length > 0 ? directResults : undefined,
+  });
 }

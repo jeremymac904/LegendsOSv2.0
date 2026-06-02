@@ -17,6 +17,8 @@
 //
 // Server-only — never import from a client component.
 
+import type { Profile } from "@/types/database";
+
 export type MetaCapability =
   | "publish_post"
   | "publish_image"
@@ -253,6 +255,8 @@ export interface MetaPublishPost {
 export interface MetaPublishGateContext {
   /** social_account_connections.is_publish_enabled for the target account. */
   is_publish_enabled: boolean;
+  /** Optional caller context for audit-only metadata. */
+  actor?: Profile | null;
 }
 
 export class MetaPublishGateError extends Error {

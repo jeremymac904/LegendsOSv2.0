@@ -9,6 +9,7 @@ import {
   KeyRound,
   Mail,
   MessageCircle,
+  Plug,
   PlugZap,
   Server,
   Share2,
@@ -196,10 +197,17 @@ export default async function AdminCenterPage() {
   const n8nWebhookCount = Object.values(env.N8N_WEBHOOKS).filter(Boolean).length;
   const ownerConnectionCards = [
     {
-      title: "n8n workflows",
-      detail: `${n8nWebhookCount} webhook${n8nWebhookCount === 1 ? "" : "s"} configured`,
+      title: "Connection Center",
+      detail: "OAuth, integrations, live-action toggles, audit",
+      configured: true,
+      href: "/admin/connections",
+      icon: Plug,
+    },
+    {
+      title: "n8n Automations",
+      detail: `${n8nWebhookCount} webhook${n8nWebhookCount === 1 ? "" : "s"} configured — manage workflows`,
       configured: Boolean(env.N8N_BASE_URL || n8nWebhookCount > 0),
-      href: "/settings",
+      href: "/admin/n8n",
       icon: PlugZap,
     },
     {
@@ -212,7 +220,7 @@ export default async function AdminCenterPage() {
         process.env.GOOGLE_OAUTH_CLIENT_ID &&
           process.env.GOOGLE_OAUTH_CLIENT_SECRET
       ),
-      href: "/settings",
+      href: "/admin/connections",
       icon: CalendarDays,
     },
     {
