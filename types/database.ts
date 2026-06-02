@@ -47,6 +47,8 @@ export type CalendarItemType =
   | "email_campaign"
   | "team_event"
   | "reminder";
+export type ThemeContrastPreference = "high" | "normal" | "soft";
+export type ThemeModeSetting = "dark" | "light" | "system";
 
 // ---------------------------------------------------------------------------
 // Mortgage Loan Brain status vocabularies (Phase 1).
@@ -90,6 +92,46 @@ export interface Organization {
   updated_at: string;
 }
 
+export interface BrandWorkspaceSettings {
+  id: string;
+  organization_id: string;
+  workspace_slug: string;
+  domain: string;
+  display_name: string;
+  logo_path: string | null;
+  primary_color: string | null;
+  secondary_color: string | null;
+  login_headline: string;
+  login_subheadline: string | null;
+  background_image_path: string | null;
+  background_video_path: string | null;
+  default_redirect_path: string;
+  owner_user_id: string | null;
+  status: "active" | "inactive" | "draft";
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserThemeSettings {
+  id: string;
+  user_id: string;
+  organization_id: string | null;
+  brand_workspace_id: string | null;
+  primary_color: string | null;
+  secondary_color: string | null;
+  background_image_path: string | null;
+  background_video_path: string | null;
+  glass_intensity: number;
+  sidebar_opacity: number;
+  card_opacity: number;
+  text_contrast: ThemeContrastPreference;
+  login_background_enabled: boolean;
+  desktop_background_enabled: boolean;
+  theme_mode: ThemeModeSetting;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface AtlasAssistant {
   id: string;
   organization_id: string | null;
@@ -112,6 +154,8 @@ export interface ChatThread {
   organization_id: string | null;
   title: string;
   is_archived: boolean;
+  is_pinned?: boolean;
+  is_saved?: boolean;
   last_message_at: string | null;
   created_at: string;
   updated_at: string;
@@ -644,14 +688,35 @@ export interface IntegrationAuditLog {
 export interface SocialAccountConnection {
   id: string;
   organization_id: string | null;
+  user_id: string | null;
+  user_integration_connection_id: string | null;
   platform: string;
   account_ref: string | null;
   page_id: string | null;
+  destination_type: string | null;
+  destination_ref: string | null;
+  destination_label: string | null;
   status: IntegrationConnectionStatus;
   connected_by: string | null;
   connected_at: string | null;
+  last_tested_at: string | null;
   // Owner-approval switch — defaults false; no live publishing until enabled.
   is_publish_enabled: boolean;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SocialConnectionSecret {
+  id: string;
+  user_id: string;
+  organization_id: string | null;
+  user_integration_connection_id: string;
+  provider: string;
+  encrypted_secret: string;
+  token_type: string | null;
+  scopes: string[];
+  expires_at: string | null;
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
@@ -666,5 +731,218 @@ export interface PublishAttempt {
   status: PublishAttemptStatus;
   error: string | null;
   metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+// ---------------------------------------------------------------------------
+// Agent runtime, memory, skills, traces, and handoffs
+// Migrations: 20260601100000_agent_runtime.sql,
+// 20260601100100_agent_runtime_rls.sql. These tables are additive and may be
+// unapplied; server reads should treat 42P01 as setup-needed.
+// ---------------------------------------------------------------------------
+
+export type AgentType =
+  | "owner_atlas"
+  | "lo_atlas"
+  | "processor_flo"
+  | "coordinator_agent"
+  | "builder_agent"
+  | "marketing_agent"
+  | "academy_agent"
+  | "media_agent"
+  | "social_agent"
+  | "docs_agent"
+  | "ux_agent";
+
+export type AgentSessionStatus = "active" | "archived" | "handed_off";
+export type AgentMessageRole = "user" | "assistant" | "system" | "tool";
+export type AgentConfidence = "high" | "medium" | "low";
+export type AgentPriority = "highest" | "high" | "medium" | "low" | "lowest";
+export type AgentMemoryCategory =
+  | "profile_preference"
+  | "tone_preference"
+  | "workflow_preference"
+  | "borrower_workflow"
+  | "document_workflow"
+  | "email_workflow"
+  | "social_workflow"
+  | "loan_condition_workflow"
+  | "drive_folder_workflow"
+  | "prompt_pattern"
+  | "saved_instruction"
+  | "personal_rule"
+  | "assistant_note";
+export type AgentMemoryEventType =
+  | "memory_write"
+  | "memory_update"
+  | "memory_correction"
+  | "memory_deactivate"
+  | "preference_set"
+  | "rule_added";
+export type AgentSkillUsageOutcome = "used" | "succeeded" | "failed" | "dismissed";
+export type AgentToolCallStatus =
+  | "ok"
+  | "blocked"
+  | "error"
+  | "needs_confirmation"
+  | "skipped";
+export type AgentHandoffStatus = "pending" | "accepted" | "declined" | "completed";
+
+export interface AgentSession {
+  id: string;
+  user_id: string;
+  organization_id: string | null;
+  agent_type: AgentType;
+  title: string | null;
+  status: AgentSessionStatus;
+  loan_id: string | null;
+  loan_memory_id: string | null;
+  origin: "web" | "browser_companion" | "handoff" | "api";
+  context_summary: string | null;
+  last_message_at: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AgentMessage {
+  id: string;
+  session_id: string;
+  user_id: string | null;
+  agent_type: AgentType;
+  role: AgentMessageRole;
+  content: string;
+  provider: string | null;
+  model: string | null;
+  trace_id: string | null;
+  token_count: number | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface AgentMemory {
+  id: string;
+  user_id: string;
+  organization_id: string | null;
+  agent_type: AgentType;
+  category: AgentMemoryCategory;
+  title: string;
+  body: string;
+  tags: unknown[];
+  confidence: AgentConfidence;
+  priority: AgentPriority;
+  source_summary: string | null;
+  is_active: boolean;
+  is_sample: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AgentMemoryEvent {
+  id: string;
+  memory_id: string | null;
+  user_id: string;
+  agent_type: AgentType;
+  event_type: AgentMemoryEventType;
+  event_summary: string | null;
+  source_type: string | null;
+  source_name: string | null;
+  confidence: AgentConfidence;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface AgentSkill {
+  id: string;
+  user_id: string;
+  organization_id: string | null;
+  agent_type: AgentType;
+  skill_name: string;
+  skill_slug: string;
+  description: string | null;
+  trigger_phrases: unknown[];
+  input_schema: Record<string, unknown>;
+  output_format: string | null;
+  steps: unknown[];
+  source_examples: unknown[];
+  confidence: AgentConfidence;
+  usage_count: number;
+  last_used_at: string | null;
+  created_by: string | null;
+  visibility: AssistantVisibility;
+  is_active: boolean;
+  is_shared_with_team: boolean;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AgentSkillVersion {
+  id: string;
+  skill_id: string;
+  version: number;
+  snapshot: Record<string, unknown>;
+  change_summary: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface AgentSkillUsage {
+  id: string;
+  skill_id: string;
+  user_id: string;
+  session_id: string | null;
+  agent_type: AgentType;
+  outcome: AgentSkillUsageOutcome;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface AgentToolCall {
+  id: string;
+  session_id: string | null;
+  user_id: string;
+  agent_type: AgentType;
+  tool_name: string;
+  input_summary: string | null;
+  output_summary: string | null;
+  status: AgentToolCallStatus;
+  permissioned: boolean;
+  audited: boolean;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface AgentTrace {
+  id: string;
+  session_id: string | null;
+  message_id: string | null;
+  user_id: string;
+  agent_type: AgentType;
+  input_summary: string | null;
+  context_loaded: unknown[];
+  skills_used: unknown[];
+  tools_called: unknown[];
+  provider: string | null;
+  model_used: string | null;
+  output_type: string | null;
+  duration_ms: number | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface AgentHandoff {
+  id: string;
+  from_session_id: string | null;
+  to_session_id: string | null;
+  from_user_id: string;
+  to_user_id: string | null;
+  from_agent_type: AgentType;
+  to_agent_type: AgentType;
+  reason: string | null;
+  context_summary: string | null;
+  status: AgentHandoffStatus;
+  metadata: Record<string, unknown>;
+  accepted_at: string | null;
   created_at: string;
 }

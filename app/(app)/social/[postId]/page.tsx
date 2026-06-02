@@ -11,6 +11,7 @@ import {
 } from "@/lib/admin/orgAssets";
 import { imageLibrary } from "@/lib/assets";
 import { getServerEnv } from "@/lib/env";
+import { buildSocialPublishGate } from "@/lib/social/destinationReadiness";
 import {
   getCurrentProfile,
   getSupabaseServerClient,
@@ -48,6 +49,10 @@ export default async function SocialPostPage({
       loadOrgUploadedImageAssets(),
       loadSocialAssetUsageCounts(),
     ]);
+  const { data: destinationRows } = await supabase
+    .from("social_account_connections")
+    .select("platform,status,is_publish_enabled")
+    .eq("user_id", profile.id);
 
   if (!postRow) notFound();
   const post = postRow as SocialPost;
@@ -94,6 +99,13 @@ export default async function SocialPostPage({
     ...uploadedAssetEntries,
     ...manifestAssetEntries,
   ];
+  const destinationGate = buildSocialPublishGate(
+    (destinationRows ?? []) as Array<{
+      platform: "facebook" | "instagram" | "google_business_profile" | "youtube";
+      status: string | null;
+      is_publish_enabled: boolean;
+    }>
+  );
 
   // Flatten the usage Map for client transport.
   const assetUsage: Record<string, number> = {};
@@ -128,6 +140,7 @@ export default async function SocialPostPage({
         mediaLibrary={mediaLibrary}
         initialDraft={post}
         assetUsage={assetUsage}
+        destinationGate={destinationGate}
       />
     </div>
   );

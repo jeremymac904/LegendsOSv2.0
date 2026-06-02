@@ -8,6 +8,14 @@ import {
   renderKnowledgeBlock,
 } from "@/lib/atlas/retrieval";
 import {
+  attachKnowledgeHitsToRuntimeContext,
+  loadAtlasRuntimeContext,
+  publicRuntimeContext,
+  renderAtlasRuntimeContextBlock,
+  withLoanRuntimeContext,
+  type AtlasRuntimeContext,
+} from "@/lib/atlas/runtimeContext";
+import {
   canRunAtlasTools,
   renderCapabilityMessage,
   runAtlasTool,
@@ -19,6 +27,7 @@ import { writeMemoryEvent } from "@/lib/loanMemory/events";
 import {
   buildLoanSystemPrompt,
   runLoanRetrieval,
+  type LoanRetrievalResult,
 } from "@/lib/loanMemory/retrievalMiddleware";
 import {
   DEFAULT_VOICE_ID,
@@ -191,6 +200,20 @@ export async function POST(req: Request) {
     );
   }
 
+  let loanRetrievalResult: LoanRetrievalResult | null = null;
+  let runtimeContext: AtlasRuntimeContext | null = null;
+  const loadRuntime = async () => {
+    runtimeContext = await loadAtlasRuntimeContext({
+      client: supabase,
+      profile,
+      assistantId: effectiveAssistantId,
+      provider: provider ?? null,
+      model: model ?? null,
+      loanRetrieval: loanRetrievalResult,
+    });
+    return runtimeContext;
+  };
+
   // ---- Loan Memory retrieval (additive, fully guarded) --------------------
   // BEFORE the model is called: if the message is loan-related, ATTEMPT
   // retrieval first. The assistant must never answer a loan question without
@@ -209,6 +232,7 @@ export async function POST(req: Request) {
         queryText: message,
         threadId: threadId ?? undefined,
       });
+      loanRetrievalResult = retrieval;
 
       if (retrieval.loanRelated) {
         // Resolve the writer's voice for loan-shaped responses. Guarded: a
@@ -279,6 +303,7 @@ export async function POST(req: Request) {
             event_type: "loan_pipeline_update",
             metadata: { thread_id: threadId, loan_memory_id: retrieval.memory.id },
           });
+          const loadedRuntime = await loadRuntime();
           return NextResponse.json({
             ok: true,
             thread_id: threadId,
@@ -289,6 +314,19 @@ export async function POST(req: Request) {
             provider: "loan_memory",
             model: null,
             loan: { match_status: "matched", panel: retrieval.panel ?? null },
+            loan_context: {
+              borrower_name: retrieval.memory.borrower_name,
+              loan_number: retrieval.memory.loan_number,
+              current_stage: retrieval.memory.current_stage,
+              last_update: retrieval.memory.last_known_activity ?? retrieval.memory.updated_at ?? null,
+              main_blocker: retrieval.memory.main_blocker,
+              next_action: retrieval.memory.next_action,
+              confidence: retrieval.memory.confidence,
+              sources_checked: retrieval.sourcesChecked ?? retrieval.panel?.sources_checked ?? [],
+              match_status: "matched",
+              is_sample: retrieval.memory.is_sample,
+            },
+            runtime_context: publicRuntimeContext(loadedRuntime),
             usage: { daily_count: cap.used + 1, daily_limit: cap.cap },
             knowledge: { count: 0, sources: [] },
           });
@@ -350,6 +388,7 @@ export async function POST(req: Request) {
             event_type: "loan_retrieval_clarify",
             metadata: { thread_id: threadId, match_status: retrieval.matchStatus },
           });
+          const loadedRuntime = await loadRuntime();
           return NextResponse.json({
             ok: true,
             thread_id: threadId,
@@ -363,6 +402,7 @@ export async function POST(req: Request) {
               match_status: retrieval.matchStatus,
               candidates: candidates.slice(0, 5),
             },
+            runtime_context: publicRuntimeContext(loadedRuntime),
             usage: { daily_count: cap.used + 1, daily_limit: cap.cap },
             knowledge: { count: 0, sources: [] },
           });
@@ -406,6 +446,7 @@ export async function POST(req: Request) {
             event_type: "loan_retrieval_no_match",
             metadata: { thread_id: threadId },
           });
+          const loadedRuntime = await loadRuntime();
           return NextResponse.json({
             ok: true,
             thread_id: threadId,
@@ -419,6 +460,7 @@ export async function POST(req: Request) {
               match_status: "no_match",
               required_clarification: retrieval.requiredClarification ?? [],
             },
+            runtime_context: publicRuntimeContext(loadedRuntime),
             usage: { daily_count: cap.used + 1, daily_limit: cap.cap },
             knowledge: { count: 0, sources: [] },
           });
@@ -430,7 +472,10 @@ export async function POST(req: Request) {
     // normal chat path so non-loan and loan chat both keep working.
     console.error("loan retrieval failed", e);
     loanContextText = null;
+    loanRetrievalResult = null;
   }
+
+  runtimeContext = await loadRuntime();
 
   // ---- Atlas tool router --------------------------------------------------
   // Before paying the provider, check whether the message is a deterministic
@@ -503,6 +548,7 @@ export async function POST(req: Request) {
       assistant_message: assistantText,
       provider: "atlas_tool",
       model: null,
+      runtime_context: publicRuntimeContext(runtimeContext),
       usage: { daily_count: cap.used + 1, daily_limit: cap.cap },
       knowledge: { count: 0, sources: [] },
     });
@@ -543,6 +589,7 @@ export async function POST(req: Request) {
           role: "assistant",
           content: assistantText,
           metadata: {
+            runtime_context: publicRuntimeContext(runtimeContext),
             tool_result: {
               kind: toolResult.kind,
               itemId: toolResult.itemId,
@@ -594,6 +641,7 @@ export async function POST(req: Request) {
         assistant_message: assistantText,
         provider: "atlas_tool",
         model: null,
+        runtime_context: publicRuntimeContext(runtimeContext),
         usage: { daily_count: cap.used + 1, daily_limit: cap.cap },
         knowledge: { count: 0, sources: [] },
       });
@@ -610,6 +658,7 @@ export async function POST(req: Request) {
         role: "assistant",
         content: friendly,
         metadata: {
+          runtime_context: publicRuntimeContext(runtimeContext),
           source: "atlas_tool_failure",
           kind: toolResult.kind,
           error: toolResult.error,
@@ -639,6 +688,7 @@ export async function POST(req: Request) {
       assistant_message: friendly,
       provider: "atlas_tool",
       model: null,
+      runtime_context: publicRuntimeContext(runtimeContext),
       usage: { daily_count: cap.used + 1, daily_limit: cap.cap },
       knowledge: { count: 0, sources: [] },
     });
@@ -685,9 +735,13 @@ export async function POST(req: Request) {
         limit: 5,
       });
       knowledgeBlock = renderKnowledgeBlock(knowledgeHits);
+      runtimeContext = attachKnowledgeHitsToRuntimeContext(runtimeContext, knowledgeHits);
     }
   } catch (e) {
     console.error("knowledge retrieval failed", e);
+  }
+  if (loanRetrievalResult) {
+    runtimeContext = withLoanRuntimeContext(runtimeContext, loanRetrievalResult);
   }
 
   // Assemble the message list. If we have a knowledge block, append it as a
@@ -705,12 +759,16 @@ export async function POST(req: Request) {
   const systemBlocks = [loanContextText, projectBlock, knowledgeBlock].filter(
     Boolean
   );
+  const runtimeContextBlock = renderAtlasRuntimeContextBlock(runtimeContext);
   const messages = systemBlocks.length > 0
     ? [
         ...baseMessages,
         {
           role: "system" as const,
-          content: `(Context attached by the LegendsOS retrieval layer):\n\n${systemBlocks.join(
+          content: `(Context attached by the LegendsOS retrieval layer):\n\n${[
+            runtimeContextBlock,
+            ...systemBlocks,
+          ].join(
             "\n\n"
           )}`,
         },
@@ -719,6 +777,12 @@ export async function POST(req: Request) {
         // already in baseMessages, but re-stating keeps it adjacent.
       ]
     : baseMessages;
+  if (systemBlocks.length === 0) {
+    messages.push({
+      role: "system" as const,
+      content: `(Context attached by the LegendsOS retrieval layer):\n\n${runtimeContextBlock}`,
+    });
+  }
 
   const result = await runChat({
     provider: provider ?? undefined,
@@ -763,6 +827,11 @@ export async function POST(req: Request) {
         provider: result.provider,
         model: result.model,
         knowledge_hits: knowledgeHits.length,
+        knowledge_sources: knowledgeHits.map((h) => ({
+          title: h.title,
+          source_path: h.source_path,
+        })),
+        runtime_context: publicRuntimeContext(runtimeContext),
       },
     })
     .select("id")
@@ -799,6 +868,28 @@ export async function POST(req: Request) {
     content: result.content,
     provider: result.provider,
     model: result.model,
+    runtime_context: publicRuntimeContext(runtimeContext),
+    loan_context:
+      loanRetrievalResult?.matchStatus === "matched" && loanRetrievalResult.memory
+        ? {
+            borrower_name: loanRetrievalResult.memory.borrower_name,
+            loan_number: loanRetrievalResult.memory.loan_number,
+            current_stage: loanRetrievalResult.memory.current_stage,
+            last_update:
+              loanRetrievalResult.memory.last_known_activity ??
+              loanRetrievalResult.memory.updated_at ??
+              null,
+            main_blocker: loanRetrievalResult.memory.main_blocker,
+            next_action: loanRetrievalResult.memory.next_action,
+            confidence: loanRetrievalResult.memory.confidence,
+            sources_checked:
+              loanRetrievalResult.sourcesChecked ??
+              loanRetrievalResult.panel?.sources_checked ??
+              [],
+            match_status: "matched",
+            is_sample: loanRetrievalResult.memory.is_sample,
+          }
+        : null,
     usage: { daily_count: cap.used + 1, daily_limit: cap.cap },
     knowledge: {
       count: knowledgeHits.length,

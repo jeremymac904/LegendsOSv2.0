@@ -21,6 +21,19 @@ const PUBLIC_PATHS = [
   "/sitemap.xml",
 ];
 
+function normalizeHost(host: string | null | undefined): string | null {
+  if (!host) return null;
+  const trimmed = host.trim().toLowerCase();
+  if (!trimmed) return null;
+  const withoutProtocol = trimmed.replace(/^https?:\/\//, "");
+  const withoutPort = withoutProtocol.replace(/:\d+$/, "");
+  return withoutPort.startsWith("www.") ? withoutPort.slice(4) : withoutPort;
+}
+
+function signedInLandingPath(host: string | null | undefined): string {
+  return normalizeHost(host) === "lfprocessing.net" ? "/flo-processing" : "/dashboard";
+}
+
 function isPublicPath(pathname: string): boolean {
   if (pathname === "/") return true; // marketing/landing redirect handled by page.
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
@@ -32,6 +45,12 @@ export async function updateSession(request: NextRequest) {
   // route-aware rendering decisions (e.g. the Atlas full-bleed layout).
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-pathname", request.nextUrl.pathname);
+  requestHeaders.set(
+    "x-hostname",
+    normalizeHost(
+      request.headers.get("x-forwarded-host") ?? request.headers.get("host")
+    ) ?? ""
+  );
   let response = NextResponse.next({
     request: { headers: requestHeaders },
   });
@@ -78,7 +97,9 @@ export async function updateSession(request: NextRequest) {
   // Logged in but on /login → bounce to dashboard.
   if (user && (pathname === "/login" || pathname === "/signup")) {
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
+    url.pathname = signedInLandingPath(
+      request.headers.get("x-forwarded-host") ?? request.headers.get("host")
+    );
     return NextResponse.redirect(url);
   }
 

@@ -56,7 +56,7 @@ const ROWS: AuditRow[] = [
     spine: "n8n spine",
     status: "disabled",
     rationale:
-      "Requires GBP_ACCOUNT_ID + GBP_LOCATION_ID and Google OAuth. Detector reports presence only; no post path is wired.",
+      "Requires Google OAuth and a user-owned selected destination row in Connection Center. No global GBP destination id is used.",
   },
   {
     capability: "YouTube posting",
@@ -64,7 +64,7 @@ const ROWS: AuditRow[] = [
     spine: "n8n spine",
     status: "disabled",
     rationale:
-      "Channel id presence alone does not authorize posting. Runs through Google OAuth + the same live-publish gate as social.",
+      "Requires Google OAuth and a user-owned selected destination row. Channel selection is stored per user, not in env.",
   },
   {
     capability: "Alerts",
@@ -165,12 +165,13 @@ export function RouteOwnershipAudit() {
       </div>
 
       <p className="mt-3 text-[11px] leading-relaxed text-ink-600 dark:text-ink-400">
-        Recommendation summary: n8n is the orchestration spine; direct platform
-        APIs are the eventual publish/read leg for anything borrower-adjacent
-        (Gmail, Drive, loan data) so tokens and content never leave our infra;
-        Zapier MCP stays an unbuilt, allowlisted fallback for low-sensitivity,
-        no-PII connectors only. See docs/ZAPIER_VS_N8N_AUDIT.md. Live sends
-        require an explicit owner flag-flip per channel — never a default.
+      Recommendation summary: n8n is the orchestration spine; direct platform
+      APIs are the eventual publish/read leg for anything borrower-adjacent
+      (Gmail, Drive, loan data) so tokens and content never leave our infra;
+      Zapier MCP stays an unbuilt, allowlisted fallback for low-sensitivity,
+      no-PII connectors only. See docs/ZAPIER_VS_N8N_AUDIT.md. Live sends
+      require a selected destination plus an enabled publishing toggle per
+      destination — never a shared global fallback.
       </p>
     </section>
   );

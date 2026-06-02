@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ImageIcon } from "lucide-react";
+import { ImageIcon, ImagePlus } from "lucide-react";
 
 import { GeneratedMediaCard } from "@/components/images/GeneratedMediaCard";
 import {
@@ -52,19 +52,12 @@ export default async function ImageStudioPage() {
   const falOwnerEnabled = falProviderRow?.is_enabled !== false;
   const falEnabled = Boolean(falStatus?.enabled && falOwnerEnabled);
 
-  // Readiness for the FAL chip + guided composer button. The API route already
-  // enforces configured/enabled provider state; keep the UI aligned with that
-  // so configured Fal.ai does not look blocked by the old paid-generation flag.
   const falReadiness: FalReadiness = !falConfigured
     ? "not_configured"
     : falEnabled
     ? "ready"
     : "provider_disabled";
 
-  // Asset library entries (logos, team photos, social refs) curated by the
-  // local indexer. Owner-only items are filtered out for non-owners. Owner-
-  // uploaded assets join the same gallery — they're already filtered to
-  // images-only and respect the visibility chosen at upload.
   const owner = isOwner(profile);
   const manifestRefs = imageLibrary().filter(
     (a) => owner || a.default_visibility === "team_shared"
@@ -74,8 +67,6 @@ export default async function ImageStudioPage() {
   );
   const assetRefs = [...uploadedRefs, ...manifestRefs];
 
-  // The composer's "Reference asset" dropdown wants a lightweight shape: only
-  // pickable items with a public URL or a label we can stuff into the prompt.
   const composerReferenceAssets: ReferenceAsset[] = assetRefs
     .filter((a) => a.public_path)
     .map((a) => ({
@@ -85,11 +76,6 @@ export default async function ImageStudioPage() {
       source: uploadedRefs.some((u) => u.id === a.id) ? "uploaded" : "library",
     }));
 
-  // When the user has < 4 generations we show a "Starter visuals" row that
-  // surfaces the strongest brand-library images, so the right column never
-  // looks empty for a fresh deploy. Starters are read-only previews;
-  // generated_media rows still take priority.
-  const SHOW_STARTERS_THRESHOLD = 4;
   const starters = assetRefs
     .filter(
       (a) =>
@@ -99,13 +85,7 @@ export default async function ImageStudioPage() {
           a.category === "background")
     )
     .slice(0, 6);
-  const showStarters = media.length < SHOW_STARTERS_THRESHOLD;
 
-  // Compact, client-searchable brand-library list. `origin` is the honest
-  // real-vs-shipped label: owner-uploaded assets are "uploaded" (real team
-  // brand), while checked-in manifest assets are "library". Starter previews
-  // shown on the empty-state row are flagged "sample" so nothing pretends to
-  // be generated output.
   const uploadedIds = new Set(uploadedRefs.map((u) => u.id));
   const starterIds = new Set(starters.map((s) => s.id));
   const browserAssets: AssetLibraryItem[] = assetRefs
@@ -123,187 +103,96 @@ export default async function ImageStudioPage() {
         : "library",
     }));
 
-  // Three-state chip surfaced in the SectionHeader action slot. The
-  // composer renders its own chip too — both pull from the same value so
-  // they always agree.
   const readinessChip =
     falReadiness === "ready" ? (
-      <span className="chip-ok">
-        <span
-          aria-hidden
-          className="inline-block h-1.5 w-1.5 rounded-full bg-status-ok"
-        />
-        FAL · Ready
-      </span>
-    ) : falReadiness === "provider_disabled" ? (
-      <span className="chip-warn">
-        <span
-          aria-hidden
-          className="inline-block h-1.5 w-1.5 rounded-full bg-accent-gold"
-        />
-        FAL · Disabled in Settings
+      <span className="chip-ok text-[10px]">
+        <span aria-hidden className="inline-block h-1.5 w-1.5 rounded-full bg-status-ok" />
+        FAL READY
       </span>
     ) : (
-      <span className="chip-off">
-        <span
-          aria-hidden
-          className="inline-block h-1.5 w-1.5 rounded-full bg-status-off"
-        />
-        FAL · Not configured
+      <span className="chip-warn text-[10px]">
+        <span aria-hidden className="inline-block h-1.5 w-1.5 rounded-full bg-accent-gold" />
+        FAL {falReadiness === "not_configured" ? "UNCONFIGURED" : "DISABLED"}
       </span>
     );
 
   return (
-    <div className="space-y-6">
-      <SectionHeader
-        eyebrow="Image Studio"
-        title="Mortgage marketing visuals"
-        description="Brand-aware image generation via Fal.ai. Outputs save to Supabase Storage and can be attached to social drafts."
-        action={<div className="flex flex-wrap gap-2">{readinessChip}</div>}
-      />
-      <LegendsOSHelpCoaches
-        coaches={["marketing"]}
-        intro="Use the official marketing image coach before generating campaign visuals, preparing reference photos, or tightening Image Studio prompts."
-      />
-
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_2fr]">
-        <ImageStudioClient
-          falReadiness={falReadiness}
-          referenceAssets={composerReferenceAssets}
+    <div className="flex h-[calc(100vh-140px)] min-h-[650px] flex-col gap-4 overflow-hidden">
+      <div className="flex items-center justify-between gap-4">
+        <SectionHeader
+          eyebrow="Image Studio"
+          title="Marketing Visuals"
+          description="Brand-aware generation via Fal.ai."
         />
-        <section className="card-padded">
-          <div className="section-title">
-            <div>
-              <h2>{media.length > 0 ? "Library" : "Starter visuals"}</h2>
-              <p>
-                {media.length > 0
-                  ? "Your last 40 generations."
-                  : "Curated brand visuals — generate your first image and these tuck into the Brand asset library below."}
-              </p>
-            </div>
-          </div>
-          <div className="mt-4 space-y-4">
-            {media.length === 0 && starters.length === 0 && (
-              <EmptyState
-                icon={ImageIcon}
-                title="No images yet"
-                description={
-                  falConfigured
-                    ? "Generate your first image on the left."
-                    : "Add FAL_KEY in Settings → Providers to enable generation."
-                }
-              />
-            )}
-            {media.length === 0 && starters.length > 0 && (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {starters.map((a) => (
-                  <article
-                    key={a.id}
-                    className="group overflow-hidden rounded-xl border border-ink-200 bg-checker dark:border-ink-800"
-                    title={`${a.label} (Sample)`}
-                  >
-                    <div className="relative aspect-square">
-                      {a.public_path && (
-                        <img
-                          src={a.public_path}
-                          alt={a.label}
-                          className="h-full w-full object-cover transition group-hover:scale-[1.02]"
-                          loading="lazy"
-                        />
-                      )}
-                      <span className="absolute left-1.5 top-1.5 rounded-full chip-warn px-1.5 py-0.5 text-[8px] uppercase tracking-[0.12em]">
-                        Sample
-                      </span>
-                    </div>
-                    <div className="space-y-0.5 px-2.5 py-1.5 text-[11px]">
-                      <p className="line-clamp-1 font-medium text-ink-900 dark:text-ink-100">
-                        {a.label}
-                      </p>
-                      <p className="line-clamp-1 text-[10px] text-ink-500 dark:text-ink-400">
-                        {a.file_name}
-                      </p>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-            {media.length > 0 && (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {media.map((m) => (
-                  <GeneratedMediaCard key={m.id} media={m} />
-                ))}
-                {showStarters && starters.length > 0 && (
-                  <>
-                    <div className="col-span-full mt-2">
-                      <p className="text-[10px] uppercase tracking-[0.18em] text-ink-500 dark:text-ink-400">
-                        Brand starters · sample
-                      </p>
-                    </div>
-                    {starters.map((a) => (
-                      <article
-                        key={a.id}
-                        className="relative overflow-hidden rounded-xl border border-ink-200 bg-checker dark:border-ink-800"
-                        title={`${a.label} (Sample)`}
-                      >
-                        <div className="aspect-square">
-                          {a.public_path && (
-                            <img
-                              src={a.public_path}
-                              alt={a.label}
-                              className="h-full w-full object-cover"
-                              loading="lazy"
-                            />
-                          )}
-                        </div>
-                        <span className="absolute left-1.5 top-1.5 rounded-full chip-warn px-1.5 py-0.5 text-[8px] uppercase tracking-[0.12em]">
-                          Sample
-                        </span>
-                        <p className="line-clamp-1 px-2 py-1 text-[11px] text-ink-700 dark:text-ink-200">
-                          {a.label}
-                        </p>
-                      </article>
-                    ))}
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-        </section>
+        <div className="flex items-center gap-2">
+           {readinessChip}
+           <LegendsOSHelpCoaches coaches={["marketing"]} />
+        </div>
       </div>
 
-      {assetRefs.length > 0 && (
-        <section className="card-padded">
-          <div className="section-title">
-            <div>
-              <h2>Brand asset library</h2>
-              <p>
-                Curated logos, team photos and references from the local
-                indexer. Pickable when composing social drafts; useful as
-                visual reference prompts here.
-              </p>
-            </div>
-            {owner && (
-              <Link href="/admin/assets" className="btn-ghost text-xs">
-                Manage library
-              </Link>
-            )}
-          </div>
-          <div className="mt-4">
-            <AssetLibraryBrowser assets={browserAssets} />
-          </div>
-          <p className="mt-3 text-[11px] text-ink-500 dark:text-ink-400">
-            <span className="text-status-ok">Uploaded</span> = owner assets from
-            the{" "}
-            <Link href="/admin/assets" className="text-accent-gold">
-              Asset Library
-            </Link>
-            ; <span className="text-status-info">Library</span> = checked-in{" "}
-            <code>public/assets/</code> via <code>npm run index-assets</code>;{" "}
-            <span className="text-status-warn">Sample</span> = shipped starter
-            visuals.
-          </p>
-        </section>
-      )}
+      <div className="grid flex-1 grid-cols-1 gap-4 overflow-hidden lg:grid-cols-[320px_1fr]">
+        <div className="overflow-y-auto pr-1 scrollbar-thin">
+           <ImageStudioClient
+             falReadiness={falReadiness}
+             referenceAssets={composerReferenceAssets}
+           />
+        </div>
+
+        <div className="flex flex-col overflow-hidden rounded-2xl border border-ink-200 bg-white/40 dark:border-ink-800 dark:bg-ink-950/20">
+           <ImageStudioGalleryTabs
+              media={media}
+              browserAssets={browserAssets}
+              starters={starters}
+              owner={owner}
+              falConfigured={falConfigured}
+           />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+import { Tabs, type TabItem } from "@/components/ui/Tabs";
+
+function ImageStudioGalleryTabs({ media, browserAssets, starters, owner, falConfigured }: any) {
+  const tabs: TabItem[] = [
+    {
+      id: "generated",
+      label: `Generated (${media.length})`,
+      icon: ImageIcon,
+      content: (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+           {media.length === 0 ? (
+             <div className="col-span-full py-20">
+                <EmptyState icon={ImageIcon} title="No generations" description={falConfigured ? "Run a prompt to see results." : "Setup FAL_KEY first."} />
+             </div>
+           ) : (
+             media.map((m: any) => <GeneratedMediaCard key={m.id} media={m} />)
+           )}
+        </div>
+      )
+    },
+    {
+      id: "brand",
+      label: "Brand Library",
+      icon: ImagePlus,
+      content: (
+        <div className="space-y-4">
+           <div className="flex items-center justify-between">
+              <p className="text-[11px] text-ink-500">Pick references for generation or browse team assets.</p>
+              {owner && <Link href="/admin/assets" className="text-[10px] text-accent-gold hover:underline">Manage Library →</Link>}
+           </div>
+           <AssetLibraryBrowser assets={browserAssets} />
+        </div>
+      )
+    }
+  ];
+
+  return (
+    <div className="flex flex-1 flex-col overflow-hidden">
+       <div className="flex-1 overflow-y-auto p-4 scrollbar-thin">
+          <Tabs tabs={tabs} variant="pill" />
+       </div>
     </div>
   );
 }

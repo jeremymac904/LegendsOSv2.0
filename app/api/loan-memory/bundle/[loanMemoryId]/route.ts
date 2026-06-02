@@ -1,6 +1,6 @@
 // LegendsOS v2 — Loan Memory: load the full context bundle for one memory.
 // GET /api/loan-memory/bundle/[loanMemoryId]
-// Returns the LoanMemoryBundle (memory, events, open_tasks, documents,
+// Returns the LoanMemoryBundle (memory, events, open_tasks, documents, conditions,
 // email_intake, drive_links, retrieval_summary, sources_checked) and writes a
 // loan_ai_retrieval_logs row (audit: what was loaded BEFORE the AI answered).
 // 404-style { ok:false } when memory is null (RLS may also hide it → not found).

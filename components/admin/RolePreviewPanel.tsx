@@ -48,7 +48,7 @@ const PREVIEW_ROLES: RolePreviewTarget[] = [
   {
     role: "processor",
     label: "Processor",
-    description: "Ashley — Processing (FLO) cockpit and draft tools.",
+    description: "Ashley — Flo Processing cockpit and draft tools.",
     icon: ClipboardList,
   },
   {

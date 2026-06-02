@@ -20,7 +20,7 @@ export function Sidebar({ profile }: { profile: Profile }) {
   };
 
   return (
-    <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-ink-900/10 bg-white/75 px-3 py-5 backdrop-blur-xl lg:flex relative dark:border-accent-champagne/10 dark:bg-ink-950/78">
+    <aside className="theme-shell sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-ink-900/10 px-3 py-5 lg:flex relative dark:border-accent-champagne/10">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-accent-champagne/30 to-transparent dark:via-accent-champagne/20"

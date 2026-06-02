@@ -82,6 +82,89 @@ export async function POST(req: Request) {
     metadata.youtube_title = data.youtube_title.trim();
   }
 
+  if (data.action === "schedule") {
+    const channelsNeedingDestinations = data.channels as SocialChannel[];
+    const { data: destinationRows, error: destinationError } = await supabase
+      .from("social_account_connections")
+      .select("platform,status,is_publish_enabled")
+      .eq("user_id", profile.id)
+      .in("platform", channelsNeedingDestinations);
+
+    if (destinationError) {
+      const missingTable =
+        destinationError.code === "42P01" ||
+        destinationError.message.toLowerCase().includes("does not exist");
+      if (missingTable) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "destination_setup_needed",
+            message:
+              "Connection Center storage is not provisioned yet. Apply the migration, then select a destination before scheduling.",
+          },
+          { status: 409 }
+        );
+      }
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "internal_error",
+          message: destinationError.message,
+        },
+        { status: 500 }
+      );
+    }
+
+    const rows = (destinationRows ?? []) as Array<{
+      platform: SocialChannel;
+      status: string | null;
+      is_publish_enabled: boolean;
+    }>;
+    const selectedByChannel = new Map<
+      SocialChannel,
+      { selected: boolean; publish_enabled: boolean }
+    >([
+      ["facebook", { selected: false, publish_enabled: false }],
+      ["instagram", { selected: false, publish_enabled: false }],
+      ["google_business_profile", { selected: false, publish_enabled: false }],
+      ["youtube", { selected: false, publish_enabled: false }],
+    ]);
+
+    for (const row of rows) {
+      const current = selectedByChannel.get(row.platform);
+      if (!current) continue;
+      current.selected = true;
+      if (row.status === "connected" && row.is_publish_enabled) {
+        current.publish_enabled = true;
+      }
+    }
+
+    const missingChannels = channelsNeedingDestinations.filter(
+      (channel) => !selectedByChannel.get(channel)?.selected
+    );
+    const disabledChannels = channelsNeedingDestinations.filter(
+      (channel) =>
+        selectedByChannel.get(channel)?.selected &&
+        !selectedByChannel.get(channel)?.publish_enabled
+    );
+
+    if (missingChannels.length > 0 || disabledChannels.length > 0) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: missingChannels.length > 0 ? "destination_required" : "publish_disabled",
+          message:
+            missingChannels.length > 0
+              ? "Select a destination in Connection Center before scheduling."
+              : "Enable publishing for the selected destination before scheduling.",
+          missing_channels: missingChannels,
+          disabled_channels: disabledChannels,
+        },
+        { status: 409 }
+      );
+    }
+  }
+
   // Persist the post. UPDATE when post_id is provided AND the caller owns
   // the row (RLS enforces ownership). Otherwise INSERT a brand-new draft.
   let post:

@@ -50,6 +50,8 @@ export interface AtlasThreadSummary {
   assistant_id: string | null;
   last_message_at: string | null;
   is_archived: boolean;
+  is_pinned?: boolean;
+  is_saved?: boolean;
 }
 
 export type AtlasProjectAccessMap = Record<string, string[]>;
@@ -132,7 +134,10 @@ export function AtlasProjectsPanel({
   const visibleProjects = projects.filter((p) => p.is_active);
   const projectThreads = selectedProjectId
     ? recentThreads.filter((t) => t.assistant_id === selectedProjectId)
-    : recentThreads.filter((t) => !t.assistant_id).slice(0, 5);
+    : recentThreads
+        .filter((t) => !t.assistant_id)
+        .sort((a, b) => Number(Boolean(b.is_pinned)) - Number(Boolean(a.is_pinned)))
+        .slice(0, 5);
 
   useEffect(() => {
     if (!selectedProjectId) return;

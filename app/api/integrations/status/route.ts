@@ -8,17 +8,10 @@ import {
 import { getN8nConfigState } from "@/lib/automation/n8n";
 import { detectMetaConfig } from "@/lib/integrations/meta";
 import { isOwner } from "@/lib/permissions";
-import { getCurrentProfile } from "@/lib/supabase/server";
+import { getCurrentProfile, getSupabaseServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-// Read presence-only — never return any env value, key, or URL beyond the
-// public Supabase project URL.
-function envPresent(name: string): boolean {
-  const v = process.env[name];
-  return Boolean(v && v.trim() !== "");
-}
 
 function readBool(name: string, fallback = false): boolean {
   const raw = process.env[name];
@@ -26,8 +19,6 @@ function readBool(name: string, fallback = false): boolean {
   return ["1", "true", "yes", "on"].includes(raw.toLowerCase());
 }
 
-// Owner-only. Returns booleans + capability lists describing what is wired
-// up. NO secret values are ever included in the response.
 export async function GET() {
   const profile = await getCurrentProfile();
   if (!profile) {
@@ -47,23 +38,89 @@ export async function GET() {
   const providers = getAllProviderConfigStates();
   const n8n = getN8nConfigState();
   const meta = detectMetaConfig();
+  const googleOauthConfigured = Boolean(
+    process.env.GOOGLE_OAUTH_CLIENT_ID && process.env.GOOGLE_OAUTH_CLIENT_SECRET
+  );
 
-  // Google Business Profile — configured iff GBP_ACCOUNT_ID AND
-  // GBP_LOCATION_ID are present. No publish yet.
-  const gbpConfigured =
-    envPresent("GBP_ACCOUNT_ID") && envPresent("GBP_LOCATION_ID");
+  const supabase = getSupabaseServerClient();
+  let teamDestinations: Array<{
+    user_id: string;
+    full_name: string | null;
+    email: string | null;
+    platform: string;
+    destination_label: string | null;
+    destination_type: string | null;
+    status: string | null;
+    is_publish_enabled: boolean;
+    updated_at: string | null;
+  }> = [];
+  let platformCounts = {
+    facebook: 0,
+    instagram: 0,
+    google_business_profile: 0,
+    youtube: 0,
+  };
+  let publishEnabledCount = 0;
 
-  // YouTube — surface presence only. Real auth runs through Google OAuth,
-  // so the channel id alone doesn't mean we can post; it just means we know
-  // which channel to target.
-  const youtubeConfigured = envPresent("YOUTUBE_CHANNEL_ID");
+  try {
+    const { data, error } = await supabase
+      .from("social_account_connections")
+      .select("user_id,platform,destination_label,destination_type,status,is_publish_enabled,updated_at")
+      .order("updated_at", { ascending: false });
 
-  // Google OAuth — needed for GBP / YouTube posting flows. Just env presence.
-  const googleOauthConfigured =
-    envPresent("GOOGLE_OAUTH_CLIENT_ID") &&
-    envPresent("GOOGLE_OAUTH_CLIENT_SECRET");
+    if (!error) {
+      const rows = (data ?? []) as Array<{
+        user_id: string;
+        platform: string;
+        destination_label: string | null;
+        destination_type: string | null;
+        status: string | null;
+        is_publish_enabled: boolean;
+        updated_at: string | null;
+      }>;
+      const userIds = Array.from(new Set(rows.map((row) => row.user_id)));
+      const profileNames = new Map<
+        string,
+        { full_name: string | null; email: string | null }
+      >();
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id,full_name,email")
+          .in("id", userIds);
+        for (const p of (profiles ?? []) as Array<{
+          id: string;
+          full_name: string | null;
+          email: string | null;
+        }>) {
+          profileNames.set(p.id, { full_name: p.full_name, email: p.email });
+        }
+      }
 
-  const allowLiveSocial = env.SAFETY.allowLiveSocialPublish;
+      teamDestinations = rows.map((row) => ({
+        user_id: row.user_id,
+        full_name: profileNames.get(row.user_id)?.full_name ?? null,
+        email: profileNames.get(row.user_id)?.email ?? null,
+        platform: row.platform,
+        destination_label: row.destination_label,
+        destination_type: row.destination_type,
+        status: row.status,
+        is_publish_enabled: row.is_publish_enabled,
+        updated_at: row.updated_at,
+      }));
+
+      for (const row of rows) {
+        if (row.platform in platformCounts) {
+          platformCounts[row.platform as keyof typeof platformCounts] += 1;
+        }
+        if (row.status === "connected" && row.is_publish_enabled) {
+          publishEnabledCount += 1;
+        }
+      }
+    }
+  } catch {
+    // Best-effort summary only.
+  }
 
   return NextResponse.json({
     ok: true,
@@ -87,21 +144,16 @@ export async function GET() {
         paid_enabled: meta.paid_enabled,
         capabilities: meta.capabilities,
       },
-      gbp: {
-        configured: gbpConfigured,
-        paid_enabled: gbpConfigured && allowLiveSocial,
-        capabilities: gbpConfigured ? ["publish_post"] : [],
-      },
-      youtube: {
-        configured: youtubeConfigured,
-        paid_enabled: youtubeConfigured && allowLiveSocial,
-        capabilities: youtubeConfigured ? ["publish_video"] : [],
-      },
       google_oauth: {
         configured: googleOauthConfigured,
-        // OAuth is plumbing, not a paid surface. Mirror configured.
         paid_enabled: googleOauthConfigured,
         capabilities: googleOauthConfigured ? ["oauth_grant"] : [],
+      },
+      social_destinations: {
+        selected_rows: teamDestinations.length,
+        publish_enabled_rows: publishEnabledCount,
+        platform_counts: platformCounts,
+        team_destinations: teamDestinations,
       },
     },
     safety_flags: {
@@ -111,8 +163,6 @@ export async function GET() {
       paid_text_generation: readBool("ALLOW_PAID_TEXT_GENERATION", false),
     },
     owner_email: PUBLIC_ENV.OWNER_EMAIL,
-    // Public Supabase project URL is the only URL ever returned. Everything
-    // else is boolean-only by design.
     supabase_project_url: PUBLIC_ENV.SUPABASE_URL,
   });
 }

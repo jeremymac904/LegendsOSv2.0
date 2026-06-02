@@ -2,14 +2,15 @@
 //
 // This module intentionally performs ZERO outbound calls to Meta. It exists
 // so that the rest of the app (Social Studio, /api/integrations/status) can
-// report a clean "configured / paid_enabled" state when the env wiring is in
-// place, without us actually publishing anything until paid publishing is
-// approved by the owner.
+// report a clean "configured / paid_enabled" state when the app-level Meta
+// credentials are in place, without us actually publishing anything until
+// paid publishing is approved by the owner.
 //
 // Activation criteria (`configured = true`):
-//   META_APP_ID        AND
-//   META_ACCESS_TOKEN  AND
-//   (META_PAGE_ID OR META_INSTAGRAM_ACCOUNT_ID)
+//   META_APP_ID AND META_APP_SECRET
+//
+// User-owned destination ids live in the database now. We never read global
+// page / Instagram ids from env for publishing destinations.
 //
 // Paid publishing (`paid_enabled = true`):
 //   configured && ALLOW_LIVE_SOCIAL_PUBLISH=true
@@ -49,35 +50,16 @@ function readBool(name: string, fallback = false): boolean {
  */
 export function detectMetaConfig(): MetaConfigState {
   const appId = readEnv("META_APP_ID");
-  // META_APP_SECRET is read for completeness even though `configured` doesn't
-  // strictly require it — Meta's posting endpoints need an access token, and
-  // the secret matters for OAuth refresh which is a later phase.
-  const _appSecret = readEnv("META_APP_SECRET");
-  const accessToken = readEnv("META_ACCESS_TOKEN");
-  const pageId = readEnv("META_PAGE_ID");
-  const igAccountId = readEnv("META_INSTAGRAM_ACCOUNT_ID");
+  const appSecret = readEnv("META_APP_SECRET");
 
-  const hasIdentity = Boolean(pageId || igAccountId);
-  const configured = Boolean(appId && accessToken && hasIdentity);
+  const configured = Boolean(appId && appSecret);
 
   const allowLive = readBool("ALLOW_LIVE_SOCIAL_PUBLISH", false);
   const paid_enabled = configured && allowLive;
 
-  const capabilities: MetaCapability[] = [];
-  if (configured) {
-    // A Facebook Page lets us publish text posts, photos, and videos.
-    if (pageId) {
-      capabilities.push("publish_post", "publish_image", "publish_video");
-    }
-    // An Instagram Business / Creator account supports image + video posts.
-    // De-dupe vs. the page case.
-    if (igAccountId) {
-      if (!capabilities.includes("publish_image"))
-        capabilities.push("publish_image");
-      if (!capabilities.includes("publish_video"))
-        capabilities.push("publish_video");
-    }
-  }
+  const capabilities: MetaCapability[] = configured
+    ? ["publish_post", "publish_image", "publish_video"]
+    : [];
 
   return { configured, paid_enabled, capabilities };
 }
@@ -168,9 +150,9 @@ export interface MetaReadiness {
   all_passed: boolean;
   /** Convenience mirror of detectMetaConfig().configured. */
   configured: boolean;
-  /** True iff app+identity env is present (Graph credentials side). */
+  /** True iff app-level Meta credentials are present. */
   app_configured: boolean;
-  /** True iff a Facebook Page or IG account env id is present. */
+  /** True iff the current user has selected at least one destination. */
   identity_present: boolean;
 }
 
@@ -188,12 +170,9 @@ export function publishReadiness(opts: {
   publishEnabled: boolean;
 }): MetaReadiness {
   const appConfigured =
-    envPresent("META_APP_ID") &&
-    envPresent("META_APP_SECRET") &&
-    envPresent("META_ACCESS_TOKEN");
+    envPresent("META_APP_ID") && envPresent("META_APP_SECRET");
 
-  const identityPresent =
-    envPresent("META_PAGE_ID") || envPresent("META_INSTAGRAM_ACCOUNT_ID");
+  const identityPresent = opts.pageConnected;
 
   const liveSafetyFlag = readBool("ALLOW_LIVE_SOCIAL_PUBLISH", false);
 
@@ -203,16 +182,16 @@ export function publishReadiness(opts: {
       label: "Meta app credentials",
       passed: appConfigured,
       detail: appConfigured
-        ? "App ID, secret, and access token are present."
-        : "Set META_APP_ID, META_APP_SECRET, and META_ACCESS_TOKEN.",
+        ? "App ID and secret are present."
+        : "Set META_APP_ID and META_APP_SECRET.",
     },
     {
       id: "identity_present",
-      label: "Page or Instagram account",
+      label: "Selected destination",
       passed: identityPresent,
       detail: identityPresent
-        ? "A Facebook Page or Instagram account id is configured."
-        : "Set META_PAGE_ID or META_INSTAGRAM_ACCOUNT_ID.",
+        ? "A publish destination row is saved in LegendsOS."
+        : "Select a Facebook Page or Instagram account in Connection Center.",
     },
     {
       id: "page_connected",

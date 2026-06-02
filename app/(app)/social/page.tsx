@@ -17,6 +17,7 @@ import { getN8nConfigState } from "@/lib/automation/n8n";
 import { isZapierMcpConfigured } from "@/lib/automation/zapier-mcp";
 import { detectMetaConfig } from "@/lib/integrations/meta";
 import { isOwner } from "@/lib/permissions";
+import { buildSocialPublishGate } from "@/lib/social/destinationReadiness";
 import type { PublishingRoute } from "@/components/social/SocialComposer";
 import {
   getCurrentProfile,
@@ -132,6 +133,10 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
       loadOrgUploadedImageAssets(),
       loadSocialAssetUsageCounts(),
     ]);
+  const { data: destinationRows } = await supabase
+    .from("social_account_connections")
+    .select("platform,status,is_publish_enabled")
+    .eq("user_id", profile.id);
 
   // Atlas handoff: ?prefill=<urlencoded JSON> opens the create-form prefilled
   // WITHOUT creating a row. Atlas may also send users to /social/<id> after
@@ -185,6 +190,13 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
     ...uploadedAssetEntries,
     ...manifestAssetEntries,
   ];
+  const destinationGate = buildSocialPublishGate(
+    (destinationRows ?? []) as Array<{
+      platform: "facebook" | "instagram" | "google_business_profile" | "youtube";
+      status: string | null;
+      is_publish_enabled: boolean;
+    }>
+  );
 
   // Resolve preview URLs for any post.media_id so the saved-list shows thumbnails.
   const mediaById = new Map(mediaLibrary.map((m) => [m.id, m]));
@@ -366,6 +378,7 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
         initialSelectedMediaId={preselectedMediaId}
         assetUsage={assetUsage}
         atlasPrefill={atlasPrefill}
+        destinationGate={destinationGate}
         publishingRoutes={publishingRoutes}
         appName={PUBLIC_ENV.APP_NAME}
       />

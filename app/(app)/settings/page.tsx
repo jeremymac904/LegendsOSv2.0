@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import Link from "next/link";
 import {
   Cpu,
@@ -14,6 +15,7 @@ import {
 import { LegendsOSHelpCoaches } from "@/components/help/LegendsOSHelpCoaches";
 import { DriveLoanBrainSetup } from "@/components/settings/DriveLoanBrainSetup";
 import { IntegrationConnections } from "@/components/settings/IntegrationConnections";
+import { ThemeCustomizationPanel } from "@/components/settings/ThemeCustomizationPanel";
 import { ProviderToggle } from "@/components/settings/ProviderToggle";
 import { MCPConnections } from "@/components/settings/MCPConnections";
 import { RouteOwnershipAudit } from "@/components/settings/RouteOwnershipAudit";
@@ -31,10 +33,19 @@ import {
   PUBLIC_ENV,
 } from "@/lib/env";
 import { getEffectiveProfile } from "@/lib/impersonation";
-import { isOwner } from "@/lib/permissions";
+import { isAdminOrOwner, isOwner } from "@/lib/permissions";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { DEFAULT_THEME_SNAPSHOT } from "@/lib/themeSnapshot";
+import {
+  resolveThemeSnapshot,
+  resolveWorkspaceThemeSnapshot,
+  resolveWorkspaceRecord,
+} from "@/lib/themeServer";
 import { formatRelative } from "@/lib/utils";
-import type { ProviderCredentialPublic } from "@/types/database";
+import type {
+  BrandWorkspaceSettings,
+  ProviderCredentialPublic,
+} from "@/types/database";
 
 export const dynamic = "force-dynamic";
 
@@ -74,6 +85,7 @@ export default async function SettingsPage() {
   }
 
   const owner = isOwner(profile);
+  const canManageWorkspace = owner;
   const storedProviders = (providerRows ?? []) as ProviderCredentialPublic[];
   // HARDENING: provider status derivation reads env flags; guard so a bad env
   // can't take the whole page down.
@@ -82,6 +94,21 @@ export default async function SettingsPage() {
     liveStatuses = getAIProviderStatuses();
   } catch {
     liveStatuses = [];
+  }
+  const host = headers().get("x-hostname") ?? headers().get("host");
+  let initialTheme = DEFAULT_THEME_SNAPSHOT;
+  let workspaceTheme = DEFAULT_THEME_SNAPSHOT;
+  let workspaceBranding: BrandWorkspaceSettings | null = null;
+  try {
+    [initialTheme, workspaceBranding] = await Promise.all([
+      resolveThemeSnapshot({ profile, host }),
+      resolveWorkspaceRecord({ profile, host }),
+    ]);
+    workspaceTheme = await resolveWorkspaceThemeSnapshot(workspaceBranding);
+  } catch {
+    initialTheme = DEFAULT_THEME_SNAPSHOT;
+    workspaceTheme = DEFAULT_THEME_SNAPSHOT;
+    workspaceBranding = null;
   }
   const storedByProvider = new Map(storedProviders.map((r) => [r.provider, r]));
   const previewLookup: Record<string, string> = {
@@ -614,6 +641,14 @@ export default async function SettingsPage() {
         </section>
       )}
       <LegendsOSHelpCoaches />
+
+      <ThemeCustomizationPanel
+      profile={profile}
+      initialTheme={initialTheme}
+      workspaceTheme={workspaceTheme}
+      workspace={workspaceBranding}
+      canManageWorkspace={canManageWorkspace}
+    />
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <section className="card-padded">
