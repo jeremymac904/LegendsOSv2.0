@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Bot, CheckCircle2, Clock3, DatabaseZap, FlaskConical, ShieldCheck } from "lucide-react";
+import { Bot, CheckCircle2, Clock3, DatabaseZap, ShieldCheck } from "lucide-react";
 
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatCard } from "@/components/ui/StatCard";
@@ -11,7 +11,7 @@ import type {
   LeadIntakeEvent,
   MarketingContact,
 } from "@/lib/leadIntake/types";
-import { isAdminOrOwner, isOwner } from "@/lib/permissions";
+import { isAdminOrOwner } from "@/lib/permissions";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { formatRelative } from "@/lib/utils";
 
@@ -116,28 +116,15 @@ export default async function AdminLeadReviewPage({
   if (!isAdminOrOwner(profile)) redirect("/dashboard");
 
   const showAll = searchParams?.filter === "all";
-  const showTestOnly = searchParams?.filter === "test";
-  const { ok, rows: allRows } = await loadLeadReviewRows(true);
-
-  // Safe env check — never exposes the value
-  const webhookSecretPresent = Boolean(
-    process.env.LEGENDSOS_WEBHOOK_SECRET?.trim()
-  );
-
-  // Apply filter after load so we can show stats for all leads
-  const rows = showTestOnly
-    ? allRows.filter((row) => Boolean((row.lead.metadata as Record<string, unknown>)?.test))
-    : showAll
-      ? allRows
-      : allRows.filter((row) => (REVIEW_STATUSES as string[]).includes(row.lead.status));
-  const pendingApprovals = allRows.reduce(
+  const { ok, rows } = await loadLeadReviewRows(showAll);
+  const pendingApprovals = rows.reduce(
     (count, row) =>
       count +
       row.tasks.filter((task) => task.requires_approval && task.status !== "approved").length,
     0
   );
-  const needsReview = allRows.filter((row) => row.lead.status === "needs_review").length;
-  const drafted = allRows.filter((row) => row.lead.status === "contact_drafted").length;
+  const needsReview = rows.filter((row) => row.lead.status === "needs_review").length;
+  const drafted = rows.filter((row) => row.lead.status === "contact_drafted").length;
 
   return (
     <div className="space-y-6">
@@ -147,16 +134,11 @@ export default async function AdminLeadReviewPage({
         description="Review normalized marketing leads, source/UTM metadata, consent, Atlas summaries, routing, and approval-gated follow-up drafts. No live sends or CRM writes happen here."
         action={
           <div className="flex items-center gap-1.5 rounded-lg border border-ink-200 bg-white p-1 dark:border-ink-800 dark:bg-ink-950/40">
-            <FilterTab href="/admin/leads" label="Needs attention" active={!showAll && !showTestOnly} />
+            <FilterTab href="/admin/leads" label="Needs attention" active={!showAll} />
             <FilterTab href="/admin/leads?filter=all" label="All" active={showAll} />
-            <FilterTab href="/admin/leads?filter=test" label="Test leads" active={showTestOnly} />
           </div>
         }
       />
-
-      {isOwner(profile) && (
-        <TestLeadPanel secretPresent={webhookSecretPresent} />
-      )}
 
       <SafetyBanner />
 
@@ -180,11 +162,7 @@ export default async function AdminLeadReviewPage({
             <span className="font-medium text-ink-700 dark:text-ink-200">
               {rows.length}
             </span>{" "}
-            {showTestOnly
-              ? "test lead events"
-              : showAll
-                ? "lead events across all statuses"
-                : "lead events needing review, assignment, or draft approval"}.{" "}
+            {showAll ? "lead events across all statuses" : "lead events needing review, assignment, or draft approval"}.{" "}
             <span className="text-ink-400">Contact drafted: {drafted}.</span>
           </p>
 
@@ -192,76 +170,6 @@ export default async function AdminLeadReviewPage({
         </>
       )}
     </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Test lead intake panel (owner-only, server-rendered with a JS-free form)
-// ---------------------------------------------------------------------------
-
-function TestLeadPanel({ secretPresent }: { secretPresent: boolean }) {
-  return (
-    <details className="group rounded-xl border border-ink-200 bg-ink-50/60 dark:border-ink-800 dark:bg-ink-900/30">
-      <summary className="flex cursor-pointer select-none items-center gap-2.5 px-4 py-3 text-[13px] font-semibold text-ink-800 dark:text-ink-100 [&::-webkit-details-marker]:hidden">
-        <FlaskConical
-          size={15}
-          className="shrink-0 text-ink-500 dark:text-ink-400 group-open:text-accent-gold"
-        />
-        Test lead intake
-        <span className="ml-auto text-[11px] font-normal text-ink-400 dark:text-ink-500 group-open:hidden">
-          expand
-        </span>
-      </summary>
-
-      <div className="border-t border-ink-200 px-4 py-4 dark:border-ink-800">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
-          <div className="flex-1 space-y-1 text-[12.5px] text-ink-600 dark:text-ink-300">
-            <p>
-              Fires a signed test lead at{" "}
-              <code className="rounded bg-ink-100 px-1 font-mono text-[11px] text-ink-700 dark:bg-ink-800 dark:text-ink-200">
-                /api/webhooks/lead-intake
-              </code>{" "}
-              so you can verify the pipeline end-to-end without an external dashboard.
-            </p>
-            <p>
-              Secret configured:{" "}
-              {secretPresent ? (
-                <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                  Yes — webhook ready
-                </span>
-              ) : (
-                <span className="font-semibold text-amber-600 dark:text-amber-400">
-                  No — set LEGENDSOS_WEBHOOK_SECRET in Netlify env vars
-                </span>
-              )}
-            </p>
-            <p className="text-ink-400 dark:text-ink-500">
-              Test leads are tagged{" "}
-              <code className="rounded bg-ink-100 px-1 font-mono text-[11px] dark:bg-ink-800">
-                metadata.test = true
-              </code>{" "}
-              and visible via the &ldquo;Test leads&rdquo; filter above.
-            </p>
-          </div>
-
-          {secretPresent && (
-            <form
-              action="/api/admin/lead-intake/test"
-              method="POST"
-              className="shrink-0"
-            >
-              <button
-                type="submit"
-                className="inline-flex items-center gap-1.5 rounded-lg bg-accent-gold/15 px-3 py-2 text-[12.5px] font-semibold text-ink-900 ring-1 ring-accent-gold/40 hover:bg-accent-gold/25 dark:text-ink-100"
-              >
-                <FlaskConical size={13} />
-                Send test lead
-              </button>
-            </form>
-          )}
-        </div>
-      </div>
-    </details>
   );
 }
 

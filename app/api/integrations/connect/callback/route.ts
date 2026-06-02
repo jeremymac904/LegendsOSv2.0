@@ -1,201 +1,582 @@
-/**
- * GET /api/integrations/connect/callback — Google OAuth 2.0 redirect handler.
- *
- * Completes the per-user connect flow started by POST /api/integrations/connect:
- *   1. Verify the HMAC-signed `state` (CSRF / grant-injection protection).
- *   2. Exchange the authorization `code` for tokens at Google (server-side,
- *      using the client secret — which never leaves the server).
- *   3. Store the access/refresh tokens in oauth_token_grants (service-role only;
- *      RLS denies all client access — tokens NEVER reach a browser).
- *   4. Upsert the NON-secret user_integration_connections status row the UI reads.
- *   5. Audit the connect, then redirect the user back to Settings.
- *
- * This route is in PUBLIC_PATHS so Google's redirect always reaches it; the
- * signed `state` (not the session) authoritatively attributes the grant.
- */
-
 import { NextResponse } from "next/server";
 
-import { recordIntegrationAudit } from "@/lib/integrations/audit";
-import { verifyState } from "@/lib/integrations/oauthState";
-import { storeTokenGrant, upsertConnection } from "@/lib/integrations/tokenStore";
-import { getSupabaseServiceClient } from "@/lib/supabase/server";
+import { isAdminOrOwner } from "@/lib/permissions";
+import {
+  encryptSecret,
+  readOAuthState,
+} from "@/lib/integrations/oauth";
+import {
+  getCurrentProfile,
+  getSupabaseServiceClient,
+} from "@/lib/supabase/server";
+import { recordAudit } from "@/lib/usage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
-const GOOGLE_USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo";
+type ProviderId =
+  | "facebook"
+  | "google_social"
+  | "google"
+  | "gmail"
+  | "google_drive"
+  | "google_calendar";
 
-// Canonical OAuth redirect URI. MUST be identical to the connect route's value
-// and MUST match the Google Cloud console registration. Fixed constant (not the
-// request origin) so the token exchange's redirect_uri always matches the one
-// used to obtain the code. Override via GOOGLE_OAUTH_REDIRECT_URI.
-const DEFAULT_REDIRECT_URI = "https://legndsosv20.netlify.app/api/integrations/connect/callback";
+interface FacebookPage {
+  id: string;
+  name: string;
+  access_token?: string;
+  instagram_business_account?: {
+    id?: string;
+    name?: string;
+    username?: string;
+  } | null;
+}
 
-const PROVIDER_SCOPES: Record<string, string[]> = {
-  google: ["openid", "email", "profile"],
-  gmail: ["https://www.googleapis.com/auth/gmail.readonly"],
-  google_drive: ["https://www.googleapis.com/auth/drive.readonly"],
-  google_calendar: ["https://www.googleapis.com/auth/calendar.events"],
-  youtube: ["https://www.googleapis.com/auth/youtube.upload"],
-  google_business_profile: ["https://www.googleapis.com/auth/business.manage"],
-};
+interface FacebookAccountsResponse {
+  data?: FacebookPage[];
+  error?: { message?: string };
+}
 
-function settingsRedirect(origin: string, params: Record<string, string>) {
+interface GoogleTokenResponse {
+  access_token?: string;
+  refresh_token?: string;
+  expires_in?: number;
+  token_type?: string;
+  scope?: string;
+  error?: string;
+  error_description?: string;
+}
+
+interface GoogleUserInfo {
+  sub?: string;
+  email?: string;
+  name?: string;
+  picture?: string;
+}
+
+interface GoogleBusinessAccount {
+  name?: string;
+  accountName?: string;
+  type?: string;
+  permissionLevel?: string;
+}
+
+interface GoogleBusinessAccountListResponse {
+  accounts?: GoogleBusinessAccount[];
+  error?: { message?: string };
+}
+
+interface GoogleBusinessLocation {
+  name?: string;
+  title?: string;
+  storeCode?: string;
+  primaryPhone?: string;
+  metadata?: Record<string, unknown>;
+}
+
+interface GoogleBusinessLocationListResponse {
+  locations?: GoogleBusinessLocation[];
+  nextPageToken?: string;
+  error?: { message?: string };
+}
+
+interface YouTubeChannelItem {
+  id?: string;
+  snippet?: {
+    title?: string;
+    customUrl?: string;
+  };
+}
+
+interface YouTubeChannelListResponse {
+  items?: YouTubeChannelItem[];
+  error?: { message?: string };
+}
+
+interface DestinationOption {
+  platform: "facebook" | "instagram" | "google_business_profile" | "youtube";
+  destination_type: string;
+  destination_ref: string;
+  destination_label: string;
+  account_ref?: string | null;
+  page_id?: string | null;
+  metadata?: Record<string, unknown>;
+}
+
+function providerFromState(rawState: string | null): {
+  provider: ProviderId;
+  targetUserId: string;
+} | null {
+  if (!rawState) return null;
+  const state = readOAuthState(rawState);
+  if (!state) return null;
+  if (
+    state.provider !== "facebook" &&
+    state.provider !== "google_social" &&
+    state.provider !== "google" &&
+    state.provider !== "gmail" &&
+    state.provider !== "google_drive" &&
+    state.provider !== "google_calendar"
+  ) {
+    return null;
+  }
+  return {
+    provider: state.provider as ProviderId,
+    targetUserId: state.target_user_id,
+  };
+}
+
+function redirectBack(
+  origin: string,
+  params: Record<string, string | null | undefined>
+): NextResponse {
   const url = new URL("/settings", origin);
-  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
-  // ?tab so Settings can deep-link to the connections section if it supports it.
-  url.searchParams.set("tab", "connections");
+  for (const [key, value] of Object.entries(params)) {
+    if (value) url.searchParams.set(key, value);
+  }
   return NextResponse.redirect(url);
 }
 
-export async function GET(req: Request) {
-  const url = new URL(req.url);
+async function fetchJson<T>(input: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(input, init);
+  const payload = (await response.json().catch(() => null)) as T | null;
+  if (!response.ok) {
+    const maybe = payload as
+      | { error_description?: string; error?: { message?: string } | string }
+      | null;
+    const message =
+      maybe?.error_description ??
+      (typeof maybe?.error === "string"
+        ? maybe.error
+        : maybe?.error?.message ?? `Request failed (${response.status})`);
+    throw new Error(message);
+  }
+  if (!payload) throw new Error(`Empty response from ${input}`);
+  return payload;
+}
+
+async function exchangeGoogleToken(code: string, redirectUri: string) {
+  const body = new URLSearchParams({
+    code,
+    client_id: process.env.GOOGLE_OAUTH_CLIENT_ID ?? "",
+    client_secret: process.env.GOOGLE_OAUTH_CLIENT_SECRET ?? "",
+    redirect_uri: redirectUri,
+    grant_type: "authorization_code",
+  });
+  return fetchJson<GoogleTokenResponse>("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body,
+  });
+}
+
+async function exchangeFacebookToken(code: string, redirectUri: string) {
+  const shortUrl = new URL("https://graph.facebook.com/v22.0/oauth/access_token");
+  shortUrl.searchParams.set("client_id", process.env.META_APP_ID ?? "");
+  shortUrl.searchParams.set("client_secret", process.env.META_APP_SECRET ?? "");
+  shortUrl.searchParams.set("redirect_uri", redirectUri);
+  shortUrl.searchParams.set("code", code);
+
+  const shortToken = await fetchJson<GoogleTokenResponse>(shortUrl.toString());
+  const initialToken = shortToken.access_token ?? "";
+  if (!initialToken) {
+    throw new Error("Facebook did not return an access token.");
+  }
+
+  const longUrl = new URL("https://graph.facebook.com/v22.0/oauth/access_token");
+  longUrl.searchParams.set("grant_type", "fb_exchange_token");
+  longUrl.searchParams.set("client_id", process.env.META_APP_ID ?? "");
+  longUrl.searchParams.set("client_secret", process.env.META_APP_SECRET ?? "");
+  longUrl.searchParams.set("fb_exchange_token", initialToken);
+
+  try {
+    const longToken = await fetchJson<GoogleTokenResponse>(longUrl.toString());
+    return longToken.access_token ? { ...longToken, access_token: longToken.access_token } : shortToken;
+  } catch {
+    return shortToken;
+  }
+}
+
+async function fetchGoogleUserInfo(accessToken: string): Promise<GoogleUserInfo | null> {
+  try {
+    return await fetchJson<GoogleUserInfo>("https://www.googleapis.com/oauth2/v2/userinfo", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+  } catch {
+    return null;
+  }
+}
+
+async function fetchFacebookPages(accessToken: string): Promise<DestinationOption[]> {
+  const url = new URL("https://graph.facebook.com/v22.0/me/accounts");
+  url.searchParams.set(
+    "fields",
+    "id,name,instagram_business_account{id,name,username}"
+  );
+  url.searchParams.set("access_token", accessToken);
+  const response = await fetchJson<FacebookAccountsResponse>(url.toString());
+  const pages = response.data ?? [];
+
+  const pageDestinations: DestinationOption[] = [];
+  const instagramSeen = new Set<string>();
+  const instagramDestinations: DestinationOption[] = [];
+
+  for (const page of pages) {
+    pageDestinations.push({
+      platform: "facebook",
+      destination_type: "facebook_page",
+      destination_ref: page.id,
+      destination_label: page.name,
+      account_ref: page.name,
+      page_id: page.id,
+      metadata: {
+        page_name: page.name,
+        instagram_business_account_id: page.instagram_business_account?.id ?? null,
+        instagram_business_account_username:
+          page.instagram_business_account?.username ?? null,
+      },
+    });
+
+    const ig = page.instagram_business_account;
+    if (ig?.id && !instagramSeen.has(ig.id)) {
+      instagramSeen.add(ig.id);
+      instagramDestinations.push({
+        platform: "instagram",
+        destination_type: "instagram_account",
+        destination_ref: ig.id,
+        destination_label: ig.username ?? ig.name ?? page.name,
+        account_ref: ig.username ?? ig.name ?? page.name,
+        page_id: page.id,
+        metadata: {
+          facebook_page_id: page.id,
+          facebook_page_name: page.name,
+          instagram_username: ig.username ?? null,
+        },
+      });
+    }
+  }
+
+  return [...pageDestinations, ...instagramDestinations];
+}
+
+async function fetchGoogleSocialDestinations(accessToken: string): Promise<DestinationOption[]> {
+  const destinations: DestinationOption[] = [];
+
+  const accounts = await fetchJson<GoogleBusinessAccountListResponse>(
+    "https://mybusinessaccountmanagement.googleapis.com/v1/accounts",
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }
+  );
+
+  const businessAccounts = accounts.accounts ?? [];
+  for (const account of businessAccounts) {
+    if (!account.name) continue;
+
+    destinations.push({
+      platform: "google_business_profile",
+      destination_type: "google_business_account",
+      destination_ref: account.name,
+      destination_label: account.accountName ?? account.name,
+      account_ref: account.accountName ?? account.name,
+      metadata: {
+        account_name: account.name,
+        account_type: account.type ?? null,
+        permission_level: account.permissionLevel ?? null,
+      },
+    });
+
+    try {
+      const locations = await fetchJson<GoogleBusinessLocationListResponse>(
+        `https://mybusinessbusinessinformation.googleapis.com/v1/${account.name}/locations?pageSize=100`,
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        }
+      );
+
+      for (const location of locations.locations ?? []) {
+        if (!location.name) continue;
+        destinations.push({
+          platform: "google_business_profile",
+          destination_type: "google_business_location",
+          destination_ref: location.name,
+          destination_label: location.title ?? location.name,
+          account_ref: account.accountName ?? account.name,
+          page_id: location.name,
+          metadata: {
+            account_name: account.name,
+            location_title: location.title ?? null,
+            store_code: location.storeCode ?? null,
+            primary_phone: location.primaryPhone ?? null,
+            metadata: location.metadata ?? {},
+          },
+        });
+      }
+    } catch {
+      // Keep the account row even if locations are not readable yet.
+    }
+  }
+
+  try {
+    const channels = await fetchJson<YouTubeChannelListResponse>(
+      "https://www.googleapis.com/youtube/v3/channels?part=id,snippet&mine=true",
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    );
+    for (const channel of channels.items ?? []) {
+      if (!channel.id) continue;
+      destinations.push({
+        platform: "youtube",
+        destination_type: "youtube_channel",
+        destination_ref: channel.id,
+        destination_label: channel.snippet?.title ?? channel.id,
+        account_ref: channel.snippet?.title ?? channel.id,
+        metadata: {
+          channel_title: channel.snippet?.title ?? null,
+          custom_url: channel.snippet?.customUrl ?? null,
+        },
+      });
+    }
+  } catch {
+    // Keep GBP destinations even if YouTube is not available on the grant.
+  }
+
+  return destinations;
+}
+
+function scopesFromResponse(
+  provider: ProviderId,
+  token: GoogleTokenResponse
+): string[] {
+  const scope = token.scope ?? "";
+  if (scope.trim()) {
+    return scope
+      .split(/\s+/)
+      .map((value) => value.trim())
+      .filter(Boolean);
+  }
+  if (provider === "facebook") {
+    return [
+      "pages_show_list",
+      "pages_read_engagement",
+      "pages_manage_posts",
+      "instagram_basic",
+      "instagram_content_publish",
+      "business_management",
+    ];
+  }
+  if (provider === "google_social") {
+    return [
+      "openid",
+      "email",
+      "profile",
+      "https://www.googleapis.com/auth/business.manage",
+      "https://www.googleapis.com/auth/youtube.readonly",
+    ];
+  }
+  if (provider === "google") {
+    return ["openid", "email", "profile"];
+  }
+  if (provider === "gmail") {
+    return ["https://www.googleapis.com/auth/gmail.readonly"];
+  }
+  if (provider === "google_drive") {
+    return ["https://www.googleapis.com/auth/drive.readonly"];
+  }
+  return ["https://www.googleapis.com/auth/calendar.events"];
+}
+
+function secretPayloadFromToken(
+  provider: ProviderId,
+  token: GoogleTokenResponse
+): string {
+  return encryptSecret(
+    JSON.stringify({
+      provider,
+      access_token: token.access_token ?? "",
+      refresh_token: token.refresh_token ?? null,
+      token_type: token.token_type ?? "bearer",
+      expires_in: token.expires_in ?? null,
+      scope: token.scope ?? null,
+      stored_at: new Date().toISOString(),
+    })
+  );
+}
+
+export async function GET(request: Request) {
+  const url = new URL(request.url);
   const origin = url.origin;
   const code = url.searchParams.get("code");
-  const stateToken = url.searchParams.get("state");
-  const oauthError = url.searchParams.get("error");
+  const error = url.searchParams.get("error");
+  const errorDescription = url.searchParams.get("error_description");
+  const state = providerFromState(url.searchParams.get("state"));
 
-  if (oauthError) {
-    return settingsRedirect(origin, { integration_error: oauthError });
-  }
-
-  // 1) Verify signed state.
-  const verified = verifyState(stateToken);
-  if (!verified.ok || !verified.state) {
-    return settingsRedirect(origin, { integration_error: `invalid_state_${verified.reason ?? "unknown"}` });
-  }
-  const { provider, target_user_id } = verified.state;
-  if (!code) {
-    return settingsRedirect(origin, { integration_error: "missing_code", provider });
-  }
-
-  // 2) Ensure OAuth is configured (presence-only — never read the value into a response).
-  const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID ?? "";
-  const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET ?? "";
-  if (!clientId || !clientSecret) {
-    return settingsRedirect(origin, { integration_error: "oauth_not_configured", provider });
-  }
-  const redirectUri = process.env.GOOGLE_OAUTH_REDIRECT_URI || DEFAULT_REDIRECT_URI;
-
-  // 3) Exchange the code for tokens (server-side).
-  let tokenJson: {
-    access_token?: string;
-    refresh_token?: string;
-    expires_in?: number;
-    token_type?: string;
-    scope?: string;
-    error?: string;
-    error_description?: string;
-  };
-  try {
-    const resp = await fetch(GOOGLE_TOKEN_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        code,
-        client_id: clientId,
-        client_secret: clientSecret,
-        redirect_uri: redirectUri,
-        grant_type: "authorization_code",
-      }).toString(),
+  if (error) {
+    return redirectBack(origin, {
+      integration: state?.provider ?? null,
+      error: errorDescription ?? error,
     });
-    tokenJson = (await resp.json().catch(() => ({}))) as typeof tokenJson;
-    if (!resp.ok || tokenJson.error || !tokenJson.access_token) {
-      await recordIntegrationAudit({
-        actor: null,
-        action: "integration_connect_failed",
-        provider,
-        target_type: "user_integration_connections",
-        target_id: null,
-        metadata: { stage: "token_exchange", error: tokenJson.error ?? `http_${resp.status}` },
-      });
-      return settingsRedirect(origin, {
-        integration_error: `token_exchange_${tokenJson.error ?? resp.status}`,
-        provider,
-      });
+  }
+
+  if (!code || !state) {
+    return redirectBack(origin, {
+      integration: state?.provider ?? null,
+      error: "invalid_oauth_state",
+    });
+  }
+
+  const profile = await getCurrentProfile();
+  if (!profile) {
+    return redirectBack(origin, {
+      integration: state.provider,
+      error: "unauthenticated",
+    });
+  }
+
+  if (state.targetUserId !== profile.id && !isAdminOrOwner(profile)) {
+    return redirectBack(origin, {
+      integration: state.provider,
+      error: "forbidden",
+    });
+  }
+
+  const service = getSupabaseServiceClient();
+  const redirectUri =
+    state.provider === "facebook"
+      ? `${origin}/api/integrations/connect/callback`
+      : process.env.GOOGLE_OAUTH_REDIRECT_URI ??
+        `${origin}/api/integrations/connect/callback`;
+
+  try {
+    const now = new Date().toISOString();
+    const token = state.provider === "facebook"
+      ? await exchangeFacebookToken(code, redirectUri)
+      : await exchangeGoogleToken(code, redirectUri);
+
+    if (!token.access_token) {
+      throw new Error("OAuth token exchange did not return an access token.");
     }
-  } catch (err) {
-    return settingsRedirect(origin, {
-      integration_error: "token_exchange_network",
-      provider,
-    });
-  }
 
-  const grantedScopes = tokenJson.scope ? tokenJson.scope.split(/\s+/).filter(Boolean) : PROVIDER_SCOPES[provider] ?? [];
-  const expiresAt = tokenJson.expires_in
-    ? new Date(Date.now() + tokenJson.expires_in * 1000).toISOString()
-    : null;
+    const metadata: Record<string, unknown> = {};
+    let availableDestinations: DestinationOption[] = [];
+    let userSummary: Record<string, unknown> = {};
 
-  // 4) Best-effort: fetch the connected account email for NON-secret display.
-  let accountEmail: string | null = null;
-  try {
-    const ui = await fetch(GOOGLE_USERINFO_URL, {
-      headers: { Authorization: `Bearer ${tokenJson.access_token}` },
-    });
-    if (ui.ok) {
-      const info = (await ui.json().catch(() => ({}))) as { email?: string };
-      accountEmail = info.email ?? null;
+    if (state.provider === "facebook") {
+      availableDestinations = await fetchFacebookPages(token.access_token);
+      metadata.facebook_pages = availableDestinations.filter(
+        (destination) => destination.platform === "facebook"
+      );
+      metadata.instagram_accounts = availableDestinations.filter(
+        (destination) => destination.platform === "instagram"
+      );
+    } else if (state.provider === "google_social") {
+      availableDestinations = await fetchGoogleSocialDestinations(token.access_token);
+      metadata.google_business_accounts = availableDestinations.filter(
+        (destination) =>
+          destination.platform === "google_business_profile" &&
+          destination.destination_type === "google_business_account"
+      );
+      metadata.google_business_locations = availableDestinations.filter(
+        (destination) =>
+          destination.platform === "google_business_profile" &&
+          destination.destination_type === "google_business_location"
+      );
+      metadata.youtube_channels = availableDestinations.filter(
+        (destination) =>
+          destination.platform === "youtube" &&
+          destination.destination_type === "youtube_channel"
+      );
+    } else {
+      const info = await fetchGoogleUserInfo(token.access_token);
+      if (info) {
+        userSummary = {
+          account_email: info.email ?? null,
+          account_name: info.name ?? null,
+          subject_id: info.sub ?? null,
+          picture: info.picture ?? null,
+        };
+      }
     }
-  } catch {
-    accountEmail = null;
-  }
 
-  // 5) Look up the target user's org for the connection row.
-  let organizationId: string | null = null;
-  try {
-    const service = getSupabaseServiceClient();
-    const { data } = await service
-      .from("profiles")
-      .select("organization_id")
-      .eq("id", target_user_id)
-      .maybeSingle();
-    organizationId = (data?.organization_id as string | null) ?? null;
-  } catch {
-    organizationId = null;
-  }
+    if (Object.keys(userSummary).length > 0) {
+      metadata.google_account = userSummary;
+    }
 
-  // 6) Persist tokens (server-only) + connection status (non-secret).
-  try {
-    await storeTokenGrant({
-      userId: target_user_id,
-      provider,
-      accessToken: tokenJson.access_token,
-      refreshToken: tokenJson.refresh_token ?? null,
-      tokenType: tokenJson.token_type ?? "Bearer",
-      scopes: grantedScopes,
-      expiresAt,
-      metadata: { account_email: accountEmail },
-    });
-    await upsertConnection({
-      userId: target_user_id,
-      organizationId,
-      provider,
-      status: "connected",
-      scopes: grantedScopes,
-      metadata: { account_email: accountEmail },
-    });
-  } catch (err) {
-    await recordIntegrationAudit({
-      actor: null,
-      action: "integration_connect_failed",
-      provider,
+    const scopes = scopesFromResponse(state.provider, token);
+    const userIntegration = await service
+      .from("user_integration_connections")
+      .upsert(
+        {
+          user_id: state.targetUserId,
+          organization_id: profile.organization_id,
+          provider: state.provider,
+          status: "connected",
+          scopes,
+          connected_at: now,
+          last_checked_at: now,
+          metadata,
+        },
+        { onConflict: "user_id,provider" }
+      )
+      .select("id,user_id,provider,status")
+      .single();
+
+    if (userIntegration.error || !userIntegration.data) {
+      throw new Error(userIntegration.error?.message ?? "Could not save connection.");
+    }
+
+    const secret = await service
+      .from("social_connection_secrets")
+      .upsert(
+        {
+          user_id: state.targetUserId,
+          organization_id: profile.organization_id,
+          user_integration_connection_id: userIntegration.data.id,
+          provider: state.provider,
+          encrypted_secret: secretPayloadFromToken(state.provider, token),
+          token_type: token.token_type ?? "bearer",
+          scopes,
+          expires_at:
+            typeof token.expires_in === "number"
+              ? new Date(Date.now() + token.expires_in * 1000).toISOString()
+              : null,
+          metadata: {
+            stored_at: now,
+            provider: state.provider,
+            destination_count: availableDestinations.length,
+            access_token_type: token.token_type ?? "bearer",
+          },
+        },
+        { onConflict: "user_integration_connection_id" }
+      )
+      .select("id")
+      .single();
+
+    if (secret.error || !secret.data) {
+      throw new Error(secret.error?.message ?? "Could not store secret.");
+    }
+
+    await recordAudit({
+      actor: profile,
+      action: "integration_connected",
       target_type: "user_integration_connections",
-      target_id: target_user_id,
-      metadata: { stage: "persist", error: err instanceof Error ? err.message : "unknown" },
+      target_id: userIntegration.data.id,
+      metadata: {
+        provider: state.provider,
+        destination_count: availableDestinations.length,
+      },
     });
-    return settingsRedirect(origin, { integration_error: "persist_failed", provider });
+
+    return redirectBack(origin, {
+      integration: state.provider,
+      connected: "1",
+    });
+  } catch (err) {
+    return redirectBack(origin, {
+      integration: state.provider,
+      error: err instanceof Error ? err.message : "oauth_callback_failed",
+    });
   }
-
-  await recordIntegrationAudit({
-    actor: null,
-    action: "integration_connected",
-    provider,
-    target_type: "user_integration_connections",
-    target_id: target_user_id,
-    metadata: { account_email: accountEmail, scopes: grantedScopes },
-  });
-
-  return settingsRedirect(origin, { integration_connected: provider });
 }

@@ -529,7 +529,7 @@ function nextActionForRole(role: UserRole): {
       };
     case "processor":
       return {
-        href: "/processing",
+        href: "/flo-processing",
         label: "Open Processing",
         description:
           "Head to the processing queue to work conditions and handoffs.",

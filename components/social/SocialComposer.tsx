@@ -22,6 +22,7 @@ import {
 
 import { PostPreview, type ChannelId } from "@/components/social/PostPreview";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import type { SocialPublishGate } from "@/lib/social/destinationReadiness";
 import { cn, truncate } from "@/lib/utils";
 import type { GeneratedMedia, SocialPost } from "@/types/database";
 
@@ -57,6 +58,7 @@ interface Props {
     body?: string;
     channels?: ChannelId[];
   } | null;
+  destinationGate?: SocialPublishGate | null;
   publishingRoutes?: PublishingRoute[];
   appName?: string;
 }
@@ -98,6 +100,7 @@ export function SocialComposer({
   initialDraft,
   assetUsage: _assetUsage,
   atlasPrefill,
+  destinationGate = null,
   publishingRoutes = [],
   appName = "LegendsOS",
 }: Props) {
@@ -204,6 +207,21 @@ export function SocialComposer({
 
   function submit(action: "draft" | "schedule") {
     if (!body.trim() || selected.length === 0) { setError("Body and channels required."); return; }
+    if (action === "schedule" && destinationGate) {
+      const missing = selected.filter((channel) => {
+        const gate = destinationGate.channels[channel];
+        return !gate?.selected || !gate.publish_enabled;
+      });
+      if (missing.length > 0) {
+        const labels = missing.map((channel) => CHANNELS.find((x) => x.id === channel)?.label ?? channel);
+        setError(
+          destinationGate.has_any_selected_destination
+            ? `Enable publishing for ${labels.join(", ")} in Connection Center before scheduling.`
+            : `Select a destination for ${labels.join(", ")} in Connection Center before scheduling.`
+        );
+        return;
+      }
+    }
     startTransition(async () => {
       try {
         const res = await fetch("/api/social", {
@@ -227,6 +245,18 @@ export function SocialComposer({
   }
 
   const selectedMedia = selectedMediaIds.map((id) => library.find((m) => m.id === id)).filter((m): m is MediaSummary => Boolean(m));
+  const scheduleBlocked =
+    Boolean(destinationGate) &&
+    selected.some((channel) => {
+      const gate = destinationGate?.channels[channel];
+      return !gate?.selected || !gate.publish_enabled;
+    });
+  const scheduleHelp =
+    destinationGate && scheduleBlocked
+      ? destinationGate.has_any_selected_destination
+        ? "Enable publishing in Connection Center for the selected destination(s) before scheduling."
+        : "Select a destination in Connection Center before scheduling."
+      : null;
 
   return (
     <section className="card-padded space-y-4">
@@ -338,9 +368,10 @@ export function SocialComposer({
       <div className="flex items-center justify-between border-t border-ink-100 dark:border-ink-800 pt-4">
         <div className="flex gap-2">
            <button className="btn text-xs py-1.5" onClick={() => submit("draft")} disabled={isPending || !body.trim()}><Save size={14} /> Save Draft</button>
-           <button className="btn-primary text-xs py-1.5" onClick={() => submit("schedule")} disabled={isPending || !body.trim() || !scheduledAt}><CalendarPlus size={14} /> Schedule</button>
+           <button className="btn-primary text-xs py-1.5" onClick={() => submit("schedule")} disabled={isPending || !body.trim() || !scheduledAt || scheduleBlocked}><CalendarPlus size={14} /> Schedule</button>
         </div>
         {info && <p className="text-xs text-status-ok font-medium">{info}</p>}
+        {scheduleHelp && <p className="text-xs text-status-warn font-medium">{scheduleHelp}</p>}
         {error && <p className="text-xs text-status-err font-medium">{error}</p>}
       </div>
     </section>

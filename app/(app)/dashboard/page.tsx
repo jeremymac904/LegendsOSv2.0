@@ -82,7 +82,7 @@ export default async function DashboardPage() {
   // get a wall of owner-only widgets they can't act on. RLS still governs the
   // data; this is purely navigational.
   if (profile.role === "loan_officer") redirect("/my-loans");
-  if (profile.role === "processor") redirect("/processing");
+  if (profile.role === "processor") redirect("/flo-processing");
   if (profile.role === "coordinator") redirect("/coordinator");
 
   const supabase = getSupabaseServerClient();

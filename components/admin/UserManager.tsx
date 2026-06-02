@@ -35,11 +35,11 @@ const ROLES: { value: UserRole; label: string; description: string }[] = [
     label: "LO",
     description: "Loan officer — uses Atlas, social, image, knowledge.",
   },
-  {
-    value: "processor",
-    label: "Processor",
-    description: "Ashley — sees loans assigned to her in Processing (FLO).",
-  },
+    {
+      value: "processor",
+      label: "Processor",
+      description: "Ashley — sees loans assigned to her in Flo Processing.",
+    },
   {
     value: "coordinator",
     label: "Coordinator",

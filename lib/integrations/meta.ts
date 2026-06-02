@@ -1,16 +1,23 @@
-// Meta (Facebook / Instagram) connector.
+// Meta (Facebook / Instagram) connector — DISABLED-by-default stub.
+//
+// This module intentionally performs ZERO outbound calls to Meta. It exists
+// so that the rest of the app (Social Studio, /api/integrations/status) can
+// report a clean "configured / paid_enabled" state when the app-level Meta
+// credentials are in place, without us actually publishing anything until
+// paid publishing is approved by the owner.
 //
 // Activation criteria (`configured = true`):
-//   META_APP_ID        AND
-//   META_ACCESS_TOKEN  AND
-//   (META_PAGE_ID OR META_INSTAGRAM_ACCOUNT_ID)
+//   META_APP_ID AND META_APP_SECRET
+//
+// User-owned destination ids live in the database now. We never read global
+// page / Instagram ids from env for publishing destinations.
 //
 // Paid publishing (`paid_enabled = true`):
 //   configured && ALLOW_LIVE_SOCIAL_PUBLISH=true
 //
 // Server-only — never import from a client component.
 
-import { recordIntegrationAudit } from "@/lib/integrations/audit";
+import type { Profile } from "@/types/database";
 
 export type MetaCapability =
   | "publish_post"
@@ -45,35 +52,16 @@ function readBool(name: string, fallback = false): boolean {
  */
 export function detectMetaConfig(): MetaConfigState {
   const appId = readEnv("META_APP_ID");
-  // META_APP_SECRET is read for completeness even though `configured` doesn't
-  // strictly require it — Meta's posting endpoints need an access token, and
-  // the secret matters for OAuth refresh which is a later phase.
-  const _appSecret = readEnv("META_APP_SECRET");
-  const accessToken = readEnv("META_ACCESS_TOKEN");
-  const pageId = readEnv("META_PAGE_ID");
-  const igAccountId = readEnv("META_INSTAGRAM_ACCOUNT_ID");
+  const appSecret = readEnv("META_APP_SECRET");
 
-  const hasIdentity = Boolean(pageId || igAccountId);
-  const configured = Boolean(appId && accessToken && hasIdentity);
+  const configured = Boolean(appId && appSecret);
 
   const allowLive = readBool("ALLOW_LIVE_SOCIAL_PUBLISH", false);
   const paid_enabled = configured && allowLive;
 
-  const capabilities: MetaCapability[] = [];
-  if (configured) {
-    // A Facebook Page lets us publish text posts, photos, and videos.
-    if (pageId) {
-      capabilities.push("publish_post", "publish_image", "publish_video");
-    }
-    // An Instagram Business / Creator account supports image + video posts.
-    // De-dupe vs. the page case.
-    if (igAccountId) {
-      if (!capabilities.includes("publish_image"))
-        capabilities.push("publish_image");
-      if (!capabilities.includes("publish_video"))
-        capabilities.push("publish_video");
-    }
-  }
+  const capabilities: MetaCapability[] = configured
+    ? ["publish_post", "publish_image", "publish_video"]
+    : [];
 
   return { configured, paid_enabled, capabilities };
 }
@@ -164,9 +152,9 @@ export interface MetaReadiness {
   all_passed: boolean;
   /** Convenience mirror of detectMetaConfig().configured. */
   configured: boolean;
-  /** True iff app+identity env is present (Graph credentials side). */
+  /** True iff app-level Meta credentials are present. */
   app_configured: boolean;
-  /** True iff a Facebook Page or IG account env id is present. */
+  /** True iff the current user has selected at least one destination. */
   identity_present: boolean;
 }
 
@@ -184,12 +172,9 @@ export function publishReadiness(opts: {
   publishEnabled: boolean;
 }): MetaReadiness {
   const appConfigured =
-    envPresent("META_APP_ID") &&
-    envPresent("META_APP_SECRET") &&
-    envPresent("META_ACCESS_TOKEN");
+    envPresent("META_APP_ID") && envPresent("META_APP_SECRET");
 
-  const identityPresent =
-    envPresent("META_PAGE_ID") || envPresent("META_INSTAGRAM_ACCOUNT_ID");
+  const identityPresent = opts.pageConnected;
 
   const liveSafetyFlag = readBool("ALLOW_LIVE_SOCIAL_PUBLISH", false);
 
@@ -199,16 +184,16 @@ export function publishReadiness(opts: {
       label: "Meta app credentials",
       passed: appConfigured,
       detail: appConfigured
-        ? "App ID, secret, and access token are present."
-        : "Set META_APP_ID, META_APP_SECRET, and META_ACCESS_TOKEN.",
+        ? "App ID and secret are present."
+        : "Set META_APP_ID and META_APP_SECRET.",
     },
     {
       id: "identity_present",
-      label: "Page or Instagram account",
+      label: "Selected destination",
       passed: identityPresent,
       detail: identityPresent
-        ? "A Facebook Page or Instagram account id is configured."
-        : "Set META_PAGE_ID or META_INSTAGRAM_ACCOUNT_ID.",
+        ? "A publish destination row is saved in LegendsOS."
+        : "Select a Facebook Page or Instagram account in Connection Center.",
     },
     {
       id: "page_connected",
@@ -248,15 +233,14 @@ export function publishReadiness(opts: {
 }
 
 // ---------------------------------------------------------------------------
-// publishToMeta — REAL direct Graph API publisher, fully GATED.
+// publishToMeta — REAL direct Graph API publisher SHAPE, fully GATED.
 //
-// Refuses (throws MetaPublishGateError) unless every gate is satisfied:
-//   1. detectMetaConfig().configured  (all required env vars present)
-//   2. ctx.is_publish_enabled         (owner approval switch)
-//   3. ALLOW_LIVE_SOCIAL_PUBLISH=true (master safety env flag)
-//
-// Facebook: POST /{page-id}/feed (text), /photos (image), /videos (video)
-// Instagram: POST /{ig-user-id}/media → /{ig-user-id}/media_publish (two-step)
+// IMPORTANT: This function is built but NEVER invoked this sprint. It is the
+// capability scaffold for a later "live wiring" PR. It refuses to run unless
+// EVERY gate is satisfied, and even then the network call is left as an
+// explicit TODO so no PR in this sprint can accidentally send. The owner
+// approval switch (is_publish_enabled) and the live safety flag must BOTH be
+// passed in / on, in addition to full env configuration.
 // ---------------------------------------------------------------------------
 
 export interface MetaPublishPost {
@@ -271,8 +255,8 @@ export interface MetaPublishPost {
 export interface MetaPublishGateContext {
   /** social_account_connections.is_publish_enabled for the target account. */
   is_publish_enabled: boolean;
-  /** Profile acting (for audit). */
-  actor?: import("@/types/database").Profile | null;
+  /** Optional caller context for audit-only metadata. */
+  actor?: Profile | null;
 }
 
 export class MetaPublishGateError extends Error {
@@ -281,6 +265,7 @@ export class MetaPublishGateError extends Error {
       | "not_configured"
       | "owner_not_approved"
       | "live_flag_off"
+      | "live_wiring_pending"
   ) {
     super(`meta_publish_refused:${reason}`);
     this.name = "MetaPublishGateError";
@@ -292,17 +277,22 @@ export interface MetaPublishResult {
   platform_post_id: string;
 }
 
-const GRAPH_BASE = "https://graph.facebook.com/v18.0";
-
 /**
- * Direct Graph-API publisher. All gates enforced before any network call.
- * Tokens are only ever placed in request bodies — never logged.
+ * Direct Graph-API publisher. GATED and INERT for this sprint.
+ *
+ * Refuses (throws MetaPublishGateError) unless:
+ *   1. detectMetaConfig().configured                       (env present)
+ *   2. ctx.is_publish_enabled === true                     (owner switch)
+ *   3. ALLOW_LIVE_SOCIAL_PUBLISH is on                     (master safety)
+ *
+ * When all three pass, it STILL refuses with reason "live_wiring_pending"
+ * because the actual fetch() to graph.facebook.com is intentionally not wired
+ * this sprint. Build the capability; do not invoke it.
  */
 export async function publishToMeta(
-  post: MetaPublishPost,
+  _post: MetaPublishPost,
   ctx: MetaPublishGateContext
 ): Promise<MetaPublishResult> {
-  // --- Gate checks (fail-closed) ---
   const state = detectMetaConfig();
   if (!state.configured) {
     throw new MetaPublishGateError("not_configured");
@@ -314,140 +304,14 @@ export async function publishToMeta(
     throw new MetaPublishGateError("live_flag_off");
   }
 
-  // Env values — only read after all gates pass, never logged.
-  const accessToken = readEnv("META_ACCESS_TOKEN");
-  const pageId = readEnv("META_PAGE_ID");
-  const igAccountId = readEnv("META_INSTAGRAM_ACCOUNT_ID");
-
-  let platform_post_id: string;
-
-  try {
-    if (post.surface === "instagram") {
-      // Instagram two-step: create container then publish
-      if (!igAccountId) throw new Error("META_INSTAGRAM_ACCOUNT_ID not set");
-
-      // Step 1: Create the media container
-      const containerBody: Record<string, string> = {
-        access_token: accessToken,
-      };
-      if (post.image_url && !post.video_url) {
-        containerBody.image_url = post.image_url;
-        containerBody.media_type = "IMAGE";
-      } else if (post.video_url) {
-        containerBody.video_url = post.video_url;
-        containerBody.media_type = "VIDEO";
-      } else if (post.image_url) {
-        containerBody.image_url = post.image_url;
-        containerBody.media_type = "IMAGE";
-      } else {
-        throw new Error("Instagram requires at least image_url or video_url");
-      }
-      if (post.message) containerBody.caption = post.message;
-
-      const containerRes = await fetch(
-        `${GRAPH_BASE}/${encodeURIComponent(igAccountId)}/media`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(containerBody),
-        }
-      );
-      const containerJson = (await containerRes.json().catch(() => ({}))) as {
-        id?: string;
-        error?: { message?: string; code?: number };
-      };
-      if (!containerRes.ok || !containerJson.id) {
-        const msg = containerJson.error?.message ?? `http ${containerRes.status}`;
-        throw new Error(`instagram media container failed: ${msg}`);
-      }
-      const containerId = containerJson.id;
-
-      // Step 2: Publish the container
-      const publishRes = await fetch(
-        `${GRAPH_BASE}/${encodeURIComponent(igAccountId)}/media_publish`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ creation_id: containerId, access_token: accessToken }),
-        }
-      );
-      const publishJson = (await publishRes.json().catch(() => ({}))) as {
-        id?: string;
-        error?: { message?: string; code?: number };
-      };
-      if (!publishRes.ok || !publishJson.id) {
-        const msg = publishJson.error?.message ?? `http ${publishRes.status}`;
-        throw new Error(`instagram media_publish failed: ${msg}`);
-      }
-      platform_post_id = publishJson.id;
-
-    } else {
-      // Facebook — choose endpoint based on media type
-      if (!pageId) throw new Error("META_PAGE_ID not set");
-
-      let endpoint: string;
-      const fbBody: Record<string, string> = { access_token: accessToken };
-
-      if (post.video_url) {
-        endpoint = `${GRAPH_BASE}/${encodeURIComponent(pageId)}/videos`;
-        fbBody.file_url = post.video_url;
-        if (post.message) fbBody.description = post.message;
-      } else if (post.image_url) {
-        endpoint = `${GRAPH_BASE}/${encodeURIComponent(pageId)}/photos`;
-        fbBody.url = post.image_url;
-        if (post.message) fbBody.caption = post.message;
-      } else {
-        endpoint = `${GRAPH_BASE}/${encodeURIComponent(pageId)}/feed`;
-        if (post.message) fbBody.message = post.message;
-      }
-
-      const fbRes = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(fbBody),
-      });
-      const fbJson = (await fbRes.json().catch(() => ({}))) as {
-        id?: string;
-        post_id?: string;
-        error?: { message?: string; code?: number };
-      };
-      if (!fbRes.ok || (!fbJson.id && !fbJson.post_id)) {
-        const msg = fbJson.error?.message ?? `http ${fbRes.status}`;
-        throw new Error(`facebook publish failed: ${msg}`);
-      }
-      platform_post_id = fbJson.post_id ?? fbJson.id ?? "unknown";
-    }
-
-    // Audit success — no secret values in metadata
-    await recordIntegrationAudit({
-      actor: ctx.actor ?? null,
-      action: "meta_published",
-      provider: "meta",
-      target_type: "social_post",
-      target_id: post.connection_id ?? null,
-      metadata: {
-        surface: post.surface,
-        has_image: Boolean(post.image_url),
-        has_video: Boolean(post.video_url),
-        has_text: Boolean(post.message),
-      },
-    });
-
-    return { ok: true, platform_post_id };
-
-  } catch (err) {
-    // Audit failure — never log the access token
-    await recordIntegrationAudit({
-      actor: ctx.actor ?? null,
-      action: "meta_publish_failed",
-      provider: "meta",
-      target_type: "social_post",
-      target_id: post.connection_id ?? null,
-      metadata: {
-        surface: post.surface,
-        error: err instanceof Error ? err.message : "unknown",
-      },
-    });
-    throw err;
-  }
+  // All gates passed. The real Graph API request lives here in the live-wiring
+  // PR. Shape it would take (NOT executed):
+  //
+  //   const endpoint = state.capabilities... /v19.0/<page-or-ig-id>/feed
+  //   const res = await fetch(endpoint, { method: "POST", body: ... });
+  //   const json = await res.json();
+  //   return { ok: true, platform_post_id: json.id };
+  //
+  // Until that PR lands, we refuse rather than send.
+  throw new MetaPublishGateError("live_wiring_pending");
 }

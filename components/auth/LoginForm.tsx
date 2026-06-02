@@ -47,7 +47,9 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
             options: {
               emailRedirectTo:
                 typeof window !== "undefined"
-                  ? `${window.location.origin}/auth/callback`
+                  ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(
+                      redirectTo
+                    )}`
                   : undefined,
             },
           });

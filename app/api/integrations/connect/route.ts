@@ -1,23 +1,22 @@
 import { NextResponse } from "next/server";
 
-import { signState } from "@/lib/integrations/oauthState";
 import { isAdminOrOwner } from "@/lib/permissions";
+import { createOAuthState } from "@/lib/integrations/oauth";
 import { getCurrentProfile } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Sprint 4 — Lane 5. First step of the per-user Google OAuth connect flow.
+// Sprint 4 — Lane 5. First step of the per-user Google / Meta OAuth connect flow.
 //
 // HONESTY + SAFETY:
-// - This route NEVER returns a secret. It checks env PRESENCE only
-//   (GOOGLE_OAUTH_CLIENT_ID / GOOGLE_OAUTH_CLIENT_SECRET) and never the value.
+// - This route NEVER returns a secret. It checks env PRESENCE only and never
+//   any env value.
 // - If OAuth is not configured, it returns { status: "setup_needed" } so the
-//   UI shows "Setup needed — admin must configure Google OAuth" instead of a
-//   dead button.
-// - It does NOT implement the full token exchange (deferred). It returns the
-//   OAuth start URL / next step only. Tokens, when later added, live
-//   server-side exclusively — never in the browser or the extension.
+//   UI shows an honest setup-needed message instead of a dead button.
+// - The callback route performs the token exchange and server-side storage.
+//   Tokens, when later added, live server-side exclusively — never in the
+//   browser or the extension.
 // - CORS: the LegendsOS browser companion (Chrome extension) calls this with
 //   credentials. We answer the OPTIONS preflight and reflect a
 //   chrome-extension:// (or same-site) Origin with credentials allowed. We do
@@ -25,30 +24,41 @@ export const dynamic = "force-dynamic";
 
 const PROVIDERS = [
   "google",
+  "google_social",
   "gmail",
   "google_drive",
   "google_calendar",
-  "youtube",
-  "google_business_profile",
+  "facebook",
 ] as const;
 type ProviderId = (typeof PROVIDERS)[number];
-
-// Canonical OAuth redirect URI. MUST be identical in connect + callback and
-// MUST match what's registered in the Google Cloud console. We use a fixed
-// constant (not the request origin) so the redirect_uri is stable across hosts,
-// previews, and the desktop shell. Override via GOOGLE_OAUTH_REDIRECT_URI.
-const DEFAULT_REDIRECT_URI = "https://legndsosv20.netlify.app/api/integrations/connect/callback";
 
 // Google OAuth scopes per capability. Requested at connect time later; listed
 // here so the contract is explicit and the UI can show what will be asked.
 const PROVIDER_SCOPES: Record<ProviderId, string[]> = {
   google: ["openid", "email", "profile"],
+  google_social: [
+    "openid",
+    "email",
+    "profile",
+    "https://www.googleapis.com/auth/business.manage",
+    "https://www.googleapis.com/auth/youtube.readonly",
+  ],
   gmail: ["https://www.googleapis.com/auth/gmail.readonly"],
   google_drive: ["https://www.googleapis.com/auth/drive.readonly"],
   google_calendar: ["https://www.googleapis.com/auth/calendar.events"],
-  youtube: ["https://www.googleapis.com/auth/youtube.upload"],
-  google_business_profile: ["https://www.googleapis.com/auth/business.manage"],
+  facebook: [
+    "pages_show_list",
+    "pages_read_engagement",
+    "pages_manage_posts",
+    "instagram_basic",
+    "instagram_content_publish",
+    "business_management",
+  ],
 };
+
+function isMetaProvider(provider: ProviderId): provider is "facebook" {
+  return provider === "facebook";
+}
 
 function envPresent(name: string): boolean {
   const v = process.env[name];
@@ -134,8 +144,10 @@ export async function POST(req: Request) {
 
   // Presence-only check — never read the value of either secret.
   const oauthConfigured =
-    envPresent("GOOGLE_OAUTH_CLIENT_ID") &&
-    envPresent("GOOGLE_OAUTH_CLIENT_SECRET");
+    provider === "facebook"
+      ? envPresent("META_APP_ID") && envPresent("META_APP_SECRET")
+      : envPresent("GOOGLE_OAUTH_CLIENT_ID") &&
+        envPresent("GOOGLE_OAUTH_CLIENT_SECRET");
 
   if (!oauthConfigured) {
     // Honest setup-needed. The Connect button is not a dead button — it
@@ -146,36 +158,53 @@ export async function POST(req: Request) {
         status: "setup_needed",
         provider,
         message:
-          "Setup needed — admin must configure Google OAuth (GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET) in the server environment before any account can connect.",
-        env_required: ["GOOGLE_OAUTH_CLIENT_ID", "GOOGLE_OAUTH_CLIENT_SECRET"],
+          provider === "facebook"
+            ? "Setup needed — admin must configure Meta app credentials (META_APP_ID and META_APP_SECRET) in the server environment before any account can connect."
+            : "Setup needed — admin must configure Google OAuth (GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET) in the server environment before any account can connect.",
+        env_required:
+          provider === "facebook"
+            ? ["META_APP_ID", "META_APP_SECRET"]
+            : ["GOOGLE_OAUTH_CLIENT_ID", "GOOGLE_OAUTH_CLIENT_SECRET"],
         scopes: PROVIDER_SCOPES[provider],
       },
       { headers: cors }
     );
   }
 
-  // OAuth IS configured. Return the first step (the authorize URL the browser
-  // should be sent to). We deliberately stop here — full token exchange and
-  // server-side token storage are deferred. The client_id is a PUBLIC OAuth
-  // identifier (safe to expose); the client SECRET is never read or returned.
-  const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID ?? "";
-  const redirectUri = process.env.GOOGLE_OAUTH_REDIRECT_URI || DEFAULT_REDIRECT_URI;
   const scopes = PROVIDER_SCOPES[provider];
+  const state = createOAuthState({
+    provider,
+    target_user_id: targetUserId,
+  });
+  const redirectUri =
+    provider === "facebook"
+      ? `${new URL(req.url).origin}/api/integrations/connect/callback`
+      : process.env.GOOGLE_OAUTH_REDIRECT_URI ??
+        `${new URL(req.url).origin}/api/integrations/connect/callback`;
 
-  // Build a standard Google OAuth 2.0 authorize URL (consent + offline so a
-  // refresh token can later be exchanged server-side). State carries the
-  // provider + target so the deferred callback can attribute the grant.
-  const authorize = new URL("https://accounts.google.com/o/oauth2/v2/auth");
-  authorize.searchParams.set("client_id", clientId);
-  authorize.searchParams.set("redirect_uri", redirectUri);
-  authorize.searchParams.set("response_type", "code");
-  authorize.searchParams.set("scope", scopes.join(" "));
-  authorize.searchParams.set("access_type", "offline");
-  authorize.searchParams.set("include_granted_scopes", "true");
-  authorize.searchParams.set("prompt", "consent");
-  // HMAC-signed state so the callback can verify the round-trip and attribute
-  // the grant to the right user without trusting a forgeable plain JSON blob.
-  authorize.searchParams.set("state", signState({ provider, target_user_id: targetUserId }));
+  let authorize: URL;
+  if (isMetaProvider(provider)) {
+    authorize = new URL("https://www.facebook.com/v22.0/dialog/oauth");
+    authorize.searchParams.set("client_id", process.env.META_APP_ID ?? "");
+    authorize.searchParams.set("redirect_uri", redirectUri);
+    authorize.searchParams.set("response_type", "code");
+    authorize.searchParams.set("scope", scopes.join(","));
+    authorize.searchParams.set("state", state);
+    authorize.searchParams.set("auth_type", "rerequest");
+  } else {
+    // Build a standard Google OAuth 2.0 authorize URL (consent + offline so a
+    // refresh token can later be exchanged server-side). State carries the
+    // provider + target so the callback can attribute the grant.
+    authorize = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+    authorize.searchParams.set("client_id", process.env.GOOGLE_OAUTH_CLIENT_ID ?? "");
+    authorize.searchParams.set("redirect_uri", redirectUri);
+    authorize.searchParams.set("response_type", "code");
+    authorize.searchParams.set("scope", scopes.join(" "));
+    authorize.searchParams.set("access_type", "offline");
+    authorize.searchParams.set("include_granted_scopes", "true");
+    authorize.searchParams.set("prompt", "consent");
+    authorize.searchParams.set("state", state);
+  }
 
   return NextResponse.json(
     {
@@ -184,11 +213,10 @@ export async function POST(req: Request) {
       provider,
       authorize_url: authorize.toString(),
       scopes,
-      // The callback (/api/integrations/connect/callback) now completes the
-      // exchange: it swaps the code for tokens server-side, stores them in the
-      // RLS-locked oauth_token_grants table, and records the connection.
+      // The callback route completes token exchange + per-user destination
+      // discovery server-side.
       next_step:
-        "Open authorize_url to grant access. On redirect, the server completes the token exchange and stores the grant server-side.",
+        "Open authorize_url to grant access. The callback will store the grant server-side and return you to Connection Center.",
       completion_enabled: true,
     },
     { headers: cors }

@@ -21,14 +21,7 @@ export async function POST(req: Request) {
   const auth = verifyWebhookSecret(req);
   if (!auth.ok) {
     return NextResponse.json(
-      {
-        ok: false,
-        error: auth.error,
-        message:
-          auth.error === "intake_not_configured"
-            ? "Lead intake is not provisioned. Set LEGENDSOS_WEBHOOK_SECRET in the server environment."
-            : auth.message,
-      },
+      { ok: false, error: auth.error, message: auth.message },
       { status: auth.status }
     );
   }

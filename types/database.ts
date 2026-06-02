@@ -47,6 +47,8 @@ export type CalendarItemType =
   | "email_campaign"
   | "team_event"
   | "reminder";
+export type ThemeContrastPreference = "high" | "normal" | "soft";
+export type ThemeModeSetting = "dark" | "light" | "system";
 
 // ---------------------------------------------------------------------------
 // Mortgage Loan Brain status vocabularies (Phase 1).
@@ -86,6 +88,46 @@ export interface Organization {
   name: string;
   slug: string;
   owner_user_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BrandWorkspaceSettings {
+  id: string;
+  organization_id: string;
+  workspace_slug: string;
+  domain: string;
+  display_name: string;
+  logo_path: string | null;
+  primary_color: string | null;
+  secondary_color: string | null;
+  login_headline: string;
+  login_subheadline: string | null;
+  background_image_path: string | null;
+  background_video_path: string | null;
+  default_redirect_path: string;
+  owner_user_id: string | null;
+  status: "active" | "inactive" | "draft";
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserThemeSettings {
+  id: string;
+  user_id: string;
+  organization_id: string | null;
+  brand_workspace_id: string | null;
+  primary_color: string | null;
+  secondary_color: string | null;
+  background_image_path: string | null;
+  background_video_path: string | null;
+  glass_intensity: number;
+  sidebar_opacity: number;
+  card_opacity: number;
+  text_contrast: ThemeContrastPreference;
+  login_background_enabled: boolean;
+  desktop_background_enabled: boolean;
+  theme_mode: ThemeModeSetting;
   created_at: string;
   updated_at: string;
 }
@@ -646,14 +688,35 @@ export interface IntegrationAuditLog {
 export interface SocialAccountConnection {
   id: string;
   organization_id: string | null;
+  user_id: string | null;
+  user_integration_connection_id: string | null;
   platform: string;
   account_ref: string | null;
   page_id: string | null;
+  destination_type: string | null;
+  destination_ref: string | null;
+  destination_label: string | null;
   status: IntegrationConnectionStatus;
   connected_by: string | null;
   connected_at: string | null;
+  last_tested_at: string | null;
   // Owner-approval switch — defaults false; no live publishing until enabled.
   is_publish_enabled: boolean;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SocialConnectionSecret {
+  id: string;
+  user_id: string;
+  organization_id: string | null;
+  user_integration_connection_id: string;
+  provider: string;
+  encrypted_secret: string;
+  token_type: string | null;
+  scopes: string[];
+  expires_at: string | null;
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;

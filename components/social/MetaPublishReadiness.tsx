@@ -1,88 +1,127 @@
 "use client";
 
-import { useCallback, useEffect, useState, useTransition } from "react";
-import {
-  AlertTriangle,
-  CheckCircle2,
-  CircleDashed,
-  Loader2,
-  Lock,
-  RefreshCw,
-} from "lucide-react";
+import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
+import { AlertTriangle, Loader2, RefreshCw, Share2 } from "lucide-react";
 
 import { StatusPill } from "@/components/ui/StatusPill";
-import { cn } from "@/lib/utils";
 
-// Mirrors the API shape from /api/integrations/meta (GET). Kept inline so this
-// component does not depend on a shared types export.
-interface ReadinessCheck {
+type ConnectionStatus =
+  | "connected"
+  | "setup_needed"
+  | "not_connected"
+  | "error"
+  | "disconnected"
+  | "revoked"
+  | "disabled";
+
+type DestinationPlatform =
+  | "facebook"
+  | "instagram"
+  | "google_business_profile"
+  | "youtube";
+
+interface SelectedDestinationRow {
   id: string;
-  label: string;
-  passed: boolean;
-  detail: string;
+  platform: DestinationPlatform;
+  destination_label: string | null;
+  destination_type: string | null;
+  status: ConnectionStatus;
+  is_publish_enabled: boolean;
+  last_tested_at: string | null;
+  updated_at: string;
 }
 
-interface MetaStatusResponse {
+interface ProviderView {
+  provider: "facebook" | "google_social";
+  label: string;
+  status: ConnectionStatus;
+  selected_destinations: SelectedDestinationRow[];
+  updated_at: string | null;
+}
+
+interface TeamDestinationRow {
+  user_id: string;
+  full_name: string | null;
+  email: string | null;
+  platform: DestinationPlatform;
+  destination_label: string | null;
+  destination_type: string | null;
+  status: ConnectionStatus;
+  is_publish_enabled: boolean;
+  updated_at: string | null;
+}
+
+interface ConnectionsResponse {
   ok: boolean;
   provisioned: boolean;
-  connection: {
-    connected: boolean;
-    account_ref: string | null;
-    is_publish_enabled: boolean;
-    status: string;
+  connections: ProviderView[];
+  destinations: SelectedDestinationRow[];
+  isOwnerOrAdmin: boolean;
+  team: Array<{
+    user_id: string;
+    full_name: string | null;
+    email: string | null;
+    provider: string;
+    status: ConnectionStatus;
     updated_at: string | null;
-  } | null;
-  config: {
-    configured: boolean;
-    paid_enabled: boolean;
-    capabilities: string[];
-  };
-  readiness: {
-    checks: ReadinessCheck[];
-    all_passed: boolean;
-    configured: boolean;
-    app_configured: boolean;
-    identity_present: boolean;
-  };
-  can_manage: boolean;
+  }> | null;
+  team_destinations: TeamDestinationRow[] | null;
 }
 
-type LoadState =
-  | { phase: "loading" }
-  | { phase: "error"; message: string }
-  | { phase: "ready"; data: MetaStatusResponse };
-
 interface Props {
-  /** Owner-only: gates whether the approval switch is interactive. */
   canManage: boolean;
 }
 
+function pillFor(status: ConnectionStatus): {
+  tone: "ok" | "info" | "warn" | "err" | "off";
+  label: string;
+} {
+  switch (status) {
+    case "connected":
+      return { tone: "ok", label: "connected" };
+    case "error":
+      return { tone: "err", label: "needs attention" };
+    case "revoked":
+    case "disconnected":
+    case "disabled":
+      return { tone: "off", label: "off" };
+    default:
+      return { tone: "warn", label: "setup needed" };
+  }
+}
+
 export function MetaPublishReadiness({ canManage }: Props) {
-  const [state, setState] = useState<LoadState>({ phase: "loading" });
-  const [pending, startTransition] = useTransition();
-  const [switchError, setSwitchError] = useState<string | null>(null);
+  const [state, setState] = useState<
+    | { phase: "loading" }
+    | { phase: "error"; message: string }
+    | { phase: "ready"; data: ConnectionsResponse }
+  >({ phase: "loading" });
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch("/api/integrations/meta", {
+      const res = await fetch("/api/integrations/connections", {
         method: "GET",
         cache: "no-store",
         credentials: "include",
       });
-      const json = (await res.json()) as MetaStatusResponse & {
+      const json = (await res.json()) as ConnectionsResponse & {
         error?: string;
         message?: string;
       };
       if (!res.ok || !json.ok) {
         setState({
           phase: "error",
-          message: json.message ?? "Could not load Meta status.",
+          message: json.message ?? "Could not load connection status.",
         });
         return;
       }
       setState({ phase: "ready", data: json });
     } catch {
-      setState({ phase: "error", message: "Network error loading Meta status." });
+      setState({
+        phase: "error",
+        message: "Network error loading connection status.",
+      });
     }
   }, []);
 
@@ -90,47 +129,13 @@ export function MetaPublishReadiness({ canManage }: Props) {
     void load();
   }, [load]);
 
-  const onToggle = useCallback(
-    (enabled: boolean) => {
-      setSwitchError(null);
-      startTransition(async () => {
-        try {
-          const res = await fetch("/api/integrations/meta", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({ action: "set_publish_enabled", enabled }),
-          });
-          const json = (await res.json()) as {
-            ok: boolean;
-            error?: string;
-            message?: string;
-          };
-          if (!res.ok || !json.ok) {
-            setSwitchError(
-              json.message ??
-                (json.error === "not_provisioned"
-                  ? "Connection table not provisioned yet."
-                  : "Could not update the switch.")
-            );
-            return;
-          }
-          await load();
-        } catch {
-          setSwitchError("Network error updating the switch.");
-        }
-      });
-    },
-    [load]
-  );
-
   if (state.phase === "loading") {
     return (
       <section className="card-padded">
         <Header onRefresh={load} refreshing={false} />
         <div className="mt-4 flex items-center gap-2 text-xs text-ink-500 dark:text-ink-400">
           <Loader2 size={14} className="animate-spin" />
-          Loading Meta publish readiness…
+          Loading destination readiness…
         </div>
       </section>
     );
@@ -148,177 +153,180 @@ export function MetaPublishReadiness({ canManage }: Props) {
   }
 
   const { data } = state;
-  const { provisioned, connection, config, readiness } = data;
-  const publishEnabled = Boolean(connection?.is_publish_enabled);
+  const providerMap = new Map(data.connections.map((row) => [row.provider, row]));
+  const allDestinations = data.destinations ?? [];
+  const readyDestinations = allDestinations.filter(
+    (row) => row.status === "connected" && row.is_publish_enabled
+  );
+  const needsSelection = allDestinations.length === 0;
+  const needsEnable = allDestinations.length > 0 && readyDestinations.length === 0;
+  const ready = readyDestinations.length > 0;
 
-  // Connection model status pill.
-  const connectionStatus: "ok" | "warn" | "off" = !provisioned
-    ? "warn"
-    : connection?.connected
-    ? "ok"
-    : "off";
-  const connectionLabel = !provisioned
-    ? "setup needed"
-    : connection?.connected
-    ? "connection saved"
-    : "not connected";
-
-  // App-config pill (env presence only).
-  const appStatus = config.configured ? "ok" : "off";
-  const appLabel = config.configured ? "app configured" : "not connected";
-
-  // The draft -> publish CTA. DISABLED until every readiness check passes AND
-  // owner approval is on. Even when enabled, this sprint it never sends — the
-  // label reflects that honestly.
-  const publishReady = readiness.all_passed && publishEnabled;
+  const facebook = providerMap.get("facebook");
+  const googleSocial = providerMap.get("google_social");
 
   return (
     <section className="card-padded">
-      <Header onRefresh={load} refreshing={state.phase !== "ready" && pending} />
+      <Header onRefresh={load} refreshing={false} />
 
-      {/* Connection model row */}
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
         <div className="rounded-xl border border-ink-200 bg-white/70 p-3 dark:border-ink-800 dark:bg-ink-950/40">
           <div className="flex items-center justify-between gap-2">
             <p className="text-sm font-medium text-ink-900 dark:text-ink-100">
-              Meta app credentials
+              Facebook destinations
             </p>
-            <StatusPill status={appStatus} label={appLabel} />
+            <StatusPill
+              status={pillFor(facebook?.status ?? "not_connected").tone}
+              label={pillFor(facebook?.status ?? "not_connected").label}
+            />
           </div>
           <p className="mt-1 text-[11px] text-ink-500 dark:text-ink-400">
-            Detected from environment variable names only — never values.
+            {facebook?.selected_destinations?.length ?? 0} selected destination
+            {facebook?.selected_destinations?.length === 1 ? "" : "s"}
           </p>
         </div>
         <div className="rounded-xl border border-ink-200 bg-white/70 p-3 dark:border-ink-800 dark:bg-ink-950/40">
           <div className="flex items-center justify-between gap-2">
             <p className="text-sm font-medium text-ink-900 dark:text-ink-100">
-              Page / account connection
+              Google social destinations
             </p>
-            <StatusPill status={connectionStatus} label={connectionLabel} />
+            <StatusPill
+              status={pillFor(googleSocial?.status ?? "not_connected").tone}
+              label={pillFor(googleSocial?.status ?? "not_connected").label}
+            />
           </div>
           <p className="mt-1 text-[11px] text-ink-500 dark:text-ink-400">
-            {!provisioned
-              ? "Connection storage isn't provisioned yet (migration pending)."
-              : connection?.account_ref
-              ? `Account ref: ${connection.account_ref}`
-              : "No Facebook Page or Instagram account linked in LegendsOS yet."}
+            {googleSocial?.selected_destinations?.length ?? 0} selected
+            destination
+            {googleSocial?.selected_destinations?.length === 1 ? "" : "s"}
           </p>
         </div>
       </div>
 
-      {/* Readiness checklist */}
-      <div className="mt-4">
-        <p className="text-xs font-medium uppercase tracking-wide text-ink-500 dark:text-ink-400">
-          Publish readiness
-        </p>
-        <ul className="mt-2 space-y-1.5">
-          {readiness.checks.map((c) => (
-            <li
-              key={c.id}
-              className="flex items-start gap-2 rounded-lg border border-ink-200 bg-white/60 px-3 py-2 dark:border-ink-800 dark:bg-ink-950/30"
-            >
-              {c.passed ? (
-                <CheckCircle2
-                  size={15}
-                  className="mt-0.5 shrink-0 text-status-ok"
-                />
-              ) : (
-                <CircleDashed
-                  size={15}
-                  className="mt-0.5 shrink-0 text-status-warn"
-                />
-              )}
-              <div className="min-w-0">
-                <p
-                  className={cn(
-                    "text-xs font-medium",
-                    c.passed
-                      ? "text-ink-900 dark:text-ink-100"
-                      : "text-ink-600 dark:text-ink-300"
-                  )}
-                >
-                  {c.label}
-                </p>
-                <p className="text-[11px] text-ink-500 dark:text-ink-400">
-                  {c.detail}
-                </p>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      {/* Owner approval switch */}
       <div className="mt-4 rounded-xl border border-ink-200 bg-white/70 p-3 dark:border-ink-800 dark:bg-ink-950/40">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="flex items-center gap-1.5 text-sm font-medium text-ink-900 dark:text-ink-100">
-              <Lock size={13} className="text-accent-gold" />
-              Owner approval to publish
+              <Share2 size={13} className="text-accent-gold" />
+              Publish readiness
             </p>
             <p className="mt-0.5 text-[11px] text-ink-500 dark:text-ink-400">
-              {canManage
-                ? "Turning this on does NOT publish. It records that the owner approves Meta publishing once full wiring is live."
-                : "Only the owner can change this approval switch."}
+              {ready
+                ? "At least one selected destination is enabled for publishing."
+                : needsSelection
+                ? "No destination selected yet. Open Connection Center and select one first."
+                : "A destination is selected, but publishing is currently disabled for all of them."}
             </p>
           </div>
-          <ApprovalSwitch
-            on={publishEnabled}
-            disabled={!canManage || !provisioned || pending}
-            pending={pending}
-            onChange={onToggle}
+          <StatusPill
+            status={ready ? "ok" : needsSelection ? "warn" : "off"}
+            label={ready ? "ready to publish" : needsSelection ? "connect prompt" : "enable publishing"}
           />
         </div>
-        {!provisioned && (
-          <p className="mt-2 text-[11px] text-status-warn">
-            The connection table isn&apos;t provisioned yet, so this switch is
-            read-only until the Sprint 4 migration is applied.
-          </p>
-        )}
-        {switchError && (
-          <p className="mt-2 flex items-center gap-1.5 text-[11px] text-status-err">
-            <AlertTriangle size={12} />
-            {switchError}
+
+        {(needsSelection || needsEnable) && (
+          <p className="mt-3 flex items-start gap-2 rounded-lg border border-status-warn/30 bg-status-warn/10 px-3 py-2 text-[11px] text-status-warn">
+            <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+            {needsSelection
+              ? "Select a destination in Connection Center before scheduling or publishing."
+              : "Enable publishing on at least one selected destination before scheduling or publishing."}
           </p>
         )}
       </div>
 
-      {/* Draft -> publish flow (gated, never sends this sprint) */}
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-ink-200 bg-white/70 p-3 dark:border-ink-800 dark:bg-ink-950/40">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-ink-900 dark:text-ink-100">
-            Direct Meta publish
+      {allDestinations.length > 0 && (
+        <div className="mt-4 space-y-2">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500 dark:text-ink-400">
+            Selected destinations
           </p>
-          <p className="mt-0.5 text-[11px] text-ink-500 dark:text-ink-400">
-            {publishReady
-              ? "All checks pass — live wiring is pending, so nothing sends yet."
-              : "Disabled until every readiness check passes and owner approval is on."}
-          </p>
+          {allDestinations.map((destination) => {
+            const pill = destination.status === "connected" && destination.is_publish_enabled
+              ? { tone: "ok" as const, label: "publishing on" }
+              : destination.status === "connected"
+              ? { tone: "warn" as const, label: "publishing off" }
+              : { tone: "off" as const, label: "off" };
+            return (
+              <div
+                key={destination.id}
+                className="rounded-xl border border-ink-200 bg-white/70 p-3 dark:border-ink-800 dark:bg-ink-950/40"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-ink-900 dark:text-ink-100">
+                      {destination.destination_label ?? destination.destination_type ?? destination.platform}
+                    </p>
+                    <p className="mt-0.5 text-[10px] text-ink-500 dark:text-ink-400">
+                      {destination.platform}
+                      {destination.destination_type ? ` · ${destination.destination_type}` : ""}
+                    </p>
+                  </div>
+                  <StatusPill status={pill.tone} label={pill.label} />
+                </div>
+                <p className="mt-2 text-[11px] text-ink-600 dark:text-ink-400">
+                  {destination.last_tested_at
+                    ? `Last tested ${new Date(destination.last_tested_at).toLocaleString()}`
+                    : "Not tested yet."}
+                </p>
+              </div>
+            );
+          })}
         </div>
-        <button
-          type="button"
-          disabled
-          aria-disabled
-          title={
-            publishReady
-              ? "Ready (pending live wiring) — sending is not enabled this release."
-              : "Complete all readiness checks and owner approval first."
-          }
-          className={cn(
-            "btn-ghost cursor-not-allowed text-xs opacity-70",
-            publishReady && "border-accent-gold/30 text-accent-gold"
-          )}
-        >
-          {publishReady ? "Ready (pending live wiring)" : "Publish (disabled)"}
-        </button>
-      </div>
+      )}
 
-      {/* Failure-handling / audit placeholder */}
-      <p className="mt-3 text-[11px] text-ink-500 dark:text-ink-400">
-        Publish attempts and failures will be recorded for audit once live
-        wiring is enabled. No attempts have been made — nothing publishes from
-        this screen today.
-      </p>
+      {canManage && Array.isArray(data.team_destinations) && data.team_destinations.length > 0 && (
+        <div className="mt-4 overflow-x-auto rounded-xl border border-ink-200 dark:border-ink-800">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-ink-100 text-[10px] uppercase tracking-[0.18em] text-ink-600 dark:bg-ink-950/50 dark:text-ink-300">
+              <tr>
+                <th className="px-3 py-2">User</th>
+                <th className="px-3 py-2">Platform</th>
+                <th className="px-3 py-2">Destination</th>
+                <th className="px-3 py-2">Publishing</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.team_destinations.map((row) => (
+                <tr
+                  key={`${row.user_id}:${row.platform}:${row.destination_label ?? row.destination_type ?? row.updated_at}`}
+                  className="border-t border-ink-200 dark:border-ink-800"
+                >
+                  <td className="px-3 py-2">
+                    <div className="font-medium text-ink-900 dark:text-ink-100">
+                      {row.full_name ?? row.email ?? row.user_id}
+                    </div>
+                    <div className="text-[10px] text-ink-500 dark:text-ink-400">
+                      {row.email ?? row.user_id}
+                    </div>
+                  </td>
+                  <td className="px-3 py-2 text-ink-700 dark:text-ink-300">
+                    {row.platform}
+                  </td>
+                  <td className="px-3 py-2 text-ink-700 dark:text-ink-300">
+                    {row.destination_label ?? row.destination_type ?? "Unknown"}
+                  </td>
+                  <td className="px-3 py-2">
+                    <StatusPill
+                      status={row.is_publish_enabled ? "ok" : "off"}
+                      label={row.is_publish_enabled ? "enabled" : "disabled"}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+        <Link href="/settings" className="btn-ghost text-xs">
+          Open Connection Center
+        </Link>
+        <p className="text-[11px] text-ink-600 dark:text-ink-400">
+          {data.isOwnerOrAdmin
+            ? "Owner/admin can review team connection status."
+            : "Only your own connection rows are visible here."}
+        </p>
+      </div>
     </section>
   );
 }
@@ -333,8 +341,11 @@ function Header({
   return (
     <div className="section-title">
       <div>
-        <h2>Meta publish readiness</h2>
-        <p>Honest status for direct Facebook / Instagram publishing.</p>
+        <h2>Destination readiness</h2>
+        <p>
+          Honest status for per-user Facebook, Instagram, GBP, and YouTube
+          destinations.
+        </p>
       </div>
       <button
         type="button"
@@ -346,45 +357,5 @@ function Header({
         Refresh
       </button>
     </div>
-  );
-}
-
-function ApprovalSwitch({
-  on,
-  disabled,
-  pending,
-  onChange,
-}: {
-  on: boolean;
-  disabled: boolean;
-  pending: boolean;
-  onChange: (next: boolean) => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={on}
-      disabled={disabled}
-      onClick={() => onChange(!on)}
-      className={cn(
-        "relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors",
-        on
-          ? "border-status-ok/40 bg-status-ok/80"
-          : "border-ink-300 bg-ink-200 dark:border-ink-700 dark:bg-ink-800",
-        disabled && "cursor-not-allowed opacity-50"
-      )}
-    >
-      <span
-        className={cn(
-          "inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform",
-          on ? "translate-x-6" : "translate-x-1"
-        )}
-      >
-        {pending && (
-          <Loader2 size={12} className="m-0.5 animate-spin text-ink-500" />
-        )}
-      </span>
-    </button>
   );
 }

@@ -11,7 +11,6 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { callUserMcpEndpoint } from "@/lib/automation/zapier-mcp";
 import { isMissingDatabaseObjectError } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/usage";
 import type { Profile } from "@/types/database";
@@ -48,7 +47,6 @@ export const TOOL_DEFS: Record<string, ToolDefinition> = {
   [TOOLS.create_training_summary]: { name: TOOLS.create_training_summary, description: "Compose a training summary draft.", permission: "draft", requiresLiveEnabled: false },
   [TOOLS.create_youtube_repurpose_plan]: { name: TOOLS.create_youtube_repurpose_plan, description: "Compose a YouTube repurposing plan draft.", permission: "draft", requiresLiveEnabled: false },
   [TOOLS.review_output]: { name: TOOLS.review_output, description: "Run a compliance/quality review on generated output.", permission: "read", requiresLiveEnabled: false },
-  [TOOLS.trigger_zap]: { name: TOOLS.trigger_zap, description: "Trigger a Zapier automation via MCP (calls the user's saved Zapier MCP endpoint).", permission: "draft", requiresLiveEnabled: false },
 };
 
 export function getToolsForAgent(agentType: AgentType): ToolDefinition[] {
@@ -285,79 +283,4 @@ export async function draftEmail(
   } catch (error) {
     return { ok: false, id: null, degraded: isMissingDatabaseObjectError(error) };
   }
-}
-
-// --------------------------------------------------------------------------
-// Zapier MCP tool (calls the user's saved MCP endpoint)
-// --------------------------------------------------------------------------
-
-export interface TriggerZapArgs {
-  /** The path to POST to on the MCP endpoint, e.g. "/trigger". */
-  path?: string;
-  /** Arbitrary payload to forward to the Zapier MCP endpoint. */
-  [key: string]: unknown;
-}
-
-/**
- * Call the user's saved Zapier MCP connection endpoint.
- * If the connection is not configured, returns a graceful not_configured result.
- * Never exposes the stored auth token.
- */
-export async function runTriggerZap(
-  client: AnyClient,
-  profile: Profile,
-  sessionId: string | null,
-  agentType: AgentType,
-  args: TriggerZapArgs
-): Promise<ToolResult> {
-  const { path: mcpPath = "/trigger", ...payload } = args;
-
-  const result = await callUserMcpEndpoint(profile.id, mcpPath, payload);
-
-  if (result.status === "not_configured") {
-    await logToolCall(client, {
-      sessionId,
-      profile,
-      agentType,
-      toolName: TOOLS.trigger_zap,
-      inputSummary: `path=${mcpPath}`,
-      outputSummary: "not_configured",
-      status: "skipped",
-    });
-    return {
-      status: "skipped",
-      contextText:
-        "## Zapier MCP\n- Not configured. Go to Settings → Integrations to connect your Zapier account.",
-      summary: "Zapier MCP not connected",
-    };
-  }
-
-  const callStatus: ToolCallStatus = result.ok ? "ok" : "error";
-  await logToolCall(client, {
-    sessionId,
-    profile,
-    agentType,
-    toolName: TOOLS.trigger_zap,
-    inputSummary: `path=${mcpPath}`,
-    outputSummary: result.message.slice(0, 300),
-    status: callStatus,
-  });
-
-  if (result.ok) {
-    await recordAudit({
-      actor: profile,
-      action: "agent.trigger_zap",
-      target_type: "mcp_connections",
-      target_id: null,
-      metadata: { agent_type: agentType, path: mcpPath },
-    });
-  }
-
-  return {
-    status: callStatus,
-    contextText: result.ok
-      ? `## Zapier MCP\n- Automation triggered successfully via MCP endpoint.`
-      : `## Zapier MCP\n- Automation call failed: ${result.message}`,
-    summary: result.message.slice(0, 120),
-  };
 }

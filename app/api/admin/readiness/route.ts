@@ -7,14 +7,18 @@ import { detectMetaConfig } from "@/lib/integrations/meta";
 import { getDriveConnectionStatus } from "@/lib/loanbrain/driveStatus";
 import { isAdminOrOwner } from "@/lib/permissions";
 import { checkRequiredTables } from "@/lib/supabase/readiness";
-import { getCurrentProfile, getSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  getCurrentProfile,
+  getSupabaseServerClient,
+} from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function envPresent(name: string): boolean {
-  const value = process.env[name];
-  return Boolean(value && value.trim() !== "");
+function readBool(name: string, fallback = false): boolean {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  return ["1", "true", "yes", "on"].includes(raw.toLowerCase());
 }
 
 export async function GET() {
@@ -41,8 +45,102 @@ export async function GET() {
   const n8n = getN8nConfigState();
   const drive = getDriveConnectionStatus();
   const meta = detectMetaConfig();
-  const gbpConfigured = envPresent("GBP_ACCOUNT_ID") && envPresent("GBP_LOCATION_ID");
-  const youtubeConfigured = envPresent("YOUTUBE_CHANNEL_ID");
+  const googleOauthConfigured = Boolean(
+    process.env.GOOGLE_OAUTH_CLIENT_ID && process.env.GOOGLE_OAUTH_CLIENT_SECRET
+  );
+
+  let socialDestinationSummary = {
+    selected_rows: 0,
+    publish_enabled_rows: 0,
+    platform_counts: {
+      facebook: 0,
+      instagram: 0,
+      google_business_profile: 0,
+      youtube: 0,
+    },
+    team_destinations: [] as Array<{
+      user_id: string;
+      full_name: string | null;
+      email: string | null;
+      platform: string;
+      destination_label: string | null;
+      destination_type: string | null;
+      status: string | null;
+      is_publish_enabled: boolean;
+      updated_at: string | null;
+    }>,
+  };
+
+  try {
+    const { data, error } = await supabase
+      .from("social_account_connections")
+      .select("user_id,platform,destination_label,destination_type,status,is_publish_enabled,updated_at")
+      .order("updated_at", { ascending: false });
+
+    if (!error) {
+      const rows = (data ?? []) as Array<{
+        user_id: string;
+        platform: string;
+        destination_label: string | null;
+        destination_type: string | null;
+        status: string | null;
+        is_publish_enabled: boolean;
+        updated_at: string | null;
+      }>;
+      const userIds = Array.from(new Set(rows.map((row) => row.user_id)));
+      const profileNames = new Map<
+        string,
+        { full_name: string | null; email: string | null }
+      >();
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id,full_name,email")
+          .in("id", userIds);
+        for (const p of (profiles ?? []) as Array<{
+          id: string;
+          full_name: string | null;
+          email: string | null;
+        }>) {
+          profileNames.set(p.id, { full_name: p.full_name, email: p.email });
+        }
+      }
+
+      socialDestinationSummary = {
+        selected_rows: rows.length,
+        publish_enabled_rows: rows.filter(
+          (row) => row.status === "connected" && row.is_publish_enabled
+        ).length,
+        platform_counts: rows.reduce(
+          (acc, row) => {
+            if (row.platform in acc) {
+              acc[row.platform as keyof typeof acc] += 1;
+            }
+            return acc;
+          },
+          {
+            facebook: 0,
+            instagram: 0,
+            google_business_profile: 0,
+            youtube: 0,
+          }
+        ),
+        team_destinations: rows.map((row) => ({
+          user_id: row.user_id,
+          full_name: profileNames.get(row.user_id)?.full_name ?? null,
+          email: profileNames.get(row.user_id)?.email ?? null,
+          platform: row.platform,
+          destination_label: row.destination_label,
+          destination_type: row.destination_type,
+          status: row.status,
+          is_publish_enabled: row.is_publish_enabled,
+          updated_at: row.updated_at,
+        })),
+      };
+    }
+  } catch {
+    // Best-effort summary only.
+  }
 
   return NextResponse.json({
     ok: true,
@@ -75,16 +173,17 @@ export async function GET() {
       social_tables_ready: ["social_account_connections", "publish_attempts"].every((name) =>
         tables.some((table) => table.table === name && table.status === "ready")
       ),
-      google_oauth_env_present:
-        envPresent("GOOGLE_OAUTH_CLIENT_ID") && envPresent("GOOGLE_OAUTH_CLIENT_SECRET"),
+      google_oauth_configured: googleOauthConfigured,
+      google_oauth_env_present: googleOauthConfigured,
       gmail_intake_secret_present: isWebhookSecretConfigured(),
       drive_status: drive,
       n8n_configured: n8n.configured,
       meta_configured: meta.configured,
-      google_business_profile_configured: gbpConfigured,
-      youtube_configured: youtubeConfigured,
+      social_destination_summary: socialDestinationSummary,
       live_social_publish_allowed: env.SAFETY.allowLiveSocialPublish,
       live_email_send_allowed: env.SAFETY.allowLiveEmailSend,
+      paid_image_generation: readBool("ALLOW_PAID_IMAGE_GENERATION", false),
+      paid_text_generation: readBool("ALLOW_PAID_TEXT_GENERATION", false),
     },
   });
 }
