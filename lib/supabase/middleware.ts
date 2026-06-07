@@ -18,6 +18,10 @@ const PUBLIC_PATHS = [
   // header, not a Supabase session — exempt them from session auth so they
   // can be reached. Each handler still fails closed without a valid secret.
   "/api/webhooks",
+  // Scheduler cron endpoint: called by the Netlify scheduled function with NO
+  // session cookie — it authenticates via the x-cron-secret header (the route
+  // returns 503 when CRON_SECRET is unset and 401 on mismatch, failing closed).
+  "/api/cron",
   "/_next",
   "/favicon.ico",
   "/icon.svg",
