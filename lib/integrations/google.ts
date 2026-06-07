@@ -1,95 +1,34 @@
-// Server-only Google OAuth token helpers (refresh + live probe).
+// Server-only Google OAuth token helpers (vault read + live probe).
 // ---------------------------------------------------------------------------
-// Used by the test-connection route and (later) by Gmail/Drive/Calendar calls.
-// Tokens are read from oauth_token_grants via the service client and NEVER
-// returned to a client. ensureFreshAccessToken transparently refreshes an
-// expired access token using the stored refresh token.
+// Used by the test-connection route and by Gmail/Drive/Calendar/YouTube/GBP
+// calls. The signed-in user's OWN token is read (and refreshed) from the
+// per-user secret vault (social_connection_secrets) via getUserAccessToken;
+// tokens are NEVER returned to a client. ensureFreshAccessToken is a thin
+// shape-preserving wrapper so every existing caller keeps working unchanged.
 
-import { getTokenGrant, storeTokenGrant } from "@/lib/integrations/tokenStore";
+import { getUserAccessToken } from "@/lib/integrations/userToken";
 
-const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const GOOGLE_USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo";
-
-const EXPIRY_BUFFER_MS = 60_000; // refresh if within 60s of expiry
 
 export type FreshTokenResult =
   | { ok: true; accessToken: string; accountEmail: string | null; scopes: string[] }
   | { ok: false; reason: "not_connected" | "needs_reauth" | "not_configured" | "error"; message?: string };
 
-function oauthConfigured(): boolean {
-  return Boolean(process.env.GOOGLE_OAUTH_CLIENT_ID && process.env.GOOGLE_OAUTH_CLIENT_SECRET);
-}
-
-async function refreshAccessToken(refreshToken: string): Promise<{
-  access_token?: string;
-  expires_in?: number;
-  token_type?: string;
-  scope?: string;
-  error?: string;
-}> {
-  const resp = await fetch(GOOGLE_TOKEN_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      client_id: process.env.GOOGLE_OAUTH_CLIENT_ID ?? "",
-      client_secret: process.env.GOOGLE_OAUTH_CLIENT_SECRET ?? "",
-      refresh_token: refreshToken,
-      grant_type: "refresh_token",
-    }).toString(),
-  });
-  return (await resp.json().catch(() => ({}))) as Awaited<ReturnType<typeof refreshAccessToken>>;
-}
-
-// Returns a usable access token for (userId, provider), refreshing if needed.
+// Returns a usable access token for (userId, provider), reading + refreshing
+// from the per-user vault. Delegates to getUserAccessToken (the single source of
+// truth) and preserves the FreshTokenResult shape + reason values so all
+// existing callers (gmail/drive/calendar/youtube/gbp routes) keep working.
 export async function ensureFreshAccessToken(userId: string, provider: string): Promise<FreshTokenResult> {
-  if (!oauthConfigured()) return { ok: false, reason: "not_configured" };
-
-  let grant;
-  try {
-    grant = await getTokenGrant(userId, provider);
-  } catch (err) {
-    return { ok: false, reason: "error", message: err instanceof Error ? err.message : "read failed" };
+  const result = await getUserAccessToken(userId, provider);
+  if (!result.ok) {
+    return { ok: false, reason: result.reason, message: result.message };
   }
-  if (!grant || !grant.access_token) return { ok: false, reason: "not_connected" };
-
-  const accountEmail =
-    (grant.metadata && typeof grant.metadata === "object"
-      ? ((grant.metadata as Record<string, unknown>).account_email as string | undefined)
-      : undefined) ?? null;
-  const scopes = grant.scopes ?? [];
-
-  const expMs = grant.expires_at ? Date.parse(grant.expires_at) : 0;
-  const stillValid = expMs && expMs - Date.now() > EXPIRY_BUFFER_MS;
-  if (stillValid) {
-    return { ok: true, accessToken: grant.access_token, accountEmail, scopes };
-  }
-
-  // Expired (or unknown expiry) — refresh if we have a refresh token.
-  if (!grant.refresh_token) {
-    return { ok: false, reason: "needs_reauth", message: "access token expired and no refresh token stored" };
-  }
-  const refreshed = await refreshAccessToken(grant.refresh_token);
-  if (refreshed.error || !refreshed.access_token) {
-    return { ok: false, reason: "needs_reauth", message: refreshed.error ?? "refresh failed" };
-  }
-  const newExpiresAt = refreshed.expires_in
-    ? new Date(Date.now() + refreshed.expires_in * 1000).toISOString()
-    : null;
-  try {
-    await storeTokenGrant({
-      userId,
-      provider,
-      accessToken: refreshed.access_token,
-      refreshToken: grant.refresh_token, // Google omits refresh_token on refresh; keep the old one
-      tokenType: refreshed.token_type ?? grant.token_type ?? "Bearer",
-      scopes: refreshed.scope ? refreshed.scope.split(/\s+/).filter(Boolean) : scopes,
-      expiresAt: newExpiresAt,
-      metadata: { account_email: accountEmail },
-    });
-  } catch {
-    // Persisting the refreshed token failed; we can still use it for this probe.
-  }
-  return { ok: true, accessToken: refreshed.access_token, accountEmail, scopes };
+  return {
+    ok: true,
+    accessToken: result.accessToken,
+    accountEmail: result.accountEmail,
+    scopes: result.scopes,
+  };
 }
 
 // Cheap live probe: call Google's userinfo with the token. Returns connected +
@@ -344,6 +283,76 @@ export async function driveMoveFile(
   return (await resp.json()) as DriveFile;
 }
 
+// Edit a Drive file: rename / update metadata, re-parent, and/or replace the
+// file's content. Metadata (name, parents) is PATCHed via the metadata endpoint;
+// when contentBase64 is supplied, the bytes are PATCHed via the media upload
+// endpoint. Write scope. Caller MUST have passed all live gates.
+export async function driveUpdateFile(
+  token: string,
+  args: {
+    fileId: string;
+    name?: string;
+    addParents?: string;
+    removeParents?: string;
+    mimeType?: string;
+    contentBase64?: string;
+  }
+): Promise<DriveFile> {
+  const fileId = encodeURIComponent(args.fileId);
+
+  // 1) Metadata patch (name + re-parent) when any metadata change is requested.
+  const wantsMetadata = args.name !== undefined || args.addParents || args.removeParents;
+  let latest: DriveFile | null = null;
+
+  if (wantsMetadata) {
+    const url = new URL(`${DRIVE_API}/files/${fileId}`);
+    if (args.addParents) url.searchParams.set("addParents", args.addParents);
+    if (args.removeParents) url.searchParams.set("removeParents", args.removeParents);
+    url.searchParams.set("fields", "id,name,mimeType,parents");
+    const metadata: Record<string, unknown> = {};
+    if (args.name !== undefined) metadata.name = args.name;
+    const resp = await fetch(url.toString(), {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(metadata),
+    });
+    if (!resp.ok) await googleError("drive.update.metadata", resp);
+    latest = (await resp.json()) as DriveFile;
+  }
+
+  // 2) Content patch (replace bytes) when contentBase64 is supplied.
+  if (args.contentBase64 !== undefined) {
+    const content = Buffer.from(args.contentBase64, "base64");
+    const url = new URL(`${DRIVE_UPLOAD_API}/files/${fileId}`);
+    url.searchParams.set("uploadType", "media");
+    url.searchParams.set("fields", "id,name,mimeType,parents");
+    const resp = await fetch(url.toString(), {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": args.mimeType ?? "application/octet-stream",
+      },
+      body: content,
+    });
+    if (!resp.ok) await googleError("drive.update.content", resp);
+    latest = (await resp.json()) as DriveFile;
+  }
+
+  // If neither metadata nor content was requested, fetch the current state so
+  // the caller always gets a coherent DriveFile back.
+  if (!latest) {
+    const url = new URL(`${DRIVE_API}/files/${fileId}`);
+    url.searchParams.set("fields", "id,name,mimeType,parents");
+    const resp = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!resp.ok) await googleError("drive.update.get", resp);
+    latest = (await resp.json()) as DriveFile;
+  }
+
+  return latest;
+}
+
 // ---- Calendar --------------------------------------------------------------
 
 export interface CalendarEventSummary {
@@ -421,4 +430,24 @@ export async function calendarUpdateEvent(
   );
   if (!resp.ok) await googleError("calendar.events.update", resp);
   return (await resp.json()) as CalendarEventSummary;
+}
+
+// Delete a calendar event. Write — caller MUST have passed all live gates.
+// Returns nothing on success (the Calendar API replies 204 No Content). A 404/410
+// (already gone) is treated as success so a repeat delete is idempotent.
+export async function calendarDeleteEvent(
+  token: string,
+  args: { calendarId?: string; eventId: string }
+): Promise<void> {
+  const calendarId = args.calendarId ?? "primary";
+  const resp = await fetch(
+    `${CALENDAR_API}/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(args.eventId)}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+  if (!resp.ok && resp.status !== 404 && resp.status !== 410) {
+    await googleError("calendar.events.delete", resp);
+  }
 }

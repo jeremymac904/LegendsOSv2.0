@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatusPill } from "@/components/ui/StatusPill";
+import { SectionErrorBoundary } from "@/components/ui/SectionErrorBoundary";
 import { ConnectionCenter } from "@/components/admin/ConnectionCenter";
 import { getEffectiveProfile } from "@/lib/impersonation";
 import { isOwner } from "@/lib/permissions";
@@ -61,7 +62,9 @@ export default async function ConnectionCenterPage() {
         action={<StatusPill status="ok" label="owner gated" />}
       />
 
-      <ConnectionCenter recentActivity={recentActivity} ownerEmail={ownerEmail} />
+      <SectionErrorBoundary title="Connection Center">
+        <ConnectionCenter recentActivity={recentActivity} ownerEmail={ownerEmail} />
+      </SectionErrorBoundary>
     </div>
   );
 }

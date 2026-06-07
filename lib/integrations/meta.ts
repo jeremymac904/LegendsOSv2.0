@@ -1,10 +1,12 @@
-// Meta (Facebook / Instagram) connector — DISABLED-by-default stub.
+// Meta (Facebook / Instagram) connector — REAL per-user Graph API publisher,
+// fail-closed.
 //
-// This module intentionally performs ZERO outbound calls to Meta. It exists
-// so that the rest of the app (Social Studio, /api/integrations/status) can
-// report a clean "configured / paid_enabled" state when the app-level Meta
-// credentials are in place, without us actually publishing anything until
-// paid publishing is approved by the owner.
+// Config detection (detectMetaConfig) and the readiness checklist
+// (publishReadiness / publishStub) perform ZERO outbound calls and exist so the
+// rest of the app (Social Studio, /api/integrations/status) can report an honest
+// "configured / paid_enabled" state. The LIVE publisher (publishToMeta) targets
+// the SIGNED-IN USER's own Facebook Page / Instagram business account using the
+// user's own stored token, and only runs when every gate passes.
 //
 // Activation criteria (`configured = true`):
 //   META_APP_ID AND META_APP_SECRET
@@ -17,7 +19,12 @@
 //
 // Server-only — never import from a client component.
 
+import { recordIntegrationAudit } from "@/lib/integrations/audit";
+import { getSelectedDestination } from "@/lib/integrations/destinations";
+import { getUserAccessToken } from "@/lib/integrations/userToken";
 import type { Profile } from "@/types/database";
+
+const GRAPH_API_BASE = "https://graph.facebook.com/v22.0";
 
 export type MetaCapability =
   | "publish_post"
@@ -233,14 +240,13 @@ export function publishReadiness(opts: {
 }
 
 // ---------------------------------------------------------------------------
-// publishToMeta — REAL direct Graph API publisher SHAPE, fully GATED.
+// publishToMeta — REAL direct Graph API publisher, per-user + fully GATED.
 //
-// IMPORTANT: This function is built but NEVER invoked this sprint. It is the
-// capability scaffold for a later "live wiring" PR. It refuses to run unless
-// EVERY gate is satisfied, and even then the network call is left as an
-// explicit TODO so no PR in this sprint can accidentally send. The owner
-// approval switch (is_publish_enabled) and the live safety flag must BOTH be
-// passed in / on, in addition to full env configuration.
+// Targets the signed-in user's OWN selected destination (Facebook Page /
+// Instagram business account) with the user's OWN stored token. It refuses to
+// run unless EVERY gate is satisfied: full env configuration, the owner/user
+// approval switch (is_publish_enabled), the live safety flag
+// (ALLOW_LIVE_SOCIAL_PUBLISH), a selected destination, and a connected token.
 // ---------------------------------------------------------------------------
 
 export interface MetaPublishPost {
@@ -265,7 +271,10 @@ export class MetaPublishGateError extends Error {
       | "not_configured"
       | "owner_not_approved"
       | "live_flag_off"
-      | "live_wiring_pending"
+      | "no_destination"
+      | "not_connected"
+      | "instagram_requires_media"
+      | "publish_failed"
   ) {
     super(`meta_publish_refused:${reason}`);
     this.name = "MetaPublishGateError";
@@ -277,20 +286,63 @@ export interface MetaPublishResult {
   platform_post_id: string;
 }
 
+// Throw a redacted MetaPublishGateError('publish_failed') for a non-2xx Graph
+// response. The token is never part of the message; we surface only the label,
+// HTTP status, and Meta's own (non-secret) error string when present.
+async function graphFail(label: string, resp: Response): Promise<never> {
+  let detail = "";
+  try {
+    const body = (await resp.json()) as { error?: { message?: string } | string };
+    const msg = typeof body.error === "string" ? body.error : body.error?.message;
+    if (msg) detail = `: ${msg}`;
+  } catch {
+    // non-JSON error body — status alone is enough
+  }
+  // Surface the underlying reason via the Error message; the gate reason stays
+  // the generic publish_failed so callers can branch on it.
+  const err = new MetaPublishGateError("publish_failed");
+  err.message = `meta ${label} failed (http ${resp.status})${detail}`;
+  throw err;
+}
+
+// Resolve the Page access token for a Facebook/Instagram destination using the
+// signed-in user's user-access token. IG publishing also requires the linked
+// Page's token, so this is shared. Never logs the token.
+async function getPageAccessToken(userToken: string, pageId: string): Promise<string> {
+  const url = new URL(`${GRAPH_API_BASE}/${encodeURIComponent(pageId)}`);
+  url.searchParams.set("fields", "access_token");
+  url.searchParams.set("access_token", userToken);
+  const resp = await fetch(url.toString());
+  if (!resp.ok) await graphFail("page.token", resp);
+  const json = (await resp.json().catch(() => ({}))) as { access_token?: string };
+  if (!json.access_token) {
+    const err = new MetaPublishGateError("publish_failed");
+    err.message = "meta page.token failed: no page access_token returned";
+    throw err;
+  }
+  return json.access_token;
+}
+
 /**
- * Direct Graph-API publisher. GATED and INERT for this sprint.
+ * Direct Graph-API publisher — REAL, per-user, and fail-closed.
  *
  * Refuses (throws MetaPublishGateError) unless:
  *   1. detectMetaConfig().configured                       (env present)
- *   2. ctx.is_publish_enabled === true                     (owner switch)
- *   3. ALLOW_LIVE_SOCIAL_PUBLISH is on                     (master safety)
+ *   2. ctx.is_publish_enabled === true                     (owner/user switch)
+ *   3. ALLOW_LIVE_SOCIAL_PUBLISH is on                     (server master switch)
+ *   4. the user has a SELECTED destination for the surface (no_destination)
+ *   5. the user has a connected Facebook token              (not_connected)
  *
- * When all three pass, it STILL refuses with reason "live_wiring_pending"
- * because the actual fetch() to graph.facebook.com is intentionally not wired
- * this sprint. Build the capability; do not invoke it.
+ * Targets the SIGNED-IN USER's own Facebook Page / Instagram business account
+ * (per-user destination + per-user token). Facebook posts go to the Page feed
+ * (or /photos for an image, /videos for a video) using the Page access token
+ * derived from the user token. Instagram publishing is the two-step
+ * media -> media_publish flow against the linked IG business account.
+ *
+ * Never logs, echoes, or returns any token.
  */
 export async function publishToMeta(
-  _post: MetaPublishPost,
+  post: MetaPublishPost,
   ctx: MetaPublishGateContext
 ): Promise<MetaPublishResult> {
   const state = detectMetaConfig();
@@ -304,14 +356,184 @@ export async function publishToMeta(
     throw new MetaPublishGateError("live_flag_off");
   }
 
-  // All gates passed. The real Graph API request lives here in the live-wiring
-  // PR. Shape it would take (NOT executed):
-  //
-  //   const endpoint = state.capabilities... /v19.0/<page-or-ig-id>/feed
-  //   const res = await fetch(endpoint, { method: "POST", body: ... });
-  //   const json = await res.json();
-  //   return { ok: true, platform_post_id: json.id };
-  //
-  // Until that PR lands, we refuse rather than send.
-  throw new MetaPublishGateError("live_wiring_pending");
+  const userId = ctx.actor?.id;
+  if (!userId) {
+    throw new MetaPublishGateError("not_connected");
+  }
+
+  const isInstagram = post.surface === "instagram";
+  const platform = isInstagram ? "instagram" : "facebook";
+
+  const auditFail = async (reason: string) => {
+    await recordIntegrationAudit({
+      actor: ctx.actor ?? null,
+      action: "meta_publish_failed",
+      provider: "meta",
+      target_type: "social_post",
+      target_id: post.connection_id ?? null,
+      metadata: { surface: platform, reason },
+    });
+  };
+
+  try {
+    // Gate 4: selected destination (per-user).
+    const destResult = await getSelectedDestination(userId, platform);
+    if (!destResult.ok) {
+      await auditFail("no_destination");
+      throw new MetaPublishGateError("no_destination");
+    }
+    const destination = destResult.destination;
+
+    // Gate 5: per-user Facebook token.
+    const tokenResult = await getUserAccessToken(userId, "facebook");
+    if (!tokenResult.ok) {
+      await auditFail(tokenResult.reason);
+      throw new MetaPublishGateError("not_connected");
+    }
+    const userToken = tokenResult.accessToken;
+
+    const message = post.message ?? "";
+
+    let platformPostId: string;
+
+    if (isInstagram) {
+      // Instagram: needs a media URL. Two-step container -> publish.
+      const mediaUrl = post.image_url ?? post.video_url ?? null;
+      if (!mediaUrl) {
+        await auditFail("instagram_requires_media");
+        throw new MetaPublishGateError("instagram_requires_media");
+      }
+
+      const igId =
+        destination.destination_ref ??
+        (typeof destination.metadata?.instagram_business_account_id === "string"
+          ? (destination.metadata.instagram_business_account_id as string)
+          : null);
+      if (!igId) {
+        await auditFail("no_destination");
+        throw new MetaPublishGateError("no_destination");
+      }
+
+      // IG publishing uses the linked Page's token. Resolve it from the Page id
+      // when we have one; otherwise fall back to the user token.
+      const pageId =
+        destination.page_id ??
+        (typeof destination.metadata?.facebook_page_id === "string"
+          ? (destination.metadata.facebook_page_id as string)
+          : null);
+      const igToken = pageId ? await getPageAccessToken(userToken, pageId) : userToken;
+
+      // Step 1: create the media container.
+      const createUrl = new URL(`${GRAPH_API_BASE}/${encodeURIComponent(igId)}/media`);
+      const isVideo = !post.image_url && Boolean(post.video_url);
+      const createBody = new URLSearchParams({ access_token: igToken });
+      if (isVideo) {
+        createBody.set("media_type", "REELS");
+        createBody.set("video_url", mediaUrl);
+      } else {
+        createBody.set("image_url", mediaUrl);
+      }
+      if (message) createBody.set("caption", message);
+      const createResp = await fetch(createUrl.toString(), {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: createBody.toString(),
+      });
+      if (!createResp.ok) await graphFail("ig.media.create", createResp);
+      const createJson = (await createResp.json().catch(() => ({}))) as { id?: string };
+      const creationId = createJson.id;
+      if (!creationId) {
+        const err = new MetaPublishGateError("publish_failed");
+        err.message = "meta ig.media.create failed: no creation id returned";
+        throw err;
+      }
+
+      // Step 2: publish the container.
+      const publishUrl = new URL(`${GRAPH_API_BASE}/${encodeURIComponent(igId)}/media_publish`);
+      const publishResp = await fetch(publishUrl.toString(), {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ creation_id: creationId, access_token: igToken }).toString(),
+      });
+      if (!publishResp.ok) await graphFail("ig.media.publish", publishResp);
+      const publishJson = (await publishResp.json().catch(() => ({}))) as { id?: string };
+      if (!publishJson.id) {
+        const err = new MetaPublishGateError("publish_failed");
+        err.message = "meta ig.media.publish failed: no media id returned";
+        throw err;
+      }
+      platformPostId = publishJson.id;
+    } else {
+      // Facebook Page post. Resolve the Page id + Page access token.
+      const pageId = destination.page_id ?? destination.destination_ref;
+      if (!pageId) {
+        await auditFail("no_destination");
+        throw new MetaPublishGateError("no_destination");
+      }
+      const pageToken = await getPageAccessToken(userToken, pageId);
+
+      let endpoint: string;
+      const body = new URLSearchParams({ access_token: pageToken });
+      if (post.image_url) {
+        endpoint = `${GRAPH_API_BASE}/${encodeURIComponent(pageId)}/photos`;
+        body.set("url", post.image_url);
+        if (message) body.set("caption", message);
+      } else if (post.video_url) {
+        endpoint = `${GRAPH_API_BASE}/${encodeURIComponent(pageId)}/videos`;
+        body.set("file_url", post.video_url);
+        if (message) body.set("description", message);
+      } else {
+        endpoint = `${GRAPH_API_BASE}/${encodeURIComponent(pageId)}/feed`;
+        body.set("message", message);
+      }
+
+      const resp = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: body.toString(),
+      });
+      if (!resp.ok) await graphFail("page.publish", resp);
+      const json = (await resp.json().catch(() => ({}))) as {
+        id?: string;
+        post_id?: string;
+      };
+      const id = json.post_id ?? json.id;
+      if (!id) {
+        const err = new MetaPublishGateError("publish_failed");
+        err.message = "meta page.publish failed: no post id returned";
+        throw err;
+      }
+      platformPostId = id;
+    }
+
+    await recordIntegrationAudit({
+      actor: ctx.actor ?? null,
+      action: "meta_published",
+      provider: "meta",
+      target_type: "social_post",
+      target_id: post.connection_id ?? null,
+      metadata: {
+        surface: platform,
+        platform_post_id: platformPostId,
+        has_image: Boolean(post.image_url),
+        has_video: Boolean(post.video_url),
+      },
+    });
+
+    return { ok: true, platform_post_id: platformPostId };
+  } catch (err) {
+    if (err instanceof MetaPublishGateError) {
+      // Gate failures already audited above (or are pre-network refusals); the
+      // network-failure path records here so every failure leaves a trail.
+      if (err.reason === "publish_failed") {
+        await auditFail(err.message);
+      }
+      throw err;
+    }
+    const message = err instanceof Error ? err.message : "publish_failed";
+    await auditFail(message);
+    const wrapped = new MetaPublishGateError("publish_failed");
+    wrapped.message = message;
+    throw wrapped;
+  }
 }

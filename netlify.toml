@@ -10,6 +10,21 @@
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
+# Scheduled functions live in netlify/functions. The scheduler trigger
+# (process-scheduled.mjs) declares its own cron via an inline
+# `export const config = { schedule: "*/5 * * * *" }`, so no [functions]
+# schedule block is required here — this directory pin just guarantees the
+# Next.js plugin does not shadow our hand-written functions.
+#
+# REQUIRED ENV (set in the Netlify site UI, never committed):
+#   CRON_SECRET — shared secret the scheduled function sends as the
+#                 `x-cron-secret` header to POST /api/cron/process-scheduled.
+#                 The app route reads the same CRON_SECRET and fails closed
+#                 (HTTP 503) when it is unset, so scheduled posts/emails are
+#                 only ever processed once this is configured.
+[functions]
+  directory = "netlify/functions"
+
 # Force HTTPS and add security headers for the SaaS shell.
 [[headers]]
   for = "/*"

@@ -7,6 +7,7 @@
  *                            AND explicit confirm===true.
  *   - upload (WRITE)       : same write gates.
  *   - move (WRITE)         : same write gates.
+ *   - edit (WRITE)         : same write gates (rename / metadata / content).
  *
  * Provider: google_drive. Honest JSON states. Tokens obtained server-side via
  * ensureFreshAccessToken; NEVER returned or logged. Audit captures non-PII
@@ -26,6 +27,7 @@ import {
   driveCreateFolder,
   driveUpload,
   driveMoveFile,
+  driveUpdateFile,
 } from "@/lib/integrations/google";
 import { resolveLiveAction } from "@/lib/integrations/liveSettings";
 import { getCurrentProfile } from "@/lib/supabase/server";
@@ -34,7 +36,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const schema = z.object({
-  action: z.enum(["list_folders", "upload", "create_folder", "move"]),
+  action: z.enum(["list_folders", "upload", "create_folder", "move", "edit"]),
   name: z.string().min(1).max(512).optional(),
   mimeType: z.string().min(1).max(255).optional(),
   contentBase64: z.string().max(10_000_000).optional(),
@@ -193,29 +195,77 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, status: "uploaded", action, file });
   }
 
-  // action === "move"
-  if (!fileId || !addParents || !removeParents) {
+  if (action === "move") {
+    if (!fileId || !addParents || !removeParents) {
+      return NextResponse.json(
+        { ok: false, error: "bad_request", message: "move requires fileId, addParents, and removeParents." },
+        { status: 400 }
+      );
+    }
+    let moved;
+    try {
+      moved = await driveMoveFile(tok.accessToken, { fileId, addParents, removeParents });
+    } catch (err) {
+      return NextResponse.json(
+        { ok: false, status: "error", message: err instanceof Error ? err.message : "Drive move failed." },
+        { status: 502 }
+      );
+    }
+    await recordIntegrationAudit({
+      actor: profile,
+      action: "drive_file_moved",
+      provider: "google_drive",
+      target_type: "drive_file",
+      target_id: moved.id,
+      metadata: { add_parents: addParents, remove_parents: removeParents },
+    });
+    return NextResponse.json({ ok: true, status: "moved", action, file: moved });
+  }
+
+  // action === "edit" — rename / update metadata / re-parent / replace content.
+  if (!fileId) {
     return NextResponse.json(
-      { ok: false, error: "bad_request", message: "move requires fileId, addParents, and removeParents." },
+      { ok: false, error: "bad_request", message: "edit requires fileId." },
       { status: 400 }
     );
   }
-  let moved;
+  if (name === undefined && !addParents && !removeParents && contentBase64 === undefined) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "bad_request",
+        message: "edit requires at least one of name, addParents, removeParents, or contentBase64.",
+      },
+      { status: 400 }
+    );
+  }
+  let edited;
   try {
-    moved = await driveMoveFile(tok.accessToken, { fileId, addParents, removeParents });
+    edited = await driveUpdateFile(tok.accessToken, {
+      fileId,
+      name,
+      addParents,
+      removeParents,
+      mimeType,
+      contentBase64,
+    });
   } catch (err) {
     return NextResponse.json(
-      { ok: false, status: "error", message: err instanceof Error ? err.message : "Drive move failed." },
+      { ok: false, status: "error", message: err instanceof Error ? err.message : "Drive edit failed." },
       { status: 502 }
     );
   }
   await recordIntegrationAudit({
     actor: profile,
-    action: "drive_file_moved",
+    action: "drive_file_edited",
     provider: "google_drive",
     target_type: "drive_file",
-    target_id: moved.id,
-    metadata: { add_parents: addParents, remove_parents: removeParents },
+    target_id: edited.id,
+    metadata: {
+      renamed: name !== undefined,
+      reparented: Boolean(addParents || removeParents),
+      content_replaced: contentBase64 !== undefined,
+    },
   });
-  return NextResponse.json({ ok: true, status: "moved", action, file: moved });
+  return NextResponse.json({ ok: true, status: "edited", action, file: edited });
 }

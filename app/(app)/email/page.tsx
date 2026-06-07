@@ -5,6 +5,7 @@ import {
   EmailComposer,
   StarterTemplatesPanel,
 } from "@/components/email/EmailComposer";
+import { GmailSendPanel } from "@/components/email/GmailSendPanel";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatusPill } from "@/components/ui/StatusPill";
@@ -224,6 +225,18 @@ export default async function EmailStudioPage({
           )}
         </aside>
       </div>
+
+      {/* Per-user Gmail send — a standalone, always-available section prefilled
+          from the loaded draft (if any) and defaulted to the signed-in user's
+          own email so they can send themselves a copy. Runs through their own
+          connected Gmail; gated + fail-closed server-side. Independent of the
+          n8n campaign flow above. (The composer also exposes this via its
+          "Send via my Gmail" toggle for the live, in-progress draft.) */}
+      <GmailSendPanel
+        subject={initial?.subject ?? ""}
+        body={initial?.body_text ?? ""}
+        defaultTo={profile.email || PUBLIC_ENV.OWNER_EMAIL}
+      />
     </div>
   );
 }
