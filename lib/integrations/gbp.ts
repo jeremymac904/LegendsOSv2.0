@@ -1,14 +1,16 @@
 // Server-only Google Business Profile (GBP) publisher.
 // ---------------------------------------------------------------------------
-// Tokens are stored in oauth_token_grants (provider='google_business_profile')
-// and refreshed transparently via ensureFreshAccessToken. Location targeting
-// requires two env vars: GBP_ACCOUNT_ID and GBP_LOCATION_ID.
+// The signed-in user's OWN token is read from the per-user secret vault via
+// ensureFreshAccessToken (provider 'google_business_profile' maps to the shared
+// 'google_social' grant). Location targeting uses the user's SELECTED GBP
+// destination (social_account_connections) — its destination_ref is the GBP
+// location resource name. No env GBP_ACCOUNT_ID / GBP_LOCATION_ID is used.
 // Tokens are ONLY placed in the Authorization header — never logged.
 // Server-only: never import from a client component.
 
 import { recordIntegrationAudit } from "@/lib/integrations/audit";
+import { getSelectedDestination } from "@/lib/integrations/destinations";
 import { ensureFreshAccessToken } from "@/lib/integrations/google";
-import { getTokenGrant } from "@/lib/integrations/tokenStore";
 
 const GBP_API_BASE = "https://mybusiness.googleapis.com/v4";
 const PROVIDER = "google_business_profile";
@@ -18,13 +20,13 @@ const PROVIDER = "google_business_profile";
 // ---------------------------------------------------------------------------
 
 /**
- * Returns true when a 'google_business_profile' OAuth token grant exists.
- * Does NOT make a live API call.
+ * Returns true when the user has a usable GBP token in the vault.
+ * Does NOT make a live API call beyond a possible token refresh.
  */
 export async function isGbpConnected(userId: string): Promise<boolean> {
   try {
-    const grant = await getTokenGrant(userId, PROVIDER);
-    return Boolean(grant?.access_token);
+    const result = await ensureFreshAccessToken(userId, PROVIDER);
+    return result.ok;
   } catch {
     return false;
   }
@@ -64,26 +66,28 @@ export interface GbpPostResult {
 }
 
 /**
- * Publish a local post to the GBP location configured in env.
+ * Publish a local post to the user's SELECTED GBP location.
  *
  * Returns { ok: false, message: 'not_connected' } when the user has no token.
- * Returns { ok: false, message: 'needs_setup' } when GBP_ACCOUNT_ID or
- * GBP_LOCATION_ID are not configured in the environment.
- * Never logs the access token.
+ * Returns { ok: false, message: 'no_destination' } when the user has not
+ * selected a GBP location destination. Never logs the access token.
  */
 export async function createGbpPost(
   userId: string,
   input: GbpPostInput
 ): Promise<GbpPostResult> {
-  // Check env targeting vars before touching the token
-  const accountId = (process.env.GBP_ACCOUNT_ID ?? "").trim();
-  const locationId = (process.env.GBP_LOCATION_ID ?? "").trim();
-
-  if (!accountId || !locationId) {
-    return {
-      ok: false,
-      message: "needs_setup: GBP_ACCOUNT_ID and GBP_LOCATION_ID must be set",
-    };
+  // Resolve the user's selected GBP destination before touching the token.
+  const destResult = await getSelectedDestination(userId, PROVIDER);
+  if (!destResult.ok) {
+    return { ok: false, message: "no_destination" };
+  }
+  // destination_ref is the GBP location resource name, e.g. 'locations/123' or
+  // 'accounts/x/locations/y'. page_id mirrors it on older rows.
+  const locationResource = (
+    destResult.destination.destination_ref ?? destResult.destination.page_id ?? ""
+  ).trim();
+  if (!locationResource) {
+    return { ok: false, message: "no_destination" };
   }
 
   const tokenResult = await ensureFreshAccessToken(userId, PROVIDER);
@@ -125,9 +129,13 @@ export async function createGbpPost(
       ];
     }
 
-    const endpoint = `${GBP_API_BASE}/accounts/${encodeURIComponent(
-      accountId
-    )}/locations/${encodeURIComponent(locationId)}/localPosts`;
+    // locationResource is a full GBP resource name ('accounts/x/locations/y' or
+    // 'locations/y'); encode each segment but keep the path separators.
+    const encodedResource = locationResource
+      .split("/")
+      .map((segment) => encodeURIComponent(segment))
+      .join("/");
+    const endpoint = `${GBP_API_BASE}/${encodedResource}/localPosts`;
 
     const resp = await fetch(endpoint, {
       method: "POST",
@@ -157,6 +165,7 @@ export async function createGbpPost(
       target_id: input.social_post_id ?? null,
       metadata: {
         post_name: json.name,
+        location_resource: locationResource,
         topic_type: input.topicType ?? "STANDARD",
         has_cta: Boolean(input.callToAction),
         has_media: Boolean(input.mediaUrl),

@@ -6,6 +6,7 @@
  *   - create_event (WRITE): connection AND resolveLiveAction('calendar')
  *                           AND explicit confirm===true.
  *   - update_event (WRITE): same write gates.
+ *   - delete_event (WRITE): same write gates.
  *
  * Provider: google_calendar. Honest JSON states. Tokens obtained server-side via
  * ensureFreshAccessToken; NEVER returned or logged. Audit captures non-PII
@@ -24,6 +25,7 @@ import {
   calendarListEvents,
   calendarCreateEvent,
   calendarUpdateEvent,
+  calendarDeleteEvent,
 } from "@/lib/integrations/google";
 import { resolveLiveAction } from "@/lib/integrations/liveSettings";
 import { getCurrentProfile } from "@/lib/supabase/server";
@@ -35,7 +37,7 @@ export const dynamic = "force-dynamic";
 const eventTimeSchema = z.record(z.unknown());
 
 const schema = z.object({
-  action: z.enum(["list_events", "create_event", "update_event"]),
+  action: z.enum(["list_events", "create_event", "update_event", "delete_event"]),
   calendarId: z.string().min(1).max(255).optional(),
   timeMin: z.string().max(64).optional(),
   summary: z.string().max(1024).optional(),
@@ -180,29 +182,55 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, status: "created", action, event });
   }
 
-  // action === "update_event"
-  if (!eventId || !patch) {
+  if (action === "update_event") {
+    if (!eventId || !patch) {
+      return NextResponse.json(
+        { ok: false, error: "bad_request", message: "update_event requires eventId and patch." },
+        { status: 400 }
+      );
+    }
+    let updated;
+    try {
+      updated = await calendarUpdateEvent(tok.accessToken, { eventId, patch, calendarId });
+    } catch (err) {
+      return NextResponse.json(
+        { ok: false, status: "error", message: err instanceof Error ? err.message : "Calendar update failed." },
+        { status: 502 }
+      );
+    }
+    await recordIntegrationAudit({
+      actor: profile,
+      action: "calendar_event_updated",
+      provider: "google_calendar",
+      target_type: "calendar_event",
+      target_id: updated.id,
+      metadata: { calendar_id: calendarId ?? "primary" },
+    });
+    return NextResponse.json({ ok: true, status: "updated", action, event: updated });
+  }
+
+  // action === "delete_event"
+  if (!eventId) {
     return NextResponse.json(
-      { ok: false, error: "bad_request", message: "update_event requires eventId and patch." },
+      { ok: false, error: "bad_request", message: "delete_event requires eventId." },
       { status: 400 }
     );
   }
-  let updated;
   try {
-    updated = await calendarUpdateEvent(tok.accessToken, { eventId, patch, calendarId });
+    await calendarDeleteEvent(tok.accessToken, { eventId, calendarId });
   } catch (err) {
     return NextResponse.json(
-      { ok: false, status: "error", message: err instanceof Error ? err.message : "Calendar update failed." },
+      { ok: false, status: "error", message: err instanceof Error ? err.message : "Calendar delete failed." },
       { status: 502 }
     );
   }
   await recordIntegrationAudit({
     actor: profile,
-    action: "calendar_event_updated",
+    action: "calendar_event_deleted",
     provider: "google_calendar",
     target_type: "calendar_event",
-    target_id: updated.id,
+    target_id: eventId,
     metadata: { calendar_id: calendarId ?? "primary" },
   });
-  return NextResponse.json({ ok: true, status: "updated", action, event: updated });
+  return NextResponse.json({ ok: true, status: "deleted", action, eventId });
 }

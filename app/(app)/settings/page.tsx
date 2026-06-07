@@ -24,6 +24,7 @@ import {
   type ConnectionSetupGuide,
 } from "@/components/settings/SettingsConnectionSetup";
 import { Accordion, type AccordionItemData } from "@/components/ui/Accordion";
+import { SectionErrorBoundary } from "@/components/ui/SectionErrorBoundary";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatusPill } from "@/components/ui/StatusPill";
 import {
@@ -385,21 +386,23 @@ export default async function SettingsPage() {
       icon: MonitorCheck,
       defaultOpen: true,
       children: (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-ink-200 bg-white/70 p-4 dark:border-ink-800 dark:bg-ink-950/40">
-          <div>
-            <p className="text-sm font-semibold text-ink-900 dark:text-ink-100">
-              Mac desktop setup
-            </p>
-            <p className="mt-1 text-xs leading-relaxed text-ink-600 dark:text-ink-300">
-              Install instructions, native shell status, traffic-light spacing,
-              and Windows build path.
-            </p>
+        <SectionErrorBoundary title="Desktop app">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-ink-200 bg-white/70 p-4 dark:border-ink-800 dark:bg-ink-950/40">
+            <div>
+              <p className="text-sm font-semibold text-ink-900 dark:text-ink-100">
+                Mac desktop setup
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-ink-600 dark:text-ink-300">
+                Install instructions, native shell status, traffic-light spacing,
+                and Windows build path.
+              </p>
+            </div>
+            <Link href="/desktop/setup" className="btn-secondary text-xs">
+              <MonitorCheck size={13} />
+              Open desktop setup
+            </Link>
           </div>
-          <Link href="/desktop/setup" className="btn-secondary text-xs">
-            <MonitorCheck size={13} />
-            Open desktop setup
-          </Link>
-        </div>
+        </SectionErrorBoundary>
       ),
     },
     {
@@ -408,14 +411,22 @@ export default async function SettingsPage() {
       meta: `${connectionGuides.filter((g) => g.configured).length}/${connectionGuides.length} keys present`,
       icon: Plug,
       defaultOpen: true,
-      children: <SettingsConnectionSetup guides={connectionGuides} />,
+      children: (
+        <SectionErrorBoundary title="Connections & setup coaches">
+          <SettingsConnectionSetup guides={connectionGuides} />
+        </SectionErrorBoundary>
+      ),
     },
     {
       id: "google-integrations",
       title: "Google integrations (per-user)",
       icon: Link2,
       defaultOpen: true,
-      children: <IntegrationConnections />,
+      children: (
+        <SectionErrorBoundary title="Google integrations">
+          <IntegrationConnections />
+        </SectionErrorBoundary>
+      ),
     },
     // Owner/admin only: informational route-ownership matrix. Activates nothing.
     ...(owner
@@ -425,7 +436,11 @@ export default async function SettingsPage() {
             title: "Route ownership audit",
             meta: "informational",
             icon: Route,
-            children: <RouteOwnershipAudit />,
+            children: (
+              <SectionErrorBoundary title="Route ownership audit">
+                <RouteOwnershipAudit />
+              </SectionErrorBoundary>
+            ),
           } satisfies AccordionItemData,
         ]
       : []),
@@ -433,7 +448,11 @@ export default async function SettingsPage() {
       id: "drive-loan-brain",
       title: "Drive & Loan Brain",
       icon: HardDrive,
-      children: <DriveLoanBrainSetup />,
+      children: (
+        <SectionErrorBoundary title="Drive & Loan Brain">
+          <DriveLoanBrainSetup />
+        </SectionErrorBoundary>
+      ),
     },
     {
       id: "tutorials",
@@ -456,6 +475,7 @@ export default async function SettingsPage() {
       icon: Cpu,
       defaultOpen: true,
       children: (
+        <SectionErrorBoundary title="AI Provider Gateway">
         <div id="ai-provider-gateway" className="scroll-mt-24">
           <div className="section-title">
             <div>
@@ -582,6 +602,7 @@ export default async function SettingsPage() {
             redeploy — keys never travel through the browser.
           </p>
         </div>
+        </SectionErrorBoundary>
       ),
     },
     {
@@ -589,9 +610,11 @@ export default async function SettingsPage() {
       title: "MCP connections",
       icon: Plug,
       children: (
-        <div id="mcp-connections" className="scroll-mt-24">
-          <MCPConnections />
-        </div>
+        <SectionErrorBoundary title="MCP connections">
+          <div id="mcp-connections" className="scroll-mt-24">
+            <MCPConnections />
+          </div>
+        </SectionErrorBoundary>
       ),
     },
     {
@@ -599,15 +622,17 @@ export default async function SettingsPage() {
       title: "Branding",
       icon: Sparkles,
       children: (
-        <div>
-          <p className="text-xs text-ink-700 dark:text-ink-300">
-            Team identity line. Atlas auto-includes this when drafting outbound
-            marketing copy.
-          </p>
-          <pre className="mt-3 whitespace-pre-wrap rounded-xl border border-ink-200 bg-ink-50 p-3 text-xs text-ink-700 dark:border-accent-champagne/10 dark:bg-ink-950/30 dark:text-ink-200">
+        <SectionErrorBoundary title="Branding">
+          <div>
+            <p className="text-xs text-ink-700 dark:text-ink-300">
+              Team identity line. Atlas auto-includes this when drafting outbound
+              marketing copy.
+            </p>
+            <pre className="mt-3 whitespace-pre-wrap rounded-xl border border-ink-200 bg-ink-50 p-3 text-xs text-ink-700 dark:border-accent-champagne/10 dark:bg-ink-950/30 dark:text-ink-200">
 {PUBLIC_ENV.BRAND_LINE}
-          </pre>
-        </div>
+            </pre>
+          </div>
+        </SectionErrorBoundary>
       ),
     },
   ];
@@ -640,16 +665,21 @@ export default async function SettingsPage() {
           </div>
         </section>
       )}
-      <LegendsOSHelpCoaches />
+      <SectionErrorBoundary title="Help coaches">
+        <LegendsOSHelpCoaches />
+      </SectionErrorBoundary>
 
-      <ThemeCustomizationPanel
-      profile={profile}
-      initialTheme={initialTheme}
-      workspaceTheme={workspaceTheme}
-      workspace={workspaceBranding}
-      canManageWorkspace={canManageWorkspace}
-    />
+      <SectionErrorBoundary title="Theme & branding">
+        <ThemeCustomizationPanel
+          profile={profile}
+          initialTheme={initialTheme}
+          workspaceTheme={workspaceTheme}
+          workspace={workspaceBranding}
+          canManageWorkspace={canManageWorkspace}
+        />
+      </SectionErrorBoundary>
 
+      <SectionErrorBoundary title="Profile & external actions">
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <section className="card-padded">
           <div className="section-title">
@@ -711,8 +741,11 @@ export default async function SettingsPage() {
           </p>
         </section>
       </div>
+      </SectionErrorBoundary>
 
-      <Accordion items={sections} />
+      <SectionErrorBoundary title="Settings sections">
+        <Accordion items={sections} />
+      </SectionErrorBoundary>
     </div>
   );
 }

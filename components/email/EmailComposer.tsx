@@ -18,6 +18,7 @@ import {
   Users2,
 } from "lucide-react";
 
+import { GmailSendPanel } from "@/components/email/GmailSendPanel";
 import { renderEmailPreview } from "@/lib/email/render";
 import type { StarterTemplate } from "@/lib/newsletter/starterTemplates";
 import { cn } from "@/lib/utils";
@@ -104,6 +105,10 @@ export function EmailComposer({
   const [isPending, startTransition] = useTransition();
   const [aiBusy, setAiBusy] = useState(false);
   const [aiNote, setAiNote] = useState<string | null>(null);
+  // Toggle for the "Send via my Gmail" panel — an additional, per-user
+  // single-recipient send path that runs through the signed-in user's own
+  // connected Gmail. Independent of the n8n campaign flow above.
+  const [showGmail, setShowGmail] = useState(false);
 
   useEffect(() => {
     setCampaignId(initialDraft?.id ?? null);
@@ -469,6 +474,15 @@ export function EmailComposer({
             {showPreview ? <EyeOff size={12} /> : <Eye size={12} />}
             {showPreview ? "Hide preview" : "Show preview"}
           </button>
+          <button
+            type="button"
+            onClick={() => setShowGmail((v) => !v)}
+            className="btn-ghost text-xs"
+            title="Send this content to a single recipient through your own connected Gmail"
+          >
+            <Mail size={12} className={cn(showGmail && "text-accent-gold")} />
+            Send via my Gmail
+          </button>
         </div>
       </div>
 
@@ -476,6 +490,18 @@ export function EmailComposer({
         <p className="rounded-lg border border-status-info/30 bg-status-info/10 px-3 py-2 text-xs text-status-info">
           {aiNote}
         </p>
+      )}
+
+      {/* Per-user Gmail send — an ADDITIONAL path alongside the n8n campaign
+          flow. Prefilled with the live (un-debounced) subject + body so the
+          user can send the current draft content to a single recipient
+          through their own connected Gmail. */}
+      {showGmail && (
+        <GmailSendPanel
+          subject={subject}
+          body={body}
+          defaultTo={ownerEmail || undefined}
+        />
       )}
 
       <div

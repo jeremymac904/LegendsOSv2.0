@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 
 import { StatusPill } from "@/components/ui/StatusPill";
+import { SectionErrorBoundary } from "@/components/ui/SectionErrorBoundary";
 import { LiveActionToggles } from "@/components/settings/LiveActionToggles";
 import { EnvChecklist } from "@/components/admin/EnvChecklist";
 import { cn } from "@/lib/utils";
@@ -649,24 +650,27 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
       )}
 
       {/* 1) Live actions (owner) ------------------------------------------ */}
-      <section className="card-padded space-y-4">
-        <div className="section-title">
-          <div>
-            <h2 className="flex items-center gap-2">
-              <ShieldCheck size={15} className="text-accent-gold" />
-              Live actions (owner)
-            </h2>
-            <p>
-              Org-wide kill switch and per-channel live toggles. These gate
-              whether email/social/calendar/Drive actions actually execute. Safe
-              defaults are off.
-            </p>
+      <SectionErrorBoundary title="Live actions">
+        <section className="card-padded space-y-4">
+          <div className="section-title">
+            <div>
+              <h2 className="flex items-center gap-2">
+                <ShieldCheck size={15} className="text-accent-gold" />
+                Live actions (owner)
+              </h2>
+              <p>
+                Org-wide kill switch and per-channel live toggles. These gate
+                whether email/social/calendar/Drive actions actually execute. Safe
+                defaults are off.
+              </p>
+            </div>
           </div>
-        </div>
-        <LiveActionToggles scope="global" />
-      </section>
+          <LiveActionToggles scope="global" />
+        </section>
+      </SectionErrorBoundary>
 
       {/* 2) Integrations grid -------------------------------------------- */}
+      <SectionErrorBoundary title="Integrations">
       <section className="card-padded space-y-4">
         <div className="section-title">
           <div>
@@ -1025,8 +1029,10 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
           </CardShell>
         </div>
       </section>
+      </SectionErrorBoundary>
 
       {/* 3) Connected team members --------------------------------------- */}
+      <SectionErrorBoundary title="Connected team members">
       <section className="card-padded space-y-4">
         <div className="section-title">
           <div>
@@ -1088,8 +1094,10 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
           </table>
         </div>
       </section>
+      </SectionErrorBoundary>
 
       {/* 4) Recent integration activity ---------------------------------- */}
+      <SectionErrorBoundary title="Recent integration activity">
       <section className="card-padded space-y-4">
         <div className="section-title">
           <div>
@@ -1141,8 +1149,10 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
           </table>
         </div>
       </section>
+      </SectionErrorBoundary>
 
       {/* 5) AI Providers -------------------------------------------------- */}
+      <SectionErrorBoundary title="AI Providers">
       <section className="card-padded space-y-4">
         <div className="section-title">
           <div>
@@ -1187,8 +1197,10 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
           })}
         </div>
       </section>
+      </SectionErrorBoundary>
 
       {/* 6) Lead Intake --------------------------------------------------- */}
+      <SectionErrorBoundary title="Lead Intake">
       <section className="card-padded space-y-4">
         <div className="section-title">
           <div>
@@ -1248,8 +1260,10 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
           </CardShell>
         </div>
       </section>
+      </SectionErrorBoundary>
 
       {/* 7) Browser Companion --------------------------------------------- */}
+      <SectionErrorBoundary title="Browser Companion">
       <section className="card-padded space-y-4">
         <div className="section-title">
           <div>
@@ -1301,9 +1315,12 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
           </CardShell>
         </div>
       </section>
+      </SectionErrorBoundary>
 
       {/* 8) Environment Variables checklist (collapsible) ---------------- */}
-      <EnvChecklistSection />
+      <SectionErrorBoundary title="Environment Variables">
+        <EnvChecklistSection />
+      </SectionErrorBoundary>
     </div>
   );
 }

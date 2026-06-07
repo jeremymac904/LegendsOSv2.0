@@ -1,14 +1,15 @@
 // Server-only YouTube Data API v3 publisher.
 // ---------------------------------------------------------------------------
-// Tokens are stored in oauth_token_grants (provider='youtube') and refreshed
-// transparently via ensureFreshAccessToken from lib/integrations/google.ts.
-// Tokens are ONLY ever placed in the Authorization header — never logged,
-// echoed, or included in error messages. Server-only: never import from a
-// client component.
+// The signed-in user's OWN token is read (and refreshed) from the per-user
+// secret vault via ensureFreshAccessToken (provider 'youtube' maps to the
+// shared 'google_social' grant). Uploads target the authenticated channel
+// implicitly. Tokens are ONLY ever placed in the Authorization header — never
+// logged, echoed, or included in error messages. Server-only: never import from
+// a client component.
 
 import { recordIntegrationAudit } from "@/lib/integrations/audit";
+import { getSelectedDestination } from "@/lib/integrations/destinations";
 import { ensureFreshAccessToken } from "@/lib/integrations/google";
-import { getTokenGrant } from "@/lib/integrations/tokenStore";
 
 const YOUTUBE_UPLOAD_API =
   "https://www.googleapis.com/upload/youtube/v3/videos";
@@ -22,13 +23,13 @@ const PROVIDER = "youtube";
 // ---------------------------------------------------------------------------
 
 /**
- * Returns true when a 'youtube' OAuth token grant exists for the user.
+ * Returns true when the user has a usable YouTube token in the vault.
  * Does NOT make a live YouTube API call — use getYoutubeChannelInfo for that.
  */
 export async function isYoutubeConnected(userId: string): Promise<boolean> {
   try {
-    const grant = await getTokenGrant(userId, PROVIDER);
-    return Boolean(grant?.access_token);
+    const result = await ensureFreshAccessToken(userId, PROVIDER);
+    return result.ok;
   } catch {
     return false;
   }
@@ -143,6 +144,17 @@ export async function uploadYoutubeVideo(
 
   const accessToken = tokenResult.accessToken;
 
+  // Optional: the user's selected channel destination (audit metadata only).
+  // The upload itself targets the authenticated channel implicitly, so a missing
+  // destination is non-fatal.
+  let selectedChannelId: string | null = null;
+  try {
+    const dest = await getSelectedDestination(userId, PROVIDER);
+    if (dest.ok) selectedChannelId = dest.destination.destination_ref ?? null;
+  } catch {
+    selectedChannelId = null;
+  }
+
   try {
     // Build the snippet + status metadata part
     const snippet = {
@@ -231,6 +243,7 @@ export async function uploadYoutubeVideo(
         video_id: json.id,
         title: input.title,
         privacy: input.privacyStatus ?? "public",
+        channel_id: selectedChannelId,
       },
     });
 
