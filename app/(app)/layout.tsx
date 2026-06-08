@@ -50,15 +50,17 @@ export default async function ProtectedLayout({
     // the shell is fixed-height, so a chat page's h-full resolves to the viewport
     // and its internal flex column pins the composer; non-chat pages scroll within
     // <main> instead of growing the whole document.
-    <div className="flex h-[100dvh] flex-col overflow-hidden">
+    <div className="flex h-[100dvh] min-h-0 flex-col overflow-hidden">
       {impersonating && realProfile && (
-        <ImpersonationBanner
-          targetName={profile.full_name ?? profile.email}
-          targetEmail={profile.email}
-          targetRole={
-            profile.role === "loan_officer" ? "LO" : profile.role
-          }
-        />
+        <div className="shrink-0">
+          <ImpersonationBanner
+            targetName={profile.full_name ?? profile.email}
+            targetEmail={profile.email}
+            targetRole={
+              profile.role === "loan_officer" ? "LO" : profile.role
+            }
+          />
+        </div>
       )}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <Sidebar profile={profile} />
@@ -68,7 +70,9 @@ export default async function ProtectedLayout({
             <main className="min-h-0 flex-1 overflow-hidden">{children}</main>
           ) : (
             <main className="min-h-0 flex-1 overflow-y-auto px-4 py-6 scrollbar-thin sm:px-5 lg:px-6">
-              <div className="mx-auto w-full max-w-[1500px]">{children}</div>
+              <div className="mx-auto min-h-full w-full max-w-[1500px]">
+                {children}
+              </div>
             </main>
           )}
         </div>

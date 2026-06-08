@@ -42,19 +42,25 @@ export const DEFAULT_THEME_COLORS = {
   secondary: "#9B6828",
 };
 
+export const DEFAULT_THEME_BODY_BACKGROUNDS: Record<ResolvedThemeMode, string> = {
+  dark:
+    'linear-gradient(180deg, rgba(5,6,10,0.88) 0%, rgba(5,6,10,0.94) 58%, rgba(5,6,10,0.98) 100%), radial-gradient(70% 55% at 30% 8%, rgba(155,104,40,0.1) 0%, rgba(155,104,40,0) 62%), radial-gradient(45% 50% at 88% 20%, rgba(226,201,120,0.075) 0%, rgba(226,201,120,0) 64%), url("/assets/backgrounds/command-center-futuristic.jpg")',
+  light:
+    'linear-gradient(180deg, rgb(252,253,255) 0%, rgb(248,250,253) 55%, rgb(245,247,251) 100%), radial-gradient(60% 45% at 22% 4%, rgba(155,104,40,0.05) 0%, rgba(155,104,40,0) 60%), radial-gradient(48% 42% at 92% 14%, rgba(226,201,120,0.05) 0%, rgba(226,201,120,0) 62%)',
+};
+
 export const DEFAULT_THEME_SNAPSHOT: ResolvedThemeSnapshot = {
   mode: "dark",
   themeMode: "dark",
   textContrast: "high",
   primaryColor: DEFAULT_THEME_COLORS.primary,
   secondaryColor: DEFAULT_THEME_COLORS.secondary,
-  glassIntensity: 0.82,
-  sidebarOpacity: 0.78,
-  cardOpacity: 0.34,
+  glassIntensity: 0.32,
+  sidebarOpacity: 0.9,
+  cardOpacity: 0.66,
   loginBackgroundEnabled: true,
   desktopBackgroundEnabled: true,
-  bodyBackground:
-    'linear-gradient(180deg, rgba(5,6,10,0.72) 0%, rgba(5,6,10,0.9) 58%, rgba(5,6,10,0.95) 100%), radial-gradient(70% 55% at 30% 8%, rgba(155,104,40,0.14) 0%, rgba(155,104,40,0) 62%), radial-gradient(45% 50% at 88% 20%, rgba(226,201,120,0.11) 0%, rgba(226,201,120,0) 64%), url("/assets/backgrounds/command-center-futuristic.jpg")',
+  bodyBackground: DEFAULT_THEME_BODY_BACKGROUNDS.dark,
   logo: { path: null, url: null },
   backgroundImage: {
     path: "/assets/backgrounds/command-center-futuristic.jpg",
@@ -165,21 +171,19 @@ function resolveThemeMode(themeMode: ThemeModeSetting, fallback: ResolvedThemeMo
 }
 
 function defaultBodyBackground(mode: ResolvedThemeMode): string {
-  return mode === "light"
-    ? 'linear-gradient(180deg, rgba(255,255,255,0.6) 0%, rgba(250,251,253,0.92) 55%, rgba(247,248,251,0.98) 100%), radial-gradient(65% 50% at 28% 6%, rgba(155,104,40,0.06) 0%, rgba(155,104,40,0) 60%), radial-gradient(50% 45% at 90% 16%, rgba(226,201,120,0.07) 0%, rgba(226,201,120,0) 62%), radial-gradient(55% 55% at 10% 94%, rgba(226,201,120,0.05) 0%, rgba(226,201,120,0) 62%), url("/assets/backgrounds/command-center-elegant.jpg")'
-    : 'linear-gradient(180deg, rgba(5,6,10,0.72) 0%, rgba(5,6,10,0.9) 58%, rgba(5,6,10,0.95) 100%), radial-gradient(70% 55% at 30% 8%, rgba(155,104,40,0.14) 0%, rgba(155,104,40,0) 62%), radial-gradient(45% 50% at 88% 20%, rgba(226,201,120,0.11) 0%, rgba(226,201,120,0) 64%), url("/assets/backgrounds/command-center-futuristic.jpg")';
+  return DEFAULT_THEME_BODY_BACKGROUNDS[mode];
 }
 
 function contrastColors(mode: ResolvedThemeMode, contrast: ThemeContrastPreference) {
   if (mode === "light") {
     switch (contrast) {
       case "soft":
-        return { fg: "25 29 42", muted: "80 88 112" };
+        return { fg: "24 29 42", muted: "78 88 112" };
       case "normal":
-        return { fg: "18 22 32", muted: "66 74 95" };
+        return { fg: "17 22 32", muted: "62 72 96" };
       case "high":
       default:
-        return { fg: "12 15 23", muted: "56 64 86" };
+        return { fg: "10 13 21", muted: "51 58 78" };
     }
   }
 
@@ -314,7 +318,7 @@ export function themeSnapshotToCssVars(snapshot: ResolvedThemeSnapshot): ThemeSt
     "--theme-sidebar-opacity": snapshot.sidebarOpacity.toFixed(2),
     "--theme-card-opacity": snapshot.cardOpacity.toFixed(2),
     "--theme-glass-intensity": snapshot.glassIntensity.toFixed(2),
-    "--bg": snapshot.mode === "light" ? "250 251 253" : "9 11 17",
+    "--bg": snapshot.mode === "light" ? "248 250 252" : "9 11 17",
     "--fg": contrast.fg,
     "--muted": contrast.muted,
     "--muted-text": contrast.muted,

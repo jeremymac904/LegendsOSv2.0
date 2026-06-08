@@ -37,7 +37,7 @@ test("POST /api/browser-companion/capture is 401 unauthenticated", async ({
   expect(res.status()).toBe(401);
   const json = await res.json();
   expect(json.ok).toBe(false);
-  expect(json.error).toBe("unauthorized");
+  expect(json.error).toBe("unauthenticated");
 });
 
 test("POST /api/webhooks/email-intake is 401 or 503 without secret", async ({
@@ -65,5 +65,5 @@ test("POST /api/automation/callback is 401 without valid signature", async ({
   expect(res.status()).toBe(401);
   const json = await res.json();
   expect(json.ok).toBe(false);
-  expect(json.error).toBe("unauthorized");
+  expect(json.error).toBe("unauthenticated");
 });

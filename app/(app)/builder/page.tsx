@@ -23,15 +23,15 @@ export default async function BuilderPage({
       : "Write a complete Claude Code prompt to build a mortgage landing page for a first-time homebuyer campaign.";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 xl:flex xl:h-[calc(100dvh-7rem)] xl:min-h-0 xl:flex-col xl:gap-6 xl:overflow-hidden xl:space-y-0">
       <SectionHeader
         eyebrow="Builder · Owner"
         title="Jeremy's Build Workspace"
         description="A real model-powered Builder agent for websites, landing pages, blog/training content, and Claude Code / Codex / AionUI prompts — plus the planning cockpit below."
         action={<span className="chip-active">Owner only</span>}
       />
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[420px_1fr]">
-        <div className="xl:sticky xl:top-4 xl:h-[calc(100vh-7rem)]">
+      <div className="grid grid-cols-1 gap-6 xl:min-h-0 xl:flex-1 xl:grid-cols-[420px_1fr] xl:overflow-hidden">
+        <div className="h-[34rem] xl:h-full xl:min-h-0">
           <AgentChat
             agentType="builder_agent"
             agentName="Builder"
@@ -39,7 +39,7 @@ export default async function BuilderPage({
             seedPrompt={seeded}
           />
         </div>
-        <div className="min-w-0 space-y-3">
+        <div className="min-w-0 space-y-3 xl:min-h-0 xl:overflow-y-auto xl:pr-1 xl:scrollbar-thin">
           <p className="text-xs uppercase tracking-[0.16em] text-ink-500 dark:text-ink-400">Planning cockpit</p>
           <BuilderWorkspace />
         </div>

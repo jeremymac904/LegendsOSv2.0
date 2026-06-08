@@ -9,14 +9,13 @@
  */
 :root {
   color-scheme: dark;
-  /* Lifted a touch off pure black (was 5 6 10) so flat panels read as deep
-   * charcoal-navy rather than dead black — premium, not flat. The command
-   * center background image still carries the atmosphere. */
+  /* Operational dark shell: deep, readable panels over subdued atmosphere. */
   --bg: 9 11 17;
-  --fg: 231 234 242;
-  --muted: 140 147 175;
+  --fg: 242 245 252;
+  --muted: 160 168 191;
   --accent: 199 150 53;
   --accent-2: 155 104 40;
+  --ink-50: 248 250 252;
   --ink-950: 5 6 10;
   --ink-900: 10 12 18;
   --ink-850: 14 17 25;
@@ -36,16 +35,42 @@
   --dark-charcoal: 8 9 13;
   --black-glass: 5 6 10;
   --glass-border: 226 201 120;
-  --muted-text: 140 147 175;
+  --muted-text: 160 168 191;
   --theme-shell-rgb: 5 6 10;
   --theme-card-rgb: 5 6 10;
-  --theme-sidebar-opacity: 0.78;
-  --theme-card-opacity: 0.34;
-  --theme-glass-intensity: 0.82;
+  --theme-sidebar-opacity: 0.9;
+  --theme-card-opacity: 0.66;
+  --theme-glass-intensity: 0.32;
+  --surface-card-rgb: 12 15 23;
+  --surface-panel-rgb: 15 19 30;
+  --surface-shell-rgb: 8 10 16;
+  --surface-card-alpha: clamp(0.6, var(--theme-card-opacity), 0.78);
+  --surface-glass-alpha: clamp(0.58, calc(var(--theme-card-opacity) * 0.96), 0.76);
+  --surface-panel-alpha: clamp(0.52, calc(var(--theme-card-opacity) * 0.86), 0.7);
+  --surface-shell-alpha: clamp(0.86, var(--theme-sidebar-opacity), 0.96);
+  --surface-blur: clamp(2px, calc(4px + (6px * var(--theme-glass-intensity))), 10px);
+  --surface-blur-strong: clamp(3px, calc(5px + (8px * var(--theme-glass-intensity))), 12px);
+  --surface-panel-blur: clamp(0px, calc(2px + (4px * var(--theme-glass-intensity))), 6px);
+  --surface-border: rgb(var(--champagne-highlight) / 0.14);
+  --surface-border-strong: rgb(var(--champagne-highlight) / 0.28);
+  --surface-card-gradient:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0%, rgba(255, 255, 255, 0.012) 48%),
+    linear-gradient(145deg, rgba(15, 19, 30, 0.96) 0%, rgba(8, 10, 16, 0.99) 100%);
+  --surface-glass-gradient:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.052) 0%, rgba(255, 255, 255, 0.018) 52%),
+    linear-gradient(145deg, rgba(17, 22, 34, 0.96) 0%, rgba(8, 10, 16, 0.99) 100%);
+  --surface-panel-gradient: linear-gradient(180deg, rgba(255, 255, 255, 0.026) 0%, rgba(255, 255, 255, 0.008) 100%);
+  --surface-shadow:
+    0 1px 0 0 rgba(255, 255, 255, 0.045) inset,
+    0 14px 36px -26px rgba(0, 0, 0, 0.86);
+  --surface-shadow-hover:
+    0 1px 0 0 rgba(255, 255, 255, 0.055) inset,
+    0 16px 38px -24px rgba(0, 0, 0, 0.86),
+    0 0 0 1px rgb(var(--champagne-highlight) / 0.08);
   --theme-body-background:
-    linear-gradient(180deg, rgba(5, 6, 10, 0.72), rgba(5, 6, 10, 0.9)),
-    radial-gradient(70% 55% at 30% 8%, rgba(var(--burnt-gold), 0.14) 0%, rgba(var(--burnt-gold), 0) 62%),
-    radial-gradient(45% 50% at 88% 20%, rgba(var(--champagne-highlight), 0.11) 0%, rgba(var(--champagne-highlight), 0) 64%),
+    linear-gradient(180deg, rgba(5, 6, 10, 0.88) 0%, rgba(5, 6, 10, 0.94) 58%, rgba(5, 6, 10, 0.98) 100%),
+    radial-gradient(70% 55% at 30% 8%, rgb(var(--burnt-gold) / 0.1) 0%, rgb(var(--burnt-gold) / 0) 62%),
+    radial-gradient(45% 50% at 88% 20%, rgb(var(--champagne-highlight) / 0.075) 0%, rgb(var(--champagne-highlight) / 0) 64%),
     url("/assets/backgrounds/command-center-futuristic.jpg");
 }
 
@@ -55,24 +80,23 @@
  */
 .light {
   color-scheme: light;
-  /* Premium soft white — a crisp, near-white neutral (not beige/cream) with
-   * the faintest cool cast so the gold accents read as luxury rather than
-   * corporate. Text is high-contrast charcoal/black. */
-  --bg: 250 251 253;
-  --fg: 11 14 22;
-  --muted: 60 67 90;
+  /* Crisp light shell: neutral work surfaces with accents, not haze. */
+  --bg: 248 250 252;
+  --fg: 10 13 21;
+  --muted: 51 58 78;
   --accent: 199 150 53;
   --accent-2: 155 104 40;
-  --ink-950: 252 252 254;
-  --ink-900: 248 249 252;
-  --ink-850: 242 244 248;
-  --ink-800: 238 240 245;
-  --ink-700: 222 226 236;
-  --ink-600: 204 210 225;
-  --ink-500: 150 158 179;
-  --ink-400: 120 129 155;
-  --ink-300: 91 99 128;
-  --ink-200: 54 61 86;
+  --ink-50: 255 255 255;
+  --ink-950: 255 255 255;
+  --ink-900: 249 250 252;
+  --ink-850: 245 247 250;
+  --ink-800: 238 241 246;
+  --ink-700: 216 222 232;
+  --ink-600: 190 198 214;
+  --ink-500: 82 92 120;
+  --ink-400: 68 78 104;
+  --ink-300: 56 65 90;
+  --ink-200: 35 43 61;
   --ink-100: 13 17 27;
   --primary-gold: 199 150 53;
   --burnt-gold: 155 104 40;
@@ -82,18 +106,40 @@
   --dark-charcoal: 252 252 254;
   --black-glass: 255 255 255;
   --glass-border: 199 150 53;
-  --muted-text: 60 67 90;
+  --muted-text: 51 58 78;
   --theme-shell-rgb: 255 255 255;
   --theme-card-rgb: 255 255 255;
   --theme-sidebar-opacity: 0.92;
   /* Light mode: near-solid cards + low blur so glass NEVER reduces readability
    * (WCAG AA). No dark background image — a clean warm-white gradient only. */
   --theme-card-opacity: 0.95;
-  --theme-glass-intensity: 0.3;
+  --theme-glass-intensity: 0.18;
+  --surface-card-rgb: 255 255 255;
+  --surface-panel-rgb: 255 255 255;
+  --surface-shell-rgb: 255 255 255;
+  --surface-card-alpha: clamp(0.92, var(--theme-card-opacity), 0.98);
+  --surface-glass-alpha: clamp(0.9, calc(var(--theme-card-opacity) * 1.02), 0.98);
+  --surface-panel-alpha: clamp(0.88, calc(var(--theme-card-opacity) * 0.98), 0.96);
+  --surface-shell-alpha: clamp(0.92, var(--theme-sidebar-opacity), 0.98);
+  --surface-blur: clamp(0px, calc(1px + (3px * var(--theme-glass-intensity))), 4px);
+  --surface-blur-strong: clamp(0px, calc(2px + (4px * var(--theme-glass-intensity))), 5px);
+  --surface-panel-blur: clamp(0px, calc(1px + (2px * var(--theme-glass-intensity))), 3px);
+  --surface-border: rgba(15, 20, 34, 0.12);
+  --surface-border-strong: rgba(199, 150, 53, 0.36);
+  --surface-card-gradient: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.96) 100%);
+  --surface-glass-gradient: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(247, 249, 252, 0.94) 100%);
+  --surface-panel-gradient: linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(246, 248, 251, 0.9) 100%);
+  --surface-shadow:
+    0 1px 0 0 rgba(255, 255, 255, 0.9) inset,
+    0 10px 24px -20px rgba(13, 18, 32, 0.2);
+  --surface-shadow-hover:
+    0 1px 0 0 rgba(255, 255, 255, 0.92) inset,
+    0 14px 28px -18px rgba(13, 18, 32, 0.18),
+    0 0 0 1px rgba(199, 150, 53, 0.16);
   --theme-body-background:
     linear-gradient(180deg, rgb(252, 253, 255) 0%, rgb(248, 250, 253) 55%, rgb(245, 247, 251) 100%),
-    radial-gradient(60% 45% at 22% 4%, rgba(var(--burnt-gold), 0.05) 0%, rgba(var(--burnt-gold), 0) 60%),
-    radial-gradient(48% 42% at 92% 14%, rgba(var(--champagne-highlight), 0.05) 0%, rgba(var(--champagne-highlight), 0) 62%);
+    radial-gradient(60% 45% at 22% 4%, rgb(var(--burnt-gold) / 0.05) 0%, rgb(var(--burnt-gold) / 0) 60%),
+    radial-gradient(48% 42% at 92% 14%, rgb(var(--champagne-highlight) / 0.05) 0%, rgb(var(--champagne-highlight) / 0) 62%);
 }
 
 html,
@@ -144,8 +190,7 @@ html[data-legendsos-desktop="true"][data-legendsos-platform="darwin"] .desktop-l
   padding-top: 2rem;
 }
 
-/* Light mode body: drop the dark image + heavy overlays in favor of a
- * soft warm gradient. Brand accent radials stay at lower opacity. */
+/* Light mode body uses a clean gradient so text sits on a neutral work surface. */
 .light body {
   background-image: var(--theme-body-background);
 }
@@ -153,57 +198,45 @@ html[data-legendsos-desktop="true"][data-legendsos-platform="darwin"] .desktop-l
 @layer components {
   /* ─── Glass surfaces ─────────────────────────────────────────────── */
   .card {
-    @apply relative rounded-2xl border border-accent-champagne/10 shadow-card transition-colors;
-    background-color: rgba(var(--theme-card-rgb), var(--theme-card-opacity));
-    background-image:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.055) 0%, rgba(255, 255, 255, 0.014) 46%),
-      linear-gradient(145deg, rgba(var(--black-glass), 0.22) 0%, rgba(var(--dark-charcoal), 0.54) 100%);
-    backdrop-filter: blur(calc(12px + (12px * var(--theme-glass-intensity))));
+    @apply relative rounded-2xl border transition-colors;
+    background-color: rgb(var(--surface-card-rgb) / var(--surface-card-alpha));
+    background-image: var(--surface-card-gradient);
+    border-color: var(--surface-border);
+    box-shadow: var(--surface-shadow);
+    color: rgb(var(--fg));
+    backdrop-filter: blur(var(--surface-blur));
   }
   .card::before {
     content: "";
-    @apply pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-accent-champagne/40 to-transparent opacity-70;
+    @apply pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-accent-champagne/35 to-transparent opacity-60;
   }
   .card:hover {
-    @apply border-accent-champagne/25;
-    box-shadow:
-      0 1px 0 0 rgba(255, 255, 255, 0.04) inset,
-      0 12px 32px -16px rgba(0, 0, 0, 0.8),
-      0 0 0 1px rgba(var(--champagne-highlight), 0.08),
-      0 8px 36px -18px rgba(var(--burnt-gold), 0.22);
+    border-color: var(--surface-border-strong);
+    box-shadow: var(--surface-shadow-hover);
   }
   .card-padded {
     @apply card p-5;
   }
 
-  /* ─── Liquid-glass surfaces (more pronounced) ────────────────────── */
-  /* `.glass-card` is a stronger, frostier variant of `.card`. Use it on
-   * Academy / Training / Atlas-catalog surfaces where the design calls
-   * for premium liquid-glass. `.card` stays the workhorse for everything
-   * else (including the Command Center). */
+  /* ─── Strong surfaces ─────────────────────────────────────────────── */
+  /* `.glass-card` is the stronger branded variant of `.card`; it keeps the
+   * accent edge without making text depend on whatever is behind it. */
   .glass-card {
-    @apply relative rounded-2xl border border-accent-champagne/15 transition-all;
-    background-color: rgba(var(--theme-card-rgb), calc(var(--theme-card-opacity) * 0.86));
-    background-image:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.018) 50%),
-      linear-gradient(145deg, rgba(var(--black-glass), 0.34) 0%, rgba(var(--dark-charcoal), 0.62) 100%);
-    backdrop-filter: blur(calc(16px + (14px * var(--theme-glass-intensity))));
-    box-shadow:
-      0 1px 0 0 rgba(255, 255, 255, 0.05) inset,
-      0 14px 44px -26px rgba(0, 0, 0, 0.86),
-      0 0 0 1px rgba(var(--champagne-highlight), 0.04);
+    @apply relative rounded-2xl border transition-all;
+    background-color: rgb(var(--surface-card-rgb) / var(--surface-glass-alpha));
+    background-image: var(--surface-glass-gradient);
+    border-color: var(--surface-border);
+    box-shadow: var(--surface-shadow);
+    color: rgb(var(--fg));
+    backdrop-filter: blur(var(--surface-blur-strong));
   }
   .glass-card::before {
     content: "";
-    @apply pointer-events-none absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-accent-champagne/50 to-transparent opacity-80;
+    @apply pointer-events-none absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-accent-champagne/40 to-transparent opacity-70;
   }
   .glass-card:hover {
-    @apply border-accent-champagne/30;
-    box-shadow:
-      0 1px 0 0 rgba(255, 255, 255, 0.06) inset,
-      0 12px 36px -16px rgba(0, 0, 0, 0.88),
-      0 0 0 1px rgba(var(--champagne-highlight), 0.12),
-      0 8px 36px -16px rgba(var(--burnt-gold), 0.28);
+    border-color: var(--surface-border-strong);
+    box-shadow: var(--surface-shadow-hover);
   }
   .glass-card-padded {
     @apply glass-card p-5;
@@ -212,14 +245,18 @@ html[data-legendsos-desktop="true"][data-legendsos-platform="darwin"] .desktop-l
   /* `.glass-panel` is an unbordered translucent surface for nested panels
    * inside a card — sub-sections, side blocks, list rows. */
   .glass-panel {
-    @apply relative rounded-xl border border-accent-champagne/10;
-    background-color: rgba(var(--theme-card-rgb), calc(var(--theme-card-opacity) * 0.72));
-    backdrop-filter: blur(calc(10px + (10px * var(--theme-glass-intensity))));
+    @apply relative rounded-xl border;
+    background-color: rgb(var(--surface-panel-rgb) / var(--surface-panel-alpha));
+    background-image: var(--surface-panel-gradient);
+    border-color: var(--surface-border);
+    color: rgb(var(--fg));
+    backdrop-filter: blur(var(--surface-panel-blur));
   }
 
   .theme-shell {
-    background-color: rgba(var(--theme-shell-rgb), var(--theme-sidebar-opacity));
-    backdrop-filter: blur(calc(12px + (12px * var(--theme-glass-intensity))));
+    background-color: rgb(var(--surface-shell-rgb) / var(--surface-shell-alpha));
+    border-color: var(--surface-border);
+    backdrop-filter: blur(var(--surface-blur));
   }
 
   /* ─── Buttons ────────────────────────────────────────────────────── */
@@ -231,14 +268,14 @@ html[data-legendsos-desktop="true"][data-legendsos-platform="darwin"] .desktop-l
     box-shadow:
       inset 0 1px 0 0 rgba(255, 255, 255, 0.38),
       inset 0 -1px 0 0 rgba(0, 0, 0, 0.15),
-      0 9px 26px -12px rgba(var(--burnt-gold), 0.5);
+      0 9px 26px -12px rgb(var(--burnt-gold) / 0.5);
   }
   .btn-primary:hover {
     @apply from-accent-champagne via-accent-gold to-accent-bronze;
     box-shadow:
       inset 0 1px 0 0 rgba(255, 255, 255, 0.5),
       inset 0 -1px 0 0 rgba(0, 0, 0, 0.15),
-      0 10px 32px -10px rgba(var(--burnt-gold), 0.52);
+      0 10px 32px -10px rgb(var(--burnt-gold) / 0.52);
   }
   .btn-secondary {
     @apply btn border-accent-champagne/25 bg-ink-950/40 text-ink-100 backdrop-blur-sm hover:border-accent-champagne/40 hover:bg-ink-800/50;
@@ -322,72 +359,47 @@ html[data-legendsos-desktop="true"][data-legendsos-platform="darwin"] .desktop-l
 }
 
 /* ─── Light theme component overrides ────────────────────────────────
- * Surgical pass for the most visible chrome — body, cards, buttons,
- * chips, inputs, nav. Dark mode is unchanged because these rules only
- * apply under `.light`. Pages that use raw `text-ink-XXX` / `bg-ink-XXX`
- * Tailwind classes in markup may still look dark-leaning in light mode;
- * this is Phase 1 — Phase 2 cleans those up route-by-route.
+ * Keep light-mode chrome operational/readable even when stored theme opacity
+ * values are low. Route markup can keep using the shared primitives.
  */
-/* `.card` in light — a champagne-tinted liquid-glass surface. Translucent
- * enough to let the warm body gradient breathe through, contrasted enough
- * to keep text crisp. */
 .light .card {
-  background-color: rgba(255, 255, 255, var(--theme-card-opacity));
-  background-image:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.86) 55%, rgba(252, 253, 255, 0.9) 100%);
-  border-color: rgba(17, 22, 36, 0.08);
-  color: rgb(11, 14, 22);
-  backdrop-filter: blur(calc(12px + (12px * var(--theme-glass-intensity))));
-  box-shadow:
-    0 1px 0 0 rgba(255, 255, 255, 0.9) inset,
-    0 10px 30px -22px rgba(13, 18, 32, 0.16),
-    0 0 0 1px rgba(199, 150, 53, 0.04);
+  background-color: rgb(var(--surface-card-rgb) / var(--surface-card-alpha));
+  background-image: var(--surface-card-gradient);
+  border-color: var(--surface-border);
+  color: rgb(var(--fg));
+  backdrop-filter: blur(var(--surface-blur));
+  box-shadow: var(--surface-shadow);
 }
 .light .card::before {
-  opacity: 0.6;
+  opacity: 0.35;
 }
 .light .card:hover {
-  border-color: rgba(199, 150, 53, 0.38);
-  box-shadow:
-    0 1px 0 0 rgba(255, 255, 255, 0.8) inset,
-    0 14px 30px -16px rgba(13, 18, 32, 0.14),
-    0 0 0 1px rgba(199, 150, 53, 0.18),
-    0 8px 28px -14px rgba(199, 150, 53, 0.22);
+  border-color: var(--surface-border-strong);
+  box-shadow: var(--surface-shadow-hover);
 }
 
-/* `.glass-card` in light — even more pronounced liquid glass. Used by the
- * Academy hero/track/module/catalog cards for the "premium SaaS" feel. */
 .light .glass-card {
-  background-color: rgba(255, 255, 255, calc(var(--theme-card-opacity) * 0.88));
-  background-image:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(255, 255, 255, 0.7) 60%, rgba(252, 253, 255, 0.78) 100%);
-  border-color: rgba(17, 22, 36, 0.08);
-  color: rgb(11, 14, 22);
-  backdrop-filter: blur(calc(16px + (14px * var(--theme-glass-intensity))));
-  box-shadow:
-    0 1px 0 0 rgba(255, 255, 255, 0.75) inset,
-    0 16px 40px -22px rgba(13, 18, 32, 0.14),
-    0 0 0 1px rgba(199, 150, 53, 0.06),
-    0 4px 18px -10px rgba(199, 150, 53, 0.1);
+  background-color: rgb(var(--surface-card-rgb) / var(--surface-glass-alpha));
+  background-image: var(--surface-glass-gradient);
+  border-color: var(--surface-border);
+  color: rgb(var(--fg));
+  backdrop-filter: blur(var(--surface-blur-strong));
+  box-shadow: var(--surface-shadow);
 }
 .light .glass-card::before {
-  opacity: 0.7;
+  opacity: 0.4;
 }
 .light .glass-card:hover {
-  border-color: rgba(199, 150, 53, 0.45);
-  box-shadow:
-    0 1px 0 0 rgba(255, 255, 255, 0.85) inset,
-    0 18px 40px -18px rgba(13, 18, 32, 0.16),
-    0 0 0 1px rgba(199, 150, 53, 0.22),
-    0 8px 32px -12px rgba(199, 150, 53, 0.26);
+  border-color: var(--surface-border-strong);
+  box-shadow: var(--surface-shadow-hover);
 }
 
 .light .glass-panel {
-  background-color: rgba(255, 255, 255, calc(var(--theme-card-opacity) * 0.72));
-  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.85) 0%, rgba(252, 248, 240, 0.62) 100%);
-  border-color: rgba(199, 150, 53, 0.18);
-  color: rgb(14, 17, 25);
-  backdrop-filter: blur(calc(10px + (10px * var(--theme-glass-intensity))));
+  background-color: rgb(var(--surface-panel-rgb) / var(--surface-panel-alpha));
+  background-image: var(--surface-panel-gradient);
+  border-color: var(--surface-border);
+  color: rgb(var(--fg));
+  backdrop-filter: blur(var(--surface-panel-blur));
 }
 
 .light .btn {
@@ -400,7 +412,7 @@ html[data-legendsos-desktop="true"][data-legendsos-platform="darwin"] .desktop-l
 }
 /* .btn-primary keeps its gold gradient in light — high contrast against page bg */
 .light .btn-primary {
-  color: rgb(255, 255, 255);
+  color: rgb(13, 17, 27);
 }
 .light .btn-secondary {
   background-color: rgba(255, 255, 255, 0.92);
@@ -421,7 +433,7 @@ html[data-legendsos-desktop="true"][data-legendsos-platform="darwin"] .desktop-l
   color: rgb(51, 58, 78);
 }
 .light .btn-ghost:hover {
-  background-color: rgba(244, 240, 230, 0.7);
+  background-color: rgba(238, 241, 246, 0.82);
   color: rgb(14, 17, 25);
 }
 
@@ -448,8 +460,8 @@ html[data-legendsos-desktop="true"][data-legendsos-platform="darwin"] .desktop-l
 }
 
 .light .chip {
-  background-color: rgba(255, 255, 255, 0.85);
-  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(252, 248, 240, 0.7) 100%);
+  background-color: rgba(255, 255, 255, 0.92);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(246, 248, 251, 0.9) 100%);
   border-color: rgba(199, 150, 53, 0.22);
   color: rgb(38, 44, 60);
 }
@@ -475,12 +487,12 @@ html[data-legendsos-desktop="true"][data-legendsos-platform="darwin"] .desktop-l
   color: rgb(51, 58, 78);
 }
 .light .nav-item:hover {
-  background-color: rgba(244, 240, 230, 0.7);
+  background-color: rgba(238, 241, 246, 0.82);
   color: rgb(14, 17, 25);
 }
 .light .nav-item-active {
-  background-image: linear-gradient(to right, rgba(199, 150, 53, 0.2) 0%, rgba(255, 252, 246, 0.9) 50%, rgba(248, 244, 234, 0.78) 100%);
-  background-color: rgba(255, 252, 246, 0.95);
+  background-image: linear-gradient(to right, rgba(199, 150, 53, 0.16) 0%, rgba(255, 255, 255, 0.96) 50%, rgba(246, 248, 251, 0.92) 100%);
+  background-color: rgba(255, 255, 255, 0.96);
   border-color: rgba(199, 150, 53, 0.38);
   color: rgb(14, 17, 25);
   box-shadow:
@@ -493,45 +505,66 @@ html[data-legendsos-desktop="true"][data-legendsos-platform="darwin"] .desktop-l
 }
 
 /* ─── Light-mode ink-utility remap ───────────────────────────────────────
- * The app is built dark-first: lots of markup uses bare `text-ink-100` /
- * `bg-ink-950/40` / `border-ink-800` (light text + near-black panels) with NO
- * `dark:` prefix, so in light mode headings went invisible and panels went
- * muddy. These rules ONLY match the BARE utilities — elements that correctly
- * pair `text-ink-900 dark:text-ink-100` carry the `dark:` token instead and
- * are untouched. This is the single highest-leverage light-mode contrast fix.
+ * The app is dark-first, so many routes use bare ink utilities. These rules
+ * only target the bare class names; `dark:` utilities keep their own selectors.
  */
 
-/* Text: the light inks (100–300) were near-white headings/body — make them
- * crisp charcoal so headings and body text are readable on white. The dark
- * inks (500–950) are already dark enough on white and are left alone. */
 .light .text-ink-100 { color: rgb(13, 17, 27); }
 .light .text-ink-200 { color: rgb(22, 27, 42); }
 .light .text-ink-300 { color: rgb(58, 66, 92); }
-.light .text-ink-400 { color: rgb(74, 82, 108); }
+.light .text-ink-400 { color: rgb(68, 78, 104); }
+.light .text-ink-500 { color: rgb(82, 92, 120); }
 
-/* Near-black panel fills → clean translucent white so inner panels read as
- * crisp glass, not muddy charcoal. */
+/* Panel fills: keep old dark-first backgrounds readable on light surfaces. */
+.light .bg-ink-50,
+.light .bg-ink-50\/80,
+.light .bg-ink-50\/70 { background-color: rgba(255, 255, 255, 0.96); }
+.light .bg-ink-50\/60 { background-color: rgba(255, 255, 255, 0.92); }
+.light .bg-ink-50\/40 { background-color: rgba(255, 255, 255, 0.86); }
+.light .bg-ink-100,
+.light .bg-ink-100\/80,
+.light .bg-ink-100\/70 { background-color: rgba(244, 247, 251, 0.94); }
+.light .bg-ink-100\/60,
+.light .bg-ink-100\/50 { background-color: rgba(244, 247, 251, 0.9); }
+.light .bg-ink-200,
+.light .bg-ink-200\/80,
+.light .bg-ink-200\/60 { background-color: rgba(232, 237, 245, 0.9); }
+.light .bg-ink-200\/40,
+.light .bg-ink-200\/20 { background-color: rgba(232, 237, 245, 0.72); }
 .light .bg-ink-950,
-.light .bg-ink-950\/80 { background-color: rgba(255, 255, 255, 0.86); }
-.light .bg-ink-950\/70 { background-color: rgba(255, 255, 255, 0.78); }
-.light .bg-ink-950\/60 { background-color: rgba(255, 255, 255, 0.72); }
-.light .bg-ink-950\/50 { background-color: rgba(255, 255, 255, 0.66); }
-.light .bg-ink-950\/40 { background-color: rgba(255, 255, 255, 0.6); }
-.light .bg-ink-950\/30 { background-color: rgba(255, 255, 255, 0.5); }
+.light .bg-ink-950\/80 { background-color: rgba(255, 255, 255, 0.94); }
+.light .bg-ink-950\/70 { background-color: rgba(255, 255, 255, 0.92); }
+.light .bg-ink-950\/60 { background-color: rgba(255, 255, 255, 0.9); }
+.light .bg-ink-950\/50 { background-color: rgba(255, 255, 255, 0.88); }
+.light .bg-ink-950\/40 { background-color: rgba(255, 255, 255, 0.86); }
+.light .bg-ink-950\/35 { background-color: rgba(255, 255, 255, 0.84); }
+.light .bg-ink-950\/30 { background-color: rgba(255, 255, 255, 0.82); }
+.light .bg-ink-950\/20 { background-color: rgba(255, 255, 255, 0.78); }
 .light .bg-ink-900,
-.light .bg-ink-900\/70 { background-color: rgba(248, 249, 252, 0.82); }
-.light .bg-ink-900\/60 { background-color: rgba(248, 249, 252, 0.74); }
-.light .bg-ink-900\/50 { background-color: rgba(248, 249, 252, 0.68); }
-.light .bg-ink-900\/40 { background-color: rgba(248, 249, 252, 0.6); }
-.light .bg-ink-900\/30 { background-color: rgba(248, 249, 252, 0.5); }
+.light .bg-ink-900\/70 { background-color: rgba(248, 250, 252, 0.94); }
+.light .bg-ink-900\/60 { background-color: rgba(248, 250, 252, 0.9); }
+.light .bg-ink-900\/50 { background-color: rgba(248, 250, 252, 0.86); }
+.light .bg-ink-900\/40 { background-color: rgba(248, 250, 252, 0.82); }
+.light .bg-ink-900\/30 { background-color: rgba(248, 250, 252, 0.78); }
 .light .bg-ink-850,
 .light .bg-ink-800,
 .light .bg-ink-800\/80,
 .light .bg-ink-800\/70,
 .light .bg-ink-800\/60,
-.light .bg-ink-800\/50 { background-color: rgba(242, 244, 248, 0.85); }
+.light .bg-ink-800\/50 { background-color: rgba(238, 241, 246, 0.9); }
 
-/* Dark borders → hairline charcoal so edges are visible but not harsh. */
+/* Borders: tokenized ink borders become subtle neutral separators in light. */
+.light .border-ink-100,
+.light .border-ink-100\/80,
+.light .border-ink-100\/70 { border-color: rgba(15, 20, 34, 0.08); }
+.light .border-ink-200,
+.light .border-ink-200\/80,
+.light .border-ink-200\/70,
+.light .border-ink-200\/60,
+.light .border-ink-200\/40 { border-color: rgba(15, 20, 34, 0.1); }
+.light .border-ink-300,
+.light .border-ink-300\/60,
+.light .border-ink-300\/40 { border-color: rgba(15, 20, 34, 0.14); }
 .light .border-ink-800,
 .light .border-ink-800\/80,
 .light .border-ink-800\/70,
@@ -539,16 +572,20 @@ html[data-legendsos-desktop="true"][data-legendsos-platform="darwin"] .desktop-l
 .light .border-ink-700,
 .light .border-ink-700\/80,
 .light .border-ink-700\/70,
-.light .border-ink-700\/60 { border-color: rgba(15, 20, 34, 0.08); }
-.light .border-ink-600 { border-color: rgba(15, 20, 34, 0.1); }
+.light .border-ink-700\/60 { border-color: rgba(15, 20, 34, 0.1); }
+.light .border-ink-600 { border-color: rgba(15, 20, 34, 0.11); }
 .light .border-ink-500 { border-color: rgba(15, 20, 34, 0.12); }
 
 /* Hover/utility surfaces commonly used for menus and rows. */
+.light .hover\:bg-ink-50:hover { background-color: rgba(255, 255, 255, 0.98); }
+.light .hover\:bg-ink-100:hover,
+.light .hover\:bg-ink-100\/70:hover,
+.light .hover\:bg-ink-100\/60:hover { background-color: rgba(232, 237, 245, 0.9); }
 .light .hover\:bg-ink-800\/70:hover,
 .light .hover\:bg-ink-800\/50:hover,
-.light .hover\:bg-ink-800:hover { background-color: rgba(242, 244, 248, 0.9); }
+.light .hover\:bg-ink-800:hover { background-color: rgba(232, 237, 245, 0.92); }
 .light .hover\:bg-ink-900\/70:hover,
-.light .hover\:bg-ink-900\/60:hover { background-color: rgba(246, 247, 250, 0.92); }
+.light .hover\:bg-ink-900\/60:hover { background-color: rgba(246, 248, 251, 0.94); }
 
 @layer utilities {
   .text-balance {
@@ -588,12 +625,12 @@ html[data-legendsos-desktop="true"][data-legendsos-platform="darwin"] .desktop-l
     box-shadow:
       0 1px 0 0 rgba(255, 255, 255, 0.05) inset,
       0 18px 54px -32px rgba(0, 0, 0, 0.92),
-      0 0 0 1px rgba(var(--champagne-highlight), 0.07);
+      0 0 0 1px rgb(var(--champagne-highlight) / 0.07);
   }
   50% {
     box-shadow:
       0 1px 0 0 rgba(255, 255, 255, 0.07) inset,
       0 18px 54px -28px rgba(0, 0, 0, 0.9),
-      0 0 28px -14px rgba(var(--burnt-gold), 0.32);
+      0 0 28px -14px rgb(var(--burnt-gold) / 0.32);
   }
 }

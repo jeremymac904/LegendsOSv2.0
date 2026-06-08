@@ -97,40 +97,42 @@ export default async function AtlasIndexPage({
   });
 
   return (
-    <AtlasWorkspace
-      ownerId={profile.id}
-      currentThread={null}
-      initialInput={initialInput}
-      assistants={assistantList}
-      providerCatalog={textProviders.map((p) => ({
-        id: p.id as "openrouter" | "deepseek" | "nvidia" | "minimax",
-        label: p.label,
-        configured: p.configured,
-        enabled: p.enabled,
-      }))}
-      modelCatalog={models}
-      defaultProvider={defaultProvider}
-      initialRuntimeContext={initialRuntimeContext}
-      organizationId={profile.organization_id}
-      projects={assistantList}
-      knowledgeCollections={((collections ?? []) as Pick<
-        KnowledgeCollection,
-        "id" | "name" | "description" | "visibility"
-      >[]).map((collection) => ({
-        id: collection.id,
-        name: collection.name,
-        description: collection.description,
-        visibility: collection.visibility,
-        item_count: itemCountMap.get(collection.id) ?? 0,
-      }))}
-      projectAccess={projectAccess}
-      recentThreads={(threadRows ?? []) as {
-        id: string;
-        title: string;
-        assistant_id: string | null;
-        last_message_at: string | null;
-        is_archived: boolean;
-      }[]}
-    />
+    <div className="h-full min-h-0 overflow-hidden">
+      <AtlasWorkspace
+        ownerId={profile.id}
+        currentThread={null}
+        initialInput={initialInput}
+        assistants={assistantList}
+        providerCatalog={textProviders.map((p) => ({
+          id: p.id as "openrouter" | "deepseek" | "nvidia" | "minimax",
+          label: p.label,
+          configured: p.configured,
+          enabled: p.enabled,
+        }))}
+        modelCatalog={models}
+        defaultProvider={defaultProvider}
+        initialRuntimeContext={initialRuntimeContext}
+        organizationId={profile.organization_id}
+        projects={assistantList}
+        knowledgeCollections={((collections ?? []) as Pick<
+          KnowledgeCollection,
+          "id" | "name" | "description" | "visibility"
+        >[]).map((collection) => ({
+          id: collection.id,
+          name: collection.name,
+          description: collection.description,
+          visibility: collection.visibility,
+          item_count: itemCountMap.get(collection.id) ?? 0,
+        }))}
+        projectAccess={projectAccess}
+        recentThreads={(threadRows ?? []) as {
+          id: string;
+          title: string;
+          assistant_id: string | null;
+          last_message_at: string | null;
+          is_archived: boolean;
+        }[]}
+      />
+    </div>
   );
 }
