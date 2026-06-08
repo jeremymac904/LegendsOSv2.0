@@ -1,16 +1,18 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronDown, type LucideIcon } from "lucide-react";
+import { isValidElement, useState } from "react";
+import { ChevronDown } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+
+type AccordionIcon = React.ComponentType<{ size?: number | string }> | React.ReactNode;
 
 export interface AccordionItemData {
   id: string;
   title: string;
   /** Optional short text shown to the right of the title (e.g. a count or status). */
   meta?: React.ReactNode;
-  icon?: LucideIcon;
+  icon?: AccordionIcon;
   defaultOpen?: boolean;
   children: React.ReactNode;
 }
@@ -70,7 +72,16 @@ interface AccordionItemProps {
 }
 
 export function AccordionItem({ item, open, onToggle }: AccordionItemProps) {
-  const { id, title, meta, icon: Icon } = item;
+  const { id, title, meta, icon } = item;
+  const IconComponent =
+    typeof icon === "function"
+      ? (icon as React.ComponentType<{ size?: number | string }>)
+      : null;
+  const renderedIcon = IconComponent
+    ? <IconComponent size={16} />
+    : isValidElement(icon)
+      ? icon
+      : null;
   const headerId = `accordion-header-${id}`;
   const panelId = `accordion-panel-${id}`;
 
@@ -95,16 +106,16 @@ export function AccordionItem({ item, open, onToggle }: AccordionItemProps) {
             "hover:bg-accent-gold/[0.04] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-gold/50"
           )}
         >
-          {Icon && (
+          {icon && (
             <span
               className={cn(
                 "grid h-8 w-8 shrink-0 place-items-center rounded-lg border transition-colors",
                 open
                   ? "border-accent-gold/30 bg-accent-gold/10 text-accent-gold"
-                  : "border-ink-200 bg-ink-950/30 text-ink-300 dark:border-ink-800"
+                : "border-ink-200 bg-ink-950/30 text-ink-300 dark:border-ink-800"
               )}
             >
-              <Icon size={16} />
+              {renderedIcon}
             </span>
           )}
           <span className="min-w-0 flex-1">

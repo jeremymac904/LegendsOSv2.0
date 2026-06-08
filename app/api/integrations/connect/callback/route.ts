@@ -107,6 +107,7 @@ interface DestinationOption {
 function providerFromState(rawState: string | null): {
   provider: ProviderId;
   targetUserId: string;
+  returnTo?: string;
 } | null {
   if (!rawState) return null;
   const state = readOAuthState(rawState);
@@ -124,18 +125,35 @@ function providerFromState(rawState: string | null): {
   return {
     provider: state.provider as ProviderId,
     targetUserId: state.target_user_id,
+    returnTo: state.return_to,
   };
 }
 
 function redirectBack(
   origin: string,
-  params: Record<string, string | null | undefined>
+  params: Record<string, string | null | undefined>,
+  returnTo?: string | null
 ): NextResponse {
-  const url = new URL("/settings", origin);
+  const safeReturnTo = sanitizeReturnTo(origin, returnTo);
+  const url = new URL(safeReturnTo, origin);
   for (const [key, value] of Object.entries(params)) {
     if (value) url.searchParams.set(key, value);
   }
   return NextResponse.redirect(url);
+}
+
+function sanitizeReturnTo(origin: string, returnTo: string | null | undefined): string {
+  if (!returnTo) return "/settings";
+  const candidate = returnTo.trim();
+  if (!candidate.startsWith("/") || candidate.startsWith("//")) return "/settings";
+
+  try {
+    const parsed = new URL(candidate, origin);
+    if (parsed.origin !== origin) return "/settings";
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  } catch {
+    return "/settings";
+  }
 }
 
 async function fetchJson<T>(input: string, init?: RequestInit): Promise<T> {
@@ -422,29 +440,31 @@ export async function GET(request: Request) {
     return redirectBack(origin, {
       integration: state?.provider ?? null,
       error: errorDescription ?? error,
-    });
+    }, state?.returnTo);
   }
 
   if (!code || !state) {
     return redirectBack(origin, {
       integration: state?.provider ?? null,
       error: "invalid_oauth_state",
-    });
+    }, state?.returnTo);
   }
 
   const profile = await getCurrentProfile();
   if (!profile) {
-    return redirectBack(origin, {
-      integration: state.provider,
-      error: "unauthenticated",
-    });
+    const loginUrl = new URL("/login", origin);
+    const returnTo = sanitizeReturnTo(origin, state.returnTo);
+    loginUrl.searchParams.set("from", returnTo);
+    loginUrl.searchParams.set("error", "oauth_unauthenticated");
+    loginUrl.searchParams.set("integration", state.provider);
+    return NextResponse.redirect(loginUrl);
   }
 
   if (state.targetUserId !== profile.id && !isAdminOrOwner(profile)) {
     return redirectBack(origin, {
       integration: state.provider,
       error: "forbidden",
-    });
+    }, state.returnTo);
   }
 
   const service = getSupabaseServiceClient();
@@ -577,11 +597,12 @@ export async function GET(request: Request) {
     return redirectBack(origin, {
       integration: state.provider,
       connected: "1",
-    });
+      success: "1",
+    }, state.returnTo);
   } catch (err) {
     return redirectBack(origin, {
       integration: state.provider,
       error: err instanceof Error ? err.message : "oauth_callback_failed",
-    });
+    }, state.returnTo);
   }
 }

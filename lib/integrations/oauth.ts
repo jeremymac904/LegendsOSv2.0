@@ -5,6 +5,7 @@ import { getServerEnv } from "@/lib/env";
 export interface OAuthStatePayload {
   provider: string;
   target_user_id: string;
+  return_to?: string;
   issued_at: number;
 }
 

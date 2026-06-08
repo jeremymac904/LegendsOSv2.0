@@ -117,7 +117,7 @@ export async function POST(req: Request) {
   }
 
   const body = (await req.json().catch(() => null)) as
-    | { provider?: string; target_user_id?: string }
+    | { provider?: string; target_user_id?: string; return_to?: string }
     | null;
 
   const providerRaw = body?.provider ?? "google";
@@ -132,6 +132,8 @@ export async function POST(req: Request) {
     );
   }
   const provider = providerRaw as ProviderId;
+
+  const targetReturnTo = sanitizeReturnTo(body?.return_to);
 
   // Owner-or-self: a user may connect their own account; an owner/admin may
   // initiate a connect on behalf of a team member. Anyone else connecting for
@@ -181,6 +183,7 @@ export async function POST(req: Request) {
   const state = createOAuthState({
     provider,
     target_user_id: targetUserId,
+    ...(targetReturnTo ? { return_to: targetReturnTo } : {}),
   });
   const redirectUri =
     provider === "facebook"
@@ -227,4 +230,19 @@ export async function POST(req: Request) {
     },
     { headers: cors }
   );
+}
+
+function sanitizeReturnTo(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const candidate = raw.trim();
+  if (!candidate.startsWith("/") || candidate.startsWith("//")) return null;
+
+  try {
+    const parsed = new URL(candidate, "https://app.local");
+    if (parsed.origin !== "https://app.local") return null;
+    const next = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+    return next.length > 1 ? next : "/";
+  } catch {
+    return null;
+  }
 }
