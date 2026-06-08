@@ -280,7 +280,10 @@ export function IntegrationConnections() {
         method: "POST",
         credentials: "include",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ provider }),
+        body: JSON.stringify({
+          provider,
+          return_to: `${window.location.pathname}${window.location.search}`,
+        }),
       });
       const json = (await res.json()) as {
         ok: boolean;
