@@ -383,7 +383,7 @@ export default async function SettingsPage() {
     {
       id: "desktop-app",
       title: "Desktop app",
-      icon: MonitorCheck,
+      icon: <MonitorCheck size={16} />,
       defaultOpen: true,
       children: (
         <SectionErrorBoundary title="Desktop app">
@@ -409,7 +409,7 @@ export default async function SettingsPage() {
       id: "connections",
       title: "Connections & setup coaches",
       meta: `${connectionGuides.filter((g) => g.configured).length}/${connectionGuides.length} keys present`,
-      icon: Plug,
+      icon: <Plug size={16} />,
       defaultOpen: true,
       children: (
         <SectionErrorBoundary title="Connections & setup coaches">
@@ -420,7 +420,7 @@ export default async function SettingsPage() {
     {
       id: "google-integrations",
       title: "Google integrations (per-user)",
-      icon: Link2,
+      icon: <Link2 size={16} />,
       defaultOpen: true,
       children: (
         <SectionErrorBoundary title="Google integrations">
@@ -435,7 +435,7 @@ export default async function SettingsPage() {
             id: "route-ownership",
             title: "Route ownership audit",
             meta: "informational",
-            icon: Route,
+            icon: <Route size={16} />,
             children: (
               <SectionErrorBoundary title="Route ownership audit">
                 <RouteOwnershipAudit />
@@ -447,7 +447,7 @@ export default async function SettingsPage() {
     {
       id: "drive-loan-brain",
       title: "Drive & Loan Brain",
-      icon: HardDrive,
+      icon: <HardDrive size={16} />,
       children: (
         <SectionErrorBoundary title="Drive & Loan Brain">
           <DriveLoanBrainSetup />
@@ -457,7 +457,7 @@ export default async function SettingsPage() {
     {
       id: "tutorials",
       title: "Setup tutorials",
-      icon: Video,
+      icon: <Video size={16} />,
       children: (
         // HONEST: no walkthrough videos are wired up yet. Rather than render
         // empty video placeholders that imply content exists, collapse to one
@@ -472,7 +472,7 @@ export default async function SettingsPage() {
       id: "ai-providers",
       title: "AI Provider Gateway",
       meta: `${merged.filter((p) => p.configured).length} keys present`,
-      icon: Cpu,
+      icon: <Cpu size={16} />,
       defaultOpen: true,
       children: (
         <SectionErrorBoundary title="AI Provider Gateway">
