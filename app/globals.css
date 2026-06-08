@@ -85,15 +85,15 @@
   --muted-text: 60 67 90;
   --theme-shell-rgb: 255 255 255;
   --theme-card-rgb: 255 255 255;
-  --theme-sidebar-opacity: 0.84;
-  --theme-card-opacity: 0.82;
-  --theme-glass-intensity: 0.72;
+  --theme-sidebar-opacity: 0.92;
+  /* Light mode: near-solid cards + low blur so glass NEVER reduces readability
+   * (WCAG AA). No dark background image — a clean warm-white gradient only. */
+  --theme-card-opacity: 0.95;
+  --theme-glass-intensity: 0.3;
   --theme-body-background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, rgba(250, 251, 253, 0.92) 55%, rgba(247, 248, 251, 0.98) 100%),
-    radial-gradient(65% 50% at 28% 6%, rgba(var(--burnt-gold), 0.06) 0%, rgba(var(--burnt-gold), 0) 60%),
-    radial-gradient(50% 45% at 90% 16%, rgba(var(--champagne-highlight), 0.07) 0%, rgba(var(--champagne-highlight), 0) 62%),
-    radial-gradient(55% 55% at 10% 94%, rgba(var(--champagne-highlight), 0.05) 0%, rgba(var(--champagne-highlight), 0) 62%),
-    url("/assets/backgrounds/command-center-elegant.jpg");
+    linear-gradient(180deg, rgb(252, 253, 255) 0%, rgb(248, 250, 253) 55%, rgb(245, 247, 251) 100%),
+    radial-gradient(60% 45% at 22% 4%, rgba(var(--burnt-gold), 0.05) 0%, rgba(var(--burnt-gold), 0) 60%),
+    radial-gradient(48% 42% at 92% 14%, rgba(var(--champagne-highlight), 0.05) 0%, rgba(var(--champagne-highlight), 0) 62%);
 }
 
 html,

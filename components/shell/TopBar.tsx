@@ -30,7 +30,7 @@ export function TopBar({ profile }: { profile: Profile }) {
   }
 
   return (
-    <header className="theme-shell desktop-titlebar-drag desktop-mac-traffic-offset sticky top-0 z-20 flex items-center justify-between gap-4 border-b border-ink-900/10 px-5 py-3 relative dark:border-accent-champagne/10">
+    <header className="theme-shell desktop-titlebar-drag desktop-mac-traffic-offset shrink-0 z-20 flex items-center justify-between gap-4 border-b border-ink-900/10 px-5 py-3 relative dark:border-accent-champagne/10">
       <span
         aria-hidden
         className="pointer-events-none absolute inset-x-6 bottom-[-1px] h-px bg-gradient-to-r from-transparent via-accent-champagne/30 to-transparent dark:via-accent-champagne/20"
