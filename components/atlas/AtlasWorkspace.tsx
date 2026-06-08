@@ -999,9 +999,9 @@ export function AtlasWorkspace({
   }
 
   return (
-    <div className="flex h-full min-h-0 w-full overflow-hidden">
+    <div className="flex h-full min-h-0 max-h-full w-full overflow-hidden">
       {/* Left: Projects */}
-      <div className={cn("flex flex-col border-r border-accent-champagne/10 bg-white/60 dark:bg-ink-950/60 backdrop-blur-xl transition-all duration-200", leftOpen ? "w-72 shrink-0 xl:w-80" : "w-0 overflow-hidden")}>
+      <div className={cn("flex min-h-0 flex-col border-r border-accent-champagne/10 bg-white/60 dark:bg-ink-950/60 backdrop-blur-xl transition-all duration-200", leftOpen ? "w-72 shrink-0 xl:w-80" : "w-0 overflow-hidden")}>
         <div className="flex items-center justify-between gap-2 border-b border-ink-200 dark:border-ink-800 px-3 py-2">
           <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-gold-gradient">Atlas workspace</span>
           <button type="button" onClick={() => setLeftOpen(false)} className="text-ink-500 dark:text-ink-500 hover:text-ink-800 dark:hover:text-ink-200"><ChevronsLeft size={12} /></button>
@@ -1025,8 +1025,8 @@ export function AtlasWorkspace({
       )}
 
       {/* Center: Chat */}
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <div className="flex items-center justify-between gap-3 border-b border-accent-champagne/10 bg-white/70 dark:bg-ink-950/70 px-4 py-2 backdrop-blur sm:px-6">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-accent-champagne/10 bg-white/70 dark:bg-ink-950/70 px-4 py-2 backdrop-blur sm:px-6">
           <div className="flex min-w-0 items-center gap-2.5">
             <span aria-hidden className="flex h-7 w-20 shrink-0 items-center rounded-md border border-accent-gold/25 bg-white/50 dark:bg-ink-950/50 px-1.5" title="LegendsOS · Atlas">
               <img
@@ -1078,14 +1078,14 @@ export function AtlasWorkspace({
             </button>
           </div>
         </div>
-        <div ref={scrollerRef} className="flex-1 overflow-y-auto px-4 py-6 scrollbar-thin">
+        <div ref={scrollerRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-6 scrollbar-thin">
           <div className="mx-auto flex w-full max-w-7xl flex-col gap-5">
             {messages.length === 0 && <EmptyChat provider={provider} configured={Boolean(providerEntry?.configured)} onPick={injectPrompt} />}
             {messages.map((m) => <MessageRow key={m.id} message={m} />)}
             {isPending && <div className="flex items-center gap-2 text-xs text-ink-600 dark:text-ink-300"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent-gold" />Atlas is thinking…</div>}
           </div>
         </div>
-        <div className="border-t border-accent-champagne/10 bg-white/80 dark:bg-ink-950/80 px-3 pb-10 pt-4 backdrop-blur-xl sm:px-6">
+        <div className="shrink-0 border-t border-accent-champagne/10 bg-white/80 dark:bg-ink-950/80 px-3 pb-4 pt-3 backdrop-blur-xl sm:px-6">
           <div className="mx-auto w-full max-w-7xl">
             {error && <p className="mb-2 rounded-lg border border-status-err/30 bg-status-err/10 px-3 py-2 text-xs text-status-err">{error}</p>}
             {attachments.length > 0 && (
@@ -1122,7 +1122,7 @@ export function AtlasWorkspace({
       </div>
 
       {/* Right: Sources and action resources */}
-      <div className={cn("flex flex-col border-l border-accent-champagne/10 bg-white/60 dark:bg-ink-950/60 backdrop-blur-xl transition-all duration-200", rightOpen ? "w-72 shrink-0 xl:w-80" : "w-0 overflow-hidden")}>
+      <div className={cn("flex min-h-0 flex-col border-l border-accent-champagne/10 bg-white/60 dark:bg-ink-950/60 backdrop-blur-xl transition-all duration-200", rightOpen ? "w-72 shrink-0 xl:w-80" : "w-0 overflow-hidden")}>
         <div className="flex items-center justify-between gap-2 border-b border-ink-200 dark:border-ink-800 px-3 py-2">
           <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-600 dark:text-ink-300">Resources</span>
           <button type="button" onClick={() => setRightOpen(false)} className="text-ink-500 dark:text-ink-500 hover:text-ink-800 dark:hover:text-ink-200"><ChevronsRight size={12} /></button>

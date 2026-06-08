@@ -20,13 +20,13 @@ export function Sidebar({ profile }: { profile: Profile }) {
   };
 
   return (
-    <aside className="theme-shell hidden h-full w-64 shrink-0 flex-col border-r border-ink-900/10 px-3 py-5 lg:flex relative dark:border-accent-champagne/10">
+    <aside className="theme-shell relative hidden h-full min-h-0 w-64 shrink-0 flex-col border-r border-ink-900/10 px-3 py-5 lg:flex dark:border-accent-champagne/10">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-accent-champagne/30 to-transparent dark:via-accent-champagne/20"
       />
 
-      <div className="px-2">
+      <div className="shrink-0 px-2">
         <Link href="/dashboard" className="group flex items-center gap-3">
           <div className="flex h-11 w-36 shrink-0 items-center rounded-xl border border-accent-gold/35 bg-white/65 px-2 shadow-glass dark:border-accent-gold/20 dark:bg-ink-950/40">
             <img
@@ -43,7 +43,7 @@ export function Sidebar({ profile }: { profile: Profile }) {
         </Link>
       </div>
 
-      <nav className="mt-7 flex-1 space-y-5 overflow-y-auto pr-1 scrollbar-thin">
+      <nav className="mt-7 min-h-0 flex-1 space-y-5 overflow-y-auto pr-1 scrollbar-thin">
         {NAV_SECTIONS.map((section) => {
           const items = NAV_ITEMS.filter(
             (item) =>
@@ -100,7 +100,7 @@ export function Sidebar({ profile }: { profile: Profile }) {
         })}
       </nav>
 
-      <div className="mt-4 border-t border-ink-900/10 pt-4 dark:border-ink-800/70">
+      <div className="mt-4 shrink-0 border-t border-ink-900/10 pt-4 dark:border-ink-800/70">
         <div className="relative overflow-hidden rounded-2xl border border-ink-900/10 bg-white/65 p-3 backdrop-blur-sm dark:border-accent-champagne/10 dark:bg-ink-950/40">
           <span
             aria-hidden

@@ -14,7 +14,7 @@ export default async function FloPage() {
   if (!isAdminOrOwner(profile) && !isProcessor(profile)) redirect("/dashboard");
 
   return (
-    <div className="flex h-full min-h-[480px] flex-col space-y-4">
+    <div className="flex h-[calc(100dvh-7rem)] min-h-0 flex-col overflow-hidden">
       <SectionHeader
         eyebrow="Processing · FLO"
         title="FLO — Processing assistant"

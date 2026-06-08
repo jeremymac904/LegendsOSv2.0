@@ -177,10 +177,18 @@ function ThemeBackdrop() {
 
   if (!enabled || reducedMotion || !snapshot.backgroundVideo.url) return null;
 
+  const isLight = snapshot.mode === "light";
+  const videoClassName = isLight
+    ? "absolute inset-0 h-full w-full object-cover opacity-[0.06]"
+    : "absolute inset-0 h-full w-full object-cover opacity-[0.12] mix-blend-screen";
+  const overlayClassName = isLight
+    ? "absolute inset-0 bg-[linear-gradient(180deg,rgba(250,251,253,0.88),rgba(248,250,252,0.96))]"
+    : "absolute inset-0 bg-[linear-gradient(180deg,rgba(5,6,10,0.42),rgba(5,6,10,0.78))]";
+
   return (
     <div aria-hidden className="pointer-events-none fixed inset-0 overflow-hidden">
       <video
-        className="absolute inset-0 h-full w-full object-cover opacity-[0.18] mix-blend-screen"
+        className={videoClassName}
         src={snapshot.backgroundVideo.url}
         autoPlay
         muted
@@ -188,7 +196,7 @@ function ThemeBackdrop() {
         playsInline
         preload="metadata"
       />
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,6,10,0.18),rgba(5,6,10,0.58))] dark:bg-[linear-gradient(180deg,rgba(5,6,10,0.2),rgba(5,6,10,0.72))]" />
+      <div className={overlayClassName} />
     </div>
   );
 }

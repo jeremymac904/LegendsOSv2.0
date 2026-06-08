@@ -229,9 +229,9 @@ export function AgentChat({
   }
 
   return (
-    <div className="flex h-full min-h-[480px] flex-col rounded-2xl border border-ink-200 bg-white/70 dark:border-ink-800 dark:bg-ink-950/40">
+    <div className="flex h-full min-h-0 max-h-full flex-col overflow-hidden rounded-2xl border border-ink-200 bg-white/70 dark:border-ink-800 dark:bg-ink-950/40">
       {/* Header */}
-      <div className="flex items-center justify-between gap-2 border-b border-ink-200 px-4 py-3 dark:border-ink-800">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-ink-200 px-4 py-3 dark:border-ink-800">
         <div className="flex items-center gap-2">
           <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-accent-gold/30 bg-accent-gold/10 text-accent-gold">
             <Sparkles size={16} />
@@ -250,7 +250,7 @@ export function AgentChat({
       </div>
 
       {/* Context panel */}
-      <div className="border-b border-ink-200 px-4 py-2 dark:border-ink-800">
+      <div className="shrink-0 border-b border-ink-200 px-4 py-2 dark:border-ink-800">
         <button
           onClick={() => setShowContext((v) => !v)}
           className="flex w-full items-center justify-between text-[11px] font-medium uppercase tracking-[0.16em] text-ink-500 dark:text-ink-400"
@@ -285,7 +285,7 @@ export function AgentChat({
       </div>
 
       {/* Messages */}
-      <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+      <div ref={scrollRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
         {turns.length === 0 && !setupNeeded && (
           <p className="text-sm text-ink-500 dark:text-ink-400">
             Ask {agentName} anything. {agentRole}.
@@ -323,7 +323,7 @@ export function AgentChat({
 
       {/* Skill draft */}
       {skillOpen && (
-        <div className="border-t border-ink-200 bg-ink-50/60 px-4 py-3 dark:border-ink-800 dark:bg-ink-950/60">
+        <div className="shrink-0 border-t border-ink-200 bg-ink-50/60 px-4 py-3 dark:border-ink-800 dark:bg-ink-950/60">
           <p className="mb-2 flex items-center gap-1.5 text-xs font-medium text-ink-700 dark:text-ink-200">
             <Wand2 size={13} /> {skillSuggest ? "Save this as a reusable skill?" : "New skill"}
           </p>
@@ -350,7 +350,7 @@ export function AgentChat({
       )}
 
       {/* Composer */}
-      <div className="border-t border-ink-200 px-3 py-3 dark:border-ink-800">
+      <div className="shrink-0 border-t border-ink-200 px-3 py-3 dark:border-ink-800">
         <div className="flex items-end gap-2">
           <textarea
             value={input}

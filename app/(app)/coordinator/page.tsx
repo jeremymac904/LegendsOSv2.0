@@ -41,7 +41,7 @@ export default async function CoordinatorPage() {
         }));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 xl:flex xl:h-[calc(100dvh-7rem)] xl:min-h-0 xl:flex-col xl:gap-6 xl:overflow-hidden xl:space-y-0">
       <SectionHeader
         eyebrow="Coordinator"
         title="Follow-up board"
@@ -50,11 +50,11 @@ export default async function CoordinatorPage() {
       {usingSample && (
         <SampleModeBanner note="Sample Mode — no live assigned leads/prospects visible yet · no borrower data · drafts only, nothing sends." />
       )}
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_400px]">
-        <div className="min-w-0">
+      <div className="grid grid-cols-1 gap-6 xl:min-h-0 xl:flex-1 xl:grid-cols-[1fr_400px] xl:overflow-hidden">
+        <div className="min-w-0 xl:min-h-0 xl:overflow-y-auto xl:pr-1 xl:scrollbar-thin">
           <CoordinatorBoard rows={rows} sampleMode={usingSample} />
         </div>
-        <div className="xl:sticky xl:top-4 xl:h-[calc(100vh-7rem)]">
+        <div className="h-[34rem] xl:h-full xl:min-h-0">
           <AgentChat
             agentType="coordinator_agent"
             agentName="Coordinator Assistant"
