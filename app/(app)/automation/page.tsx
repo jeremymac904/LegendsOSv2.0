@@ -12,9 +12,10 @@ import {
 } from "lucide-react";
 
 import { buildAutomationRegistry, type AutomationReadiness } from "@/lib/automation/registry";
+import { allowedUserAutomations } from "@/lib/automation/n8n-control";
 import { getEffectiveProfile } from "@/lib/impersonation";
-import { isOwner } from "@/lib/permissions";
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { isAdminOrOwner } from "@/lib/permissions";
+import { getSupabaseServerClient, getSupabaseServiceClient } from "@/lib/supabase/server";
 import { formatRelative, truncate } from "@/lib/utils";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatCard } from "@/components/ui/StatCard";
@@ -55,9 +56,11 @@ interface BrowserAuditRow {
 
 export default async function AutomationControlCenterPage() {
   const { profile } = await getEffectiveProfile();
-  if (!profile || !isOwner(profile)) redirect("/dashboard");
+  if (!profile) redirect("/dashboard");
 
+  const adminView = isAdminOrOwner(profile);
   const registry = buildAutomationRegistry();
+  const allowedAutomations = allowedUserAutomations();
   let setupNeeded = false;
   let jobs: AutomationJob[] = [];
   let auditLogs: AuditLog[] = [];
@@ -67,73 +70,83 @@ export default async function AutomationControlCenterPage() {
   let browserAudit: BrowserAuditRow[] = [];
 
   try {
-    const supabase = getSupabaseServerClient();
-    const results = await Promise.all([
-      safeArrayQuery<AutomationJob>(
-        supabase
-          .from("automation_jobs")
-          .select("*")
-          .order("updated_at", { ascending: false })
-          .limit(25)
-      ),
-      safeArrayQuery<AuditLog>(
-        supabase
-          .from("audit_logs")
-          .select("*")
-          .in("action", [
-            "social_publish_requested",
-            "email_send_requested",
-            "email_test_requested",
-            "provider_enabled",
-            "provider_disabled",
-            "browser_companion_capture",
-          ])
-          .order("created_at", { ascending: false })
-          .limit(25)
-      ),
-      safeArrayQuery<LoanApprovalRow>(
-        supabase
-          .from("loan_approvals")
-          .select("id,loan_id,action_type,status,created_at")
-          .eq("status", "pending")
-          .order("created_at", { ascending: false })
-          .limit(10)
-      ),
-      safeArrayQuery<EmailIntakeAlertRow>(
-        supabase
-          .from("email_intake_alerts")
-          .select("id,alert_type,severity,decision,created_at")
-          .eq("decision", "pending")
-          .order("created_at", { ascending: false })
-          .limit(10)
-      ),
-      safeArrayQuery<BrowserCaptureRow>(
-        supabase
-          .from("browser_companion_captures")
-          .select("id,routed_assistant,status,captured_at")
-          .order("captured_at", { ascending: false })
-          .limit(10)
-      ),
-      safeArrayQuery<BrowserAuditRow>(
-        supabase
-          .from("integration_audit_log")
-          .select("id,action,provider,created_at")
-          .eq("provider", "browser_companion")
-          .order("created_at", { ascending: false })
-          .limit(10)
-      ),
-    ]);
+    const supabase = adminView ? getSupabaseServiceClient() : getSupabaseServerClient();
+    const jobsQuery = supabase
+      .from("automation_jobs")
+      .select("*")
+      .order("updated_at", { ascending: false })
+      .limit(25);
+    const visibleJobsQuery = adminView ? jobsQuery : jobsQuery.eq("user_id", profile.id);
 
-    setupNeeded = results.some((result) => result.setupNeeded);
-    [jobs, auditLogs, loanApprovals, intakeAlerts, browserCaptures, browserAudit] =
-      results.map((result) => result.data) as [
-        AutomationJob[],
-        AuditLog[],
-        LoanApprovalRow[],
-        EmailIntakeAlertRow[],
-        BrowserCaptureRow[],
-        BrowserAuditRow[],
-      ];
+    if (!adminView) {
+      const jobResult = await safeArrayQuery<AutomationJob>(visibleJobsQuery);
+      setupNeeded = jobResult.setupNeeded;
+      jobs = jobResult.data;
+    } else {
+      const results = await Promise.all([
+        safeArrayQuery<AutomationJob>(visibleJobsQuery),
+        safeArrayQuery<AuditLog>(
+          supabase
+            .from("audit_logs")
+            .select("*")
+            .in("action", [
+              "social_publish_requested",
+              "email_send_requested",
+              "email_test_requested",
+              "email_test_send_dispatched",
+              "provider_enabled",
+              "provider_disabled",
+              "browser_companion_capture",
+              "n8n_job_retried",
+              "n8n_retry_blocked",
+            ])
+            .order("created_at", { ascending: false })
+            .limit(25)
+        ),
+        safeArrayQuery<LoanApprovalRow>(
+          supabase
+            .from("loan_approvals")
+            .select("id,loan_id,action_type,status,created_at")
+            .eq("status", "pending")
+            .order("created_at", { ascending: false })
+            .limit(10)
+        ),
+        safeArrayQuery<EmailIntakeAlertRow>(
+          supabase
+            .from("email_intake_alerts")
+            .select("id,alert_type,severity,decision,created_at")
+            .eq("decision", "pending")
+            .order("created_at", { ascending: false })
+            .limit(10)
+        ),
+        safeArrayQuery<BrowserCaptureRow>(
+          supabase
+            .from("browser_companion_captures")
+            .select("id,routed_assistant,status,captured_at")
+            .order("captured_at", { ascending: false })
+            .limit(10)
+        ),
+        safeArrayQuery<BrowserAuditRow>(
+          supabase
+            .from("integration_audit_log")
+            .select("id,action,provider,created_at")
+            .eq("provider", "browser_companion")
+            .order("created_at", { ascending: false })
+            .limit(10)
+        ),
+      ]);
+
+      setupNeeded = results.some((result) => result.setupNeeded);
+      [jobs, auditLogs, loanApprovals, intakeAlerts, browserCaptures, browserAudit] =
+        results.map((result) => result.data) as [
+          AutomationJob[],
+          AuditLog[],
+          LoanApprovalRow[],
+          EmailIntakeAlertRow[],
+          BrowserCaptureRow[],
+          BrowserAuditRow[],
+        ];
+    }
   } catch {
     setupNeeded = true;
   }
@@ -146,14 +159,25 @@ export default async function AutomationControlCenterPage() {
   return (
     <div className="space-y-6">
       <SectionHeader
-        eyebrow="Owner automation"
-        title="Automation Control Center"
-        description="Production readiness view for webhooks, integrations, n8n contracts, scheduled jobs, Browser Companion paths, execution history, failures, approvals, and audit coverage. This page is read-only and does not activate external workflows."
+        eyebrow={adminView ? "Team automation" : "My automation"}
+        title={adminView ? "Automation Control Center" : "My Automations"}
+        description={
+          adminView
+            ? "Production readiness view for webhooks, integrations, n8n contracts, scheduled jobs, Browser Companion paths, execution history, failures, approvals, and audit coverage. This page is read-only and does not activate external workflows."
+            : "Allowed automation entry points and your own run history. External workflow plumbing stays behind owner/admin controls."
+        }
         action={
           <div className="flex flex-wrap gap-2">
-            <Link href="/admin" className="btn-ghost text-xs">
-              Admin Center
-            </Link>
+            {adminView && (
+              <>
+                <Link href="/admin/n8n" className="btn-ghost text-xs">
+                  n8n Control
+                </Link>
+                <Link href="/admin" className="btn-ghost text-xs">
+                  Admin Center
+                </Link>
+              </>
+            )}
             <Link href="/settings" className="btn-ghost text-xs">
               Settings
             </Link>
@@ -171,9 +195,13 @@ export default async function AutomationControlCenterPage() {
 
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          label="Registry paths"
-          value={registry.summary.total}
-          hint={`${registry.summary.ready} ready/configured, ${registry.summary.partial} partial`}
+          label={adminView ? "Registry paths" : "Allowed automations"}
+          value={adminView ? registry.summary.total : allowedAutomations.length}
+          hint={
+            adminView
+              ? `${registry.summary.ready} ready/configured, ${registry.summary.partial} partial`
+              : "Available through LegendsOS pages"
+          }
           icon={Workflow}
         />
         <StatCard
@@ -185,29 +213,39 @@ export default async function AutomationControlCenterPage() {
         <StatCard
           label="Failures"
           value={failedJobs.length}
-          hint="Recent jobs needing retry/review"
+          hint={adminView ? "Recent jobs needing retry/review" : "Your recent failed runs"}
           icon={AlertTriangle}
         />
         <StatCard
-          label="Approval items"
-          value={approvalCount}
-          hint="Pending approvals + queued actions"
+          label={adminView ? "Approval items" : "Completed"}
+          value={adminView ? approvalCount : jobs.filter((job) => job.status === "succeeded").length}
+          hint={adminView ? "Pending approvals + queued actions" : "Your succeeded automation jobs"}
           icon={ShieldCheck}
         />
       </section>
 
-      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      {!adminView && (
+        <>
+          <AllowedAutomationsPanel automations={allowedAutomations} />
+          <section className="grid gap-4 xl:grid-cols-2">
+            <HistoryPanel jobs={jobs} />
+            <FailurePanel failedJobs={failedJobs} />
+          </section>
+        </>
+      )}
+
+      {adminView && <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <StatusCard label="Webhook status" status={registry.status.webhook} detail="Inbound shared-secret routes" />
         <StatusCard label="n8n status" status={registry.status.n8n} detail={`${registry.readiness.n8n_webhook_count} webhook envs, ${registry.readiness.n8n_workflow_files} workflow files`} />
         <StatusCard label="Zapier status" status={registry.status.zapier} detail="MCP stub until configured" />
-        <StatusCard label="Google status" status={registry.status.google} detail="OAuth start only; writes disabled" />
-        <StatusCard label="Meta status" status={registry.status.meta} detail="Stubbed; no direct Meta calls" />
+        <StatusCard label="Google status" status={registry.status.google} detail="Per-user OAuth; writes gated" />
+        <StatusCard label="Meta status" status={registry.status.meta} detail="Direct publisher; user destination gated" />
         <StatusCard label="Email status" status={registry.status.email} detail={registry.readiness.live_email_send_enabled ? "Live send flag enabled" : "Queued by default"} />
         <StatusCard label="Drive status" status={registry.status.drive} detail="Needs Review only; borrower-folder writes blocked" />
         <StatusCard label="Browser Companion" status={registry.status.browser_companion} detail={`${browserCaptures.length} recent captures, ${browserAudit.length} audit rows`} />
-      </section>
+      </section>}
 
-      <section className="grid gap-4 xl:grid-cols-[1.4fr_0.9fr]">
+      {adminView && <section className="grid gap-4 xl:grid-cols-[1.4fr_0.9fr]">
         <div className="card-padded">
           <div className="section-title">
             <div>
@@ -272,17 +310,17 @@ export default async function AutomationControlCenterPage() {
           <ReadinessPanel registry={registry} />
           <ApprovalPanel loanApprovals={loanApprovals} intakeAlerts={intakeAlerts} queuedJobs={queuedJobs} />
         </div>
-      </section>
+      </section>}
 
-      <section className="grid gap-4 xl:grid-cols-2">
+      {adminView && <section className="grid gap-4 xl:grid-cols-2">
         <HistoryPanel jobs={jobs} />
         <FailurePanel failedJobs={failedJobs} />
-      </section>
+      </section>}
 
-      <section className="grid gap-4 xl:grid-cols-2">
+      {adminView && <section className="grid gap-4 xl:grid-cols-2">
         <AuditPanel logs={auditLogs} />
         <BrowserPanel captures={browserCaptures} audit={browserAudit} />
-      </section>
+      </section>}
     </div>
   );
 }
@@ -307,15 +345,49 @@ function StatusCard({
   );
 }
 
+function AllowedAutomationsPanel({
+  automations,
+}: {
+  automations: ReturnType<typeof allowedUserAutomations>;
+}) {
+  return (
+    <div className="card-padded">
+      <div className="section-title">
+        <div>
+          <h2>Allowed automations</h2>
+          <p>Entry points available inside LegendsOS. No n8n login required.</p>
+        </div>
+        <StatusPill status="info" label={`${automations.length} available`} />
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
+        {automations.map((automation) => (
+          <Link
+            key={automation.id}
+            href={automation.route}
+            className="rounded-2xl border border-ink-200 bg-white/70 p-4 text-sm hover:border-accent-gold/50 dark:border-ink-800 dark:bg-ink-900/40"
+          >
+            <p className="font-semibold text-ink-900 dark:text-ink-100">
+              {automation.label}
+            </p>
+            <p className="mt-2 text-xs leading-relaxed text-ink-600 dark:text-ink-300">
+              {automation.currentBehavior}
+            </p>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ReadinessPanel({ registry }: { registry: ReturnType<typeof buildAutomationRegistry> }) {
   const checks = [
     ["n8n API configured", registry.readiness.n8n_api_configured],
     ["n8n callback HMAC configured", registry.readiness.n8n_callback_signature_configured],
     ["Zapier MCP configured", registry.readiness.zapier_mcp_configured],
     ["Google OAuth configured", registry.readiness.google_oauth_configured],
-    ["Google writes disabled", !registry.readiness.google_writes_enabled],
+    ["Google writes gated by user settings", registry.readiness.google_oauth_configured],
     ["Meta configured", registry.readiness.meta_configured],
-    ["Meta writes disabled unless flag on", !registry.readiness.meta_writes_enabled],
+    ["Meta writes gated by destination + live flag", registry.readiness.meta_configured],
     ["Scheduled jobs inactive", !registry.readiness.scheduled_jobs_activated],
     ["n8n workflow files inactive", registry.readiness.n8n_workflow_files_active === 0],
   ];

@@ -3,9 +3,11 @@ import { ArrowRight, BookOpen, Headphones, MessageCircle } from "lucide-react";
 
 import { AcademyTrackCard } from "@/components/training/AcademyTrackCard";
 import { LegendsAssistantsCatalog } from "@/components/training/LegendsAssistantsCatalog";
+import { LocalTrainingAssetBrowser } from "@/components/training/LocalTrainingAssetBrowser";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { getEffectiveProfile } from "@/lib/impersonation";
 import { ACADEMY_TRACKS } from "@/lib/legends/curriculum";
+import { academyTrainingAssets, trainingAssetIndex } from "@/lib/legends/trainingAssets";
 
 export const dynamic = "force-dynamic";
 
@@ -138,6 +140,16 @@ export default async function AcademyLandingPage() {
           ))}
         </div>
       </section>
+
+      <LocalTrainingAssetBrowser
+        assets={academyTrainingAssets}
+        counts={trainingAssetIndex.counts}
+        driveLinks={trainingAssetIndex.driveLinks}
+        title="Academy source index"
+        description="Curriculum, AI training, audio, transcripts, scripts, and coaching references available from the local training corpus."
+        maxVisible={24}
+        compact
+      />
 
       <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
         <div className="space-y-6">

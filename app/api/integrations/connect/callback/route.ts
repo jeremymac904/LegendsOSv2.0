@@ -374,16 +374,21 @@ function scopesFromResponse(
       "profile",
       "https://www.googleapis.com/auth/business.manage",
       "https://www.googleapis.com/auth/youtube.readonly",
+      "https://www.googleapis.com/auth/youtube.upload",
     ];
   }
   if (provider === "google") {
     return ["openid", "email", "profile"];
   }
   if (provider === "gmail") {
-    return ["https://www.googleapis.com/auth/gmail.readonly"];
+    return [
+      "https://www.googleapis.com/auth/gmail.readonly",
+      "https://www.googleapis.com/auth/gmail.compose",
+      "https://www.googleapis.com/auth/gmail.send",
+    ];
   }
   if (provider === "google_drive") {
-    return ["https://www.googleapis.com/auth/drive.readonly"];
+    return ["https://www.googleapis.com/auth/drive"];
   }
   return ["https://www.googleapis.com/auth/calendar.events"];
 }

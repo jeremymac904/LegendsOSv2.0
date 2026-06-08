@@ -1,9 +1,11 @@
-import { BookOpen, GraduationCap, PlayCircle, Sparkles } from "lucide-react";
+import { BookOpen, PlayCircle, Sparkles } from "lucide-react";
 
 import { LegendsOSHelpCoaches } from "@/components/help/LegendsOSHelpCoaches";
 import { ResourceLibrary } from "@/components/resources/ResourceLibrary";
+import { LocalTrainingAssetBrowser } from "@/components/training/LocalTrainingAssetBrowser";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { getEffectiveProfile } from "@/lib/impersonation";
+import { trainingAssetIndex, trainingAssets } from "@/lib/legends/trainingAssets";
 import { isOwner } from "@/lib/permissions";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import {
@@ -61,6 +63,11 @@ export default async function TrainingPage() {
               <div className="grid grid-cols-1 gap-2">
                  <HeroStat icon={PlayCircle} label="Embeds" value="YouTube Ready" />
                  <HeroStat icon={Sparkles} label="Nuggets" value="Quick Lessons" />
+                 <HeroStat
+                   icon={BookOpen}
+                   label="Indexed"
+                   value={`${trainingAssetIndex.counts.indexedAssets} assets`}
+                 />
               </div>
            </div>
 
@@ -76,7 +83,15 @@ export default async function TrainingPage() {
 
         {/* Main: Library */}
         <div className="flex flex-col overflow-hidden rounded-2xl border border-ink-200 bg-white/40 dark:border-ink-800 dark:bg-ink-950/20">
-           <div className="flex-1 overflow-y-auto p-4 scrollbar-thin">
+           <div className="flex-1 space-y-4 overflow-y-auto p-4 scrollbar-thin">
+              <LocalTrainingAssetBrowser
+                assets={trainingAssets}
+                counts={trainingAssetIndex.counts}
+                driveLinks={trainingAssetIndex.driveLinks}
+                description="Search local videos, transcripts, summaries, coaching docs, community packs, and source-map files without moving source assets."
+                maxVisible={72}
+                showLocalReferences={owner}
+              />
               <ResourceLibrary
                 mode="training"
                 resourceType={TRAINING_RESOURCE_TYPE}

@@ -6,6 +6,7 @@ import {
   getServerEnv,
 } from "@/lib/env";
 import { getN8nConfigState } from "@/lib/automation/n8n";
+import { isWebhookSecretConfigured } from "@/lib/emailIntake/webhook";
 import { detectMetaConfig } from "@/lib/integrations/meta";
 import { isOwner } from "@/lib/permissions";
 import { getCurrentProfile, getSupabaseServerClient } from "@/lib/supabase/server";
@@ -38,6 +39,7 @@ export async function GET() {
   const providers = getAllProviderConfigStates();
   const n8n = getN8nConfigState();
   const meta = detectMetaConfig();
+  const appUrl = PUBLIC_ENV.APP_URL.replace(/\/$/, "");
   const googleOauthConfigured = Boolean(
     process.env.GOOGLE_OAUTH_CLIENT_ID && process.env.GOOGLE_OAUTH_CLIENT_SECRET
   );
@@ -164,5 +166,9 @@ export async function GET() {
     },
     owner_email: PUBLIC_ENV.OWNER_EMAIL,
     supabase_project_url: PUBLIC_ENV.SUPABASE_URL,
+    lead_intake: {
+      configured: isWebhookSecretConfigured(),
+      webhook_url: `${appUrl}/api/webhooks/lead-intake`,
+    },
   });
 }

@@ -197,12 +197,11 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Sparkles,
   },
   {
-    section: "owner",
+    section: "team",
     href: "/automation",
-    label: "Automation",
-    description: "Control Center, webhooks, jobs, approvals",
+    label: "Automations",
+    description: "Allowed automations and run history",
     icon: Workflow,
-    gate: { ownerOnly: true },
   },
   {
     section: "owner",

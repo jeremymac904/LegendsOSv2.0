@@ -58,7 +58,7 @@ export default async function ConnectionCenterPage() {
       <SectionHeader
         eyebrow="Connections"
         title="OAuth Connection Center"
-        description="Owner-only control room for every external integration LegendsOS can use — Google OAuth, Gmail, Drive, Calendar, Meta (Facebook), Instagram, YouTube, Google Business Profile, n8n, and Zapier MCP. Status is honest: nothing reads as connected unless the data says so, publishers that aren't built yet say so, and no secret value is ever shown."
+        description="Owner-only oversight for every external integration LegendsOS can use — Google OAuth, Gmail, Drive, Calendar, Meta, Instagram, YouTube, Google Business Profile, n8n, and Zapier MCP. Status is honest: users connect and choose their own destinations, live actions stay gated, and no secret value is ever shown."
         action={<StatusPill status="ok" label="owner gated" />}
       />
 

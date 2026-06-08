@@ -132,12 +132,12 @@ const PROVIDER_ICONS: Record<ProviderId, typeof Mail> = {
 
 const PROVIDER_DESCRIPTIONS: Record<ProviderId, string> = {
   facebook:
-    "Connect Ashley's Meta account, pick one or more Pages, then select linked Instagram business accounts.",
+    "Connect your Meta account, pick one or more Pages, then select linked Instagram business accounts.",
   google_social:
     "Connect Google OAuth, then choose Google Business Profile accounts, locations, and YouTube channels.",
   google: "Personal Google account connection used by LegendsOS Google tools.",
-  gmail: "Read-only Gmail access for AI intake and follow-up drafting.",
-  google_drive: "Read-only Drive access so Atlas can retrieve approved files.",
+  gmail: "Gmail access for listing recent messages, creating drafts, and gated sends.",
+  google_drive: "Drive access for listing folders plus gated folder, upload, move, and edit actions.",
   google_calendar: "Calendar access to read and create scheduled events.",
 };
 

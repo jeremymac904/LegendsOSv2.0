@@ -6,9 +6,9 @@ import { getSupabaseServiceClient } from "@/lib/supabase/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// n8n posts back here when a workflow finishes. The current simplified
-// workflows post plain JSON (no HMAC). We trust that we issued the job_id
-// (UUID generated server-side) and update the matching row.
+// n8n posts back here when a workflow finishes. Callbacks must be HMAC-signed
+// with N8N_WEBHOOK_SECRET; the server-issued job_id alone is not sufficient to
+// update a matching row.
 //
 // Expected body:
 // {
@@ -31,7 +31,7 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         ok: false,
-        error: "unauthorized",
+        error: "unauthenticated",
         message: "Missing or invalid webhook signature.",
       },
       { status: 401 }

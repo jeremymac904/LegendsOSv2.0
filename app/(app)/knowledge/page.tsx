@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   BookOpen,
+  Database,
   ExternalLink,
   FolderTree,
   Lock,
@@ -10,9 +11,12 @@ import {
 
 import { CreateCollectionForm } from "@/components/knowledge/CreateCollectionForm";
 import { QuickUploadPicker } from "@/components/knowledge/QuickUploadPicker";
+import { LocalTrainingAssetBrowser } from "@/components/training/LocalTrainingAssetBrowser";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatusPill } from "@/components/ui/StatusPill";
+import { Tabs, type TabItem } from "@/components/ui/Tabs";
+import { trainingAssetIndex, trainingAssets } from "@/lib/legends/trainingAssets";
 import { isOwner } from "@/lib/permissions";
 import { getCurrentProfile, getSupabaseServerClient } from "@/lib/supabase/server";
 import { formatRelative } from "@/lib/utils";
@@ -120,6 +124,9 @@ export default async function KnowledgePage() {
              recent={recent}
              itemsByCollection={itemsByCollection}
              isOwner={isOwner(profile)}
+             localAssets={trainingAssets}
+             localCounts={trainingAssetIndex.counts}
+             driveLinks={trainingAssetIndex.driveLinks}
            />
         </div>
       </div>
@@ -127,9 +134,17 @@ export default async function KnowledgePage() {
   );
 }
 
-import { Tabs, type TabItem } from "@/components/ui/Tabs";
-
-function KnowledgeTabs({ priv, team, imports, recent, itemsByCollection, isOwner }: any) {
+function KnowledgeTabs({
+  priv,
+  team,
+  imports,
+  recent,
+  itemsByCollection,
+  isOwner,
+  localAssets,
+  localCounts,
+  driveLinks,
+}: any) {
   const tabs: TabItem[] = [
     {
       id: "my",
@@ -217,6 +232,25 @@ function KnowledgeTabs({ priv, team, imports, recent, itemsByCollection, isOwner
            ))}
         </div>
       )
+    });
+  }
+
+  if (isOwner) {
+    tabs.push({
+      id: "local-training-assets",
+      label: `Local Index (${localCounts.indexedAssets})`,
+      icon: Database,
+      content: (
+        <LocalTrainingAssetBrowser
+          assets={localAssets}
+          counts={localCounts}
+          driveLinks={driveLinks}
+          title="Training and community source index"
+          description="Read-only scan of local training, transcript, community, and coaching source folders. Use this before promoting files into Supabase knowledge collections."
+          maxVisible={80}
+          showLocalReferences
+        />
+      ),
     });
   }
 

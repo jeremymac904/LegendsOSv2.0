@@ -79,8 +79,8 @@ export async function GET() {
   });
 
   // n8n is "configured" when we have at least the base URL AND at least one
-  // active webhook path. HMAC signing was removed — the simplified workflows
-  // accept plain JSON.
+  // active webhook path. Callback signing is enforced by /api/automation/callback;
+  // app-to-n8n dispatch still sends plain JSON with a server-issued job id.
   const activeWebhooks = Object.entries(env.N8N_WEBHOOKS).filter(
     ([, url]) => Boolean(url)
   );
@@ -93,7 +93,12 @@ export async function GET() {
       source: env.N8N_BASE_URL ? "env" : "missing",
       env_var_names: [
         "N8N_WEBHOOK_BASE_URL",
+        "N8N_WEBHOOK_SECRET",
         "N8N_WEBHOOK_SOCIAL_PUBLISH",
+        "N8N_WEBHOOK_FACEBOOK_POST",
+        "N8N_WEBHOOK_INSTAGRAM_POST",
+        "N8N_WEBHOOK_YOUTUBE_POST",
+        "N8N_WEBHOOK_GBP_POST",
         "N8N_WEBHOOK_EMAIL_SEND",
         "N8N_WEBHOOK_DAILY_USAGE",
         "N8N_WEBHOOK_PROVIDER_HEALTH",

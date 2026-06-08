@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
 
+import { allowedUserAutomations } from "@/lib/automation/n8n-control";
 import { buildAutomationRegistry } from "@/lib/automation/registry";
-import { isOwner } from "@/lib/permissions";
+import { isAdminOrOwner } from "@/lib/permissions";
 import { getCurrentProfile } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Owner-only status endpoint. Presence/status only; no secret values, URLs, or
+// Authenticated status endpoint. Owner/admin gets the full registry; team
+// members get only allowed automation entry points. No secret values, URLs, or
 // activation calls are returned.
 export async function GET() {
   const profile = await getCurrentProfile();
@@ -17,12 +19,17 @@ export async function GET() {
       { status: 401 }
     );
   }
-  if (!isOwner(profile)) {
-    return NextResponse.json(
-      { ok: false, error: "forbidden", message: "Owner-only endpoint." },
-      { status: 403 }
-    );
+  if (!isAdminOrOwner(profile)) {
+    return NextResponse.json({
+      ok: true,
+      scope: "user",
+      automations: allowedUserAutomations(),
+    });
   }
 
-  return NextResponse.json({ ok: true, registry: buildAutomationRegistry() });
+  return NextResponse.json({
+    ok: true,
+    scope: "admin",
+    registry: buildAutomationRegistry(),
+  });
 }
