@@ -20,27 +20,39 @@ import {
 import { logUsage, recordAudit } from "@/lib/usage";
 import type { SocialChannel } from "@/types/database";
 
-// Each social channel maps to the social_account_connections.platform whose
-// owner-approval switch (is_publish_enabled) must be ON for a live publish.
-// Facebook + Instagram are both gated by the single "meta" connection.
+const channels = [
+  "facebook",
+  "instagram",
+  "google_business_profile",
+  "youtube",
+] as const;
+
+// Each social channel maps to the signed-in user's exact
+// social_account_connections.platform row whose publish switch must be ON.
+// App credentials can be global; destinations and toggles are user-owned.
 const CHANNEL_PLATFORM: Record<(typeof channels)[number], string> = {
-  facebook: "meta",
-  instagram: "meta",
+  facebook: "facebook",
+  instagram: "instagram",
   google_business_profile: "google_business_profile",
   youtube: "youtube",
 };
 
-// Returns the set of platforms whose owner-approval switch is ON. Best-effort:
-// a missing table / no rows yields an empty set (fail-closed -> stays draft).
-async function publishEnabledPlatforms(organizationId: string | null): Promise<Set<string>> {
+// Returns the set of selected platforms whose user-owned publish switch is ON.
+// Best-effort: missing table / no rows yields an empty set (fail-closed).
+async function publishEnabledPlatforms(
+  userId: string,
+  selectedPlatforms: string[]
+): Promise<Set<string>> {
   try {
+    if (selectedPlatforms.length === 0) return new Set();
     const service = getSupabaseServiceClient();
-    let q = service
+    const { data, error } = await service
       .from("social_account_connections")
       .select("platform,is_publish_enabled")
+      .eq("user_id", userId)
+      .in("platform", Array.from(new Set(selectedPlatforms)))
+      .eq("status", "connected")
       .eq("is_publish_enabled", true);
-    q = organizationId ? q.eq("organization_id", organizationId) : q.is("organization_id", null);
-    const { data, error } = await q;
     if (error || !data) return new Set();
     return new Set((data as { platform: string }[]).map((r) => r.platform));
   } catch (err) {
@@ -51,13 +63,6 @@ async function publishEnabledPlatforms(organizationId: string | null): Promise<S
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const channels = [
-  "facebook",
-  "instagram",
-  "google_business_profile",
-  "youtube",
-] as const;
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -83,6 +88,14 @@ const schema = z.object({
   // column. Front-end only sends it when YouTube is in `channels`.
   youtube_title: z.string().max(100).nullish(),
 });
+
+function metadataStringValue(metadata: unknown, key: string): string | undefined {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return undefined;
+  }
+  const value = (metadata as Record<string, unknown>)[key];
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
 
 export async function POST(req: Request) {
   const profile = await getCurrentProfile();
@@ -283,9 +296,9 @@ export async function POST(req: Request) {
   });
 
   // If scheduling, enqueue an automation job. A live dispatch requires BOTH
-  // the owner's in-app live-social toggle (integration_settings, resolved per
-  // user) AND, for every selected channel, the owner-approval switch on that
-  // platform's connection (social_account_connections.is_publish_enabled).
+  // the signed-in user's in-app live-social toggle (integration_settings,
+  // resolved per user) AND, for every selected channel, the user's publish
+  // switch on that platform's connection (social_account_connections.is_publish_enabled).
   // If either is off, the post stays queued/draft — it is NEVER published.
   let job: { job_id: string; status: string; reason?: string } | null = null;
   let publishGate: { live: boolean; reason: string } | null = null;
@@ -301,7 +314,10 @@ export async function POST(req: Request) {
       organizationId: profile.organization_id,
       userId: profile.id,
     });
-    const enabledPlatforms = await publishEnabledPlatforms(profile.organization_id);
+    const enabledPlatforms = await publishEnabledPlatforms(
+      profile.id,
+      data.channels.map((channel) => CHANNEL_PLATFORM[channel])
+    );
     const blockedChannels = data.channels.filter(
       (c) => !enabledPlatforms.has(CHANNEL_PLATFORM[c])
     );
@@ -328,6 +344,9 @@ export async function POST(req: Request) {
     // ------------------------------------------------------------------
 
     if (dispatchLive) {
+      const imageUrl = metadataStringValue(post.metadata, "image_url");
+      const videoUrl = metadataStringValue(post.metadata, "video_url");
+
       // Meta (Facebook + Instagram share one token/connection)
       const metaChannels = (
         data.channels as string[]
@@ -335,28 +354,36 @@ export async function POST(req: Request) {
       if (metaChannels.length > 0) {
         for (const ch of metaChannels) {
           const surface = ch as "facebook" | "instagram";
+          const platform = CHANNEL_PLATFORM[surface];
+          if (surface === "instagram" && !imageUrl && !videoUrl) {
+            directResults.push({
+              channel: ch,
+              platform,
+              status: "skipped",
+              error: "instagram_media_required",
+            });
+            continue;
+          }
           try {
             const metaPost: MetaPublishPost = {
               surface,
               message: data.body,
-              image_url:
-                primaryMediaId
-                  ? undefined // resolved by caller; URL not available here
-                  : undefined,
+              image_url: imageUrl,
+              video_url: videoUrl,
               connection_id: post.id,
             };
             const metaCtx = { is_publish_enabled: true, actor: profile };
             const result = await publishToMeta(metaPost, metaCtx);
             directResults.push({
               channel: ch,
-              platform: "meta",
+              platform,
               status: "published",
               platform_post_id: result.platform_post_id,
             });
             await recordPublishAttempt({
               organization_id: profile.organization_id,
               social_post_id: post.id,
-              platform: "meta",
+              platform,
               route: "meta_graph",
               status: "published",
               metadata: { channel: ch, platform_post_id: result.platform_post_id },
@@ -370,14 +397,14 @@ export async function POST(req: Request) {
                 : "meta_publish_failed";
             directResults.push({
               channel: ch,
-              platform: "meta",
+              platform,
               status: "failed",
               error: errMsg,
             });
             await recordPublishAttempt({
               organization_id: profile.organization_id,
               social_post_id: post.id,
-              platform: "meta",
+              platform,
               route: "meta_graph",
               status: "failed",
               error: errMsg,
@@ -390,12 +417,22 @@ export async function POST(req: Request) {
       // YouTube
       if ((data.channels as string[]).includes("youtube")) {
         const ytConnected = await isYoutubeConnected(profile.id);
-        if (ytConnected) {
+        const youtubeVideoUrl =
+          metadataStringValue(post.metadata, "youtube_video_url") ?? videoUrl;
+        const youtubeContent = metadataStringValue(
+          post.metadata,
+          "youtube_content_base64"
+        );
+        const youtubeMimeType = metadataStringValue(post.metadata, "youtube_mime_type");
+        if (ytConnected && (youtubeVideoUrl || youtubeContent)) {
           const ytTitle =
             (data.youtube_title ?? data.title ?? data.body.slice(0, 100)).trim();
           const ytResult = await uploadYoutubeVideo(profile.id, {
             title: ytTitle,
             description: data.body,
+            videoUrl: youtubeVideoUrl,
+            content_base64: youtubeContent,
+            mimeType: youtubeMimeType,
             social_post_id: post.id,
           });
           directResults.push({
@@ -419,7 +456,7 @@ export async function POST(req: Request) {
             channel: "youtube",
             platform: "youtube",
             status: "skipped",
-            error: "not_connected",
+            error: ytConnected ? "video_media_required" : "not_connected",
           });
         }
       }

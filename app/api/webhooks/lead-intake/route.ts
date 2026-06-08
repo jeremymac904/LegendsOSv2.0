@@ -52,6 +52,7 @@ export async function POST(req: Request) {
       assignment_id: result.assignment?.id ?? null,
       status: result.leadEvent.status,
       assigned_agent_type: result.assignment?.assigned_agent_type ?? null,
+      atlas_handoff_id: result.atlasHandoff?.id ?? null,
       followup_task_ids: result.tasks.map((task) => task.id),
       approval_required: approvalTaskCount > 0,
       manual_review_recommended: leadNeedsManualReview(parsed.data),

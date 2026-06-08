@@ -1,9 +1,10 @@
 # n8n Automation contracts
 
-The app talks to n8n via plain JSON HTTP webhooks. The current workflows are
-sandbox-mode (no live sending, no Gmail, no real social publishing). HMAC
-signing and the shared `N8N_WEBHOOK_SECRET` have been removed — the only
-trust boundary is the server-issued UUID `job_id` we include in the payload.
+The app talks to n8n via JSON HTTP webhooks. The current workflows are
+sandbox-mode by default (no live sending, no real social publishing unless the
+owner-controlled gates allow it). App-to-n8n dispatch currently sends plain
+JSON plus a server-issued `job_id`; n8n-to-app callbacks are HMAC-signed and
+fail closed with `N8N_WEBHOOK_SECRET`.
 
 ```
 POST <webhook_url>
@@ -16,6 +17,7 @@ n8n posts results back to:
 ```
 POST <APP_URL>/api/automation/callback
 Content-Type: application/json
+X-Legendsos-Signature: <hmac_sha256_raw_body>
 
 {
   "job_id": "uuid",

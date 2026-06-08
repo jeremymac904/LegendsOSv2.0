@@ -22,6 +22,7 @@ export interface CreateHandoffInput {
   fromSessionId?: string | null;
   reason?: string;
   contextSummary?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export async function createHandoff(
@@ -39,6 +40,7 @@ export async function createHandoff(
         from_session_id: input.fromSessionId ?? null,
         reason: input.reason ?? null,
         context_summary: input.contextSummary?.slice(0, 2000) ?? null,
+        metadata: input.metadata ?? {},
         status: "pending",
       })
       .select("*")

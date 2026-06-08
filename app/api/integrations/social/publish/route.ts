@@ -1,8 +1,9 @@
 /**
  * POST /api/integrations/social/publish
  *
- * Owner-only test/preview publish route. Loads a social_posts row, verifies
- * ALL gates, calls the appropriate real publisher, and returns an honest result.
+ * Authenticated direct publish route. Loads the signed-in user's own
+ * social_posts row, verifies ALL gates, calls the appropriate real publisher,
+ * and returns an honest result.
  *
  * Required body:
  *   {
@@ -12,9 +13,9 @@
  *   }
  *
  * Gates (ALL must pass — fail-closed):
- *   1. caller is owner (role='owner')
+ *   1. caller owns the social_posts row
  *   2. resolveLiveAction('social').allowed
- *   3. social_account_connections.is_publish_enabled for the platform
+ *   3. caller has a selected, connected, publish-enabled destination for platform
  *   4. publisher token is connected (for Google-OAuth platforms)
  *   5. body.confirm === true
  *
@@ -34,7 +35,6 @@ import {
   publishToMeta,
 } from "@/lib/integrations/meta";
 import { isYoutubeConnected, uploadYoutubeVideo } from "@/lib/integrations/youtube";
-import { isOwner } from "@/lib/permissions";
 import {
   getCurrentProfile,
   getSupabaseServerClient,
@@ -54,37 +54,38 @@ const SUPPORTED_PLATFORMS = [
 
 type SupportedPlatform = (typeof SUPPORTED_PLATFORMS)[number];
 
-// Map from requested platform to social_account_connections.platform
-const PLATFORM_CONNECTION_KEY: Record<SupportedPlatform, string> = {
-  facebook: "meta",
-  instagram: "meta",
-  youtube: "youtube",
-  google_business_profile: "google_business_profile",
-};
-
 const bodySchema = z.object({
   platform: z.enum(SUPPORTED_PLATFORMS),
   post_id: z.string().uuid(),
   confirm: z.literal(true),
 });
 
-// Load social_account_connections.is_publish_enabled for a platform.
-// Returns false on missing table or missing row (fail-closed).
+function metadataStringValue(metadata: unknown, key: string): string | undefined {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return undefined;
+  }
+  const value = (metadata as Record<string, unknown>)[key];
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+// Load the signed-in user's selected publish-enabled destination for a platform.
+// Returns false on missing table, missing row, revoked row, or disabled row.
 async function loadPublishEnabled(
-  organizationId: string | null,
-  platformKey: string
+  userId: string,
+  platform: SupportedPlatform
 ): Promise<boolean> {
   try {
     const service = getSupabaseServiceClient();
-    let q = service
+    const { data, error } = await service
       .from("social_account_connections")
       .select("is_publish_enabled")
-      .eq("platform", platformKey)
-      .eq("is_publish_enabled", true);
-    q = organizationId
-      ? q.eq("organization_id", organizationId)
-      : q.is("organization_id", null);
-    const { data, error } = await q.limit(1).maybeSingle();
+      .eq("user_id", userId)
+      .eq("platform", platform)
+      .eq("status", "connected")
+      .eq("is_publish_enabled", true)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
     if (error || !data) return false;
     return Boolean((data as { is_publish_enabled: boolean }).is_publish_enabled);
   } catch (err) {
@@ -101,20 +102,6 @@ export async function POST(req: Request) {
     return NextResponse.json(
       { ok: false, status: "blocked", reason: "unauthenticated" },
       { status: 401 }
-    );
-  }
-
-  // Gate 1: owner only
-  if (!isOwner(profile)) {
-    await recordIntegrationAudit({
-      actor: profile,
-      action: "social_publish_blocked",
-      provider: null,
-      metadata: { reason: "not_owner" },
-    });
-    return NextResponse.json(
-      { ok: false, status: "blocked", reason: "owner_only" },
-      { status: 403 }
     );
   }
 
@@ -142,7 +129,67 @@ export async function POST(req: Request) {
     );
   }
 
-  const platformKey = PLATFORM_CONNECTION_KEY[platform];
+  const platformKey = platform;
+
+  // Gate 1: the caller must own the post. Use an explicit user_id filter so
+  // owner/admin visibility cannot become publish authority for another user.
+  const supabase = getSupabaseServerClient();
+  const { data: postRow, error: postErr } = await supabase
+    .from("social_posts")
+    .select("id,user_id,body,title,channels,metadata,media_id,status")
+    .eq("id", post_id)
+    .eq("user_id", profile.id)
+    .maybeSingle();
+
+  if (postErr || !postRow) {
+    await recordIntegrationAudit({
+      actor: profile,
+      action: "social_publish_blocked",
+      provider: platformKey,
+      target_type: "social_posts",
+      target_id: post_id,
+      metadata: { reason: "post_not_found_or_not_owned", platform },
+    });
+    return NextResponse.json(
+      {
+        ok: false,
+        status: "blocked",
+        reason: "post_not_found",
+        detail: postErr?.message ?? "No row returned for the signed-in user.",
+      },
+      { status: 404 }
+    );
+  }
+
+  const post = postRow as {
+    id: string;
+    user_id: string;
+    body: string;
+    title: string | null;
+    channels: string[];
+    metadata: Record<string, unknown> | null;
+    media_id: string | null;
+    status: string;
+  };
+
+  if (!post.channels.includes(platform)) {
+    await recordIntegrationAudit({
+      actor: profile,
+      action: "social_publish_blocked",
+      provider: platformKey,
+      target_type: "social_posts",
+      target_id: post.id,
+      metadata: { reason: "platform_not_in_post_channels", platform },
+    });
+    return NextResponse.json(
+      {
+        ok: false,
+        status: "blocked",
+        reason: "platform_not_in_post_channels",
+      },
+      { status: 409 }
+    );
+  }
 
   // Gate 2: live social toggle (integration_settings)
   const liveResolution = await resolveLiveAction("social", {
@@ -169,10 +216,7 @@ export async function POST(req: Request) {
   }
 
   // Gate 3: is_publish_enabled on the connection
-  const publishEnabled = await loadPublishEnabled(
-    profile.organization_id,
-    platformKey
-  );
+  const publishEnabled = await loadPublishEnabled(profile.id, platform);
   if (!publishEnabled) {
     await recordIntegrationAudit({
       actor: profile,
@@ -187,41 +231,11 @@ export async function POST(req: Request) {
         ok: false,
         status: "blocked",
         reason: "publish_not_enabled",
-        detail: `social_account_connections.is_publish_enabled is false for ${platformKey}`,
+        detail: `No connected, publish-enabled ${platformKey} destination is selected for the signed-in user.`,
       },
       { status: 403 }
     );
   }
-
-  // Load the social_posts row (user-scoped client respects RLS)
-  const supabase = getSupabaseServerClient();
-  const { data: postRow, error: postErr } = await supabase
-    .from("social_posts")
-    .select("id,body,title,channels,metadata,media_id,status")
-    .eq("id", post_id)
-    .maybeSingle();
-
-  if (postErr || !postRow) {
-    return NextResponse.json(
-      {
-        ok: false,
-        status: "blocked",
-        reason: "post_not_found",
-        detail: postErr?.message ?? "No row returned (RLS or wrong id)",
-      },
-      { status: 404 }
-    );
-  }
-
-  const post = postRow as {
-    id: string;
-    body: string;
-    title: string | null;
-    channels: string[];
-    metadata: Record<string, unknown> | null;
-    media_id: string | null;
-    status: string;
-  };
 
   // Run the publisher
   let publishResult: { ok: boolean; platform_post_id?: string; message?: string };
@@ -230,9 +244,27 @@ export async function POST(req: Request) {
     if (platform === "facebook" || platform === "instagram") {
       // Gate 4 for Meta: detectMetaConfig is inside publishToMeta — it will
       // throw MetaPublishGateError('not_configured') when env is absent.
+      const imageUrl = metadataStringValue(post.metadata, "image_url");
+      const videoUrl = metadataStringValue(post.metadata, "video_url");
+      if (platform === "instagram" && !imageUrl && !videoUrl) {
+        await recordIntegrationAudit({
+          actor: profile,
+          action: "social_publish_blocked",
+          provider: platformKey,
+          target_type: "social_posts",
+          target_id: post.id,
+          metadata: { reason: "instagram_media_required", platform },
+        });
+        return NextResponse.json(
+          { ok: false, status: "blocked", reason: "instagram_media_required" },
+          { status: 422 }
+        );
+      }
       const metaPost: MetaPublishPost = {
         surface: platform,
         message: post.body,
+        image_url: imageUrl,
+        video_url: videoUrl,
         connection_id: post.id,
       };
       const metaResult = await publishToMeta(metaPost, {
@@ -267,9 +299,34 @@ export async function POST(req: Request) {
           post.title ??
           post.body.slice(0, 100)
         ).trim();
+      const youtubeVideoUrl =
+        metadataStringValue(post.metadata, "youtube_video_url") ??
+        metadataStringValue(post.metadata, "video_url");
+      const youtubeContent = metadataStringValue(
+        post.metadata,
+        "youtube_content_base64"
+      );
+      const youtubeMimeType = metadataStringValue(post.metadata, "youtube_mime_type");
+      if (!youtubeVideoUrl && !youtubeContent) {
+        await recordIntegrationAudit({
+          actor: profile,
+          action: "social_publish_blocked",
+          provider: "youtube",
+          target_type: "social_posts",
+          target_id: post.id,
+          metadata: { reason: "video_media_required", platform },
+        });
+        return NextResponse.json(
+          { ok: false, status: "blocked", reason: "video_media_required" },
+          { status: 422 }
+        );
+      }
       const ytResult = await uploadYoutubeVideo(profile.id, {
         title: ytTitle,
         description: post.body,
+        videoUrl: youtubeVideoUrl,
+        content_base64: youtubeContent,
+        mimeType: youtubeMimeType,
         social_post_id: post.id,
       });
       publishResult = {
@@ -326,7 +383,7 @@ export async function POST(req: Request) {
         : "gbp",
       status: "failed",
       error: reason,
-      metadata: { platform, initiated_by: "owner_test_route" },
+      metadata: { platform, initiated_by: "user_direct_publish" },
     });
 
     return NextResponse.json(
@@ -353,7 +410,7 @@ export async function POST(req: Request) {
     metadata: {
       platform,
       platform_post_id: publishResult.platform_post_id ?? null,
-      initiated_by: "owner_test_route",
+      initiated_by: "user_direct_publish",
     },
   });
 

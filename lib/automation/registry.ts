@@ -138,6 +138,7 @@ export function buildAutomationRegistry(): AutomationRegistrySnapshot {
   const callbackSigned = isN8nCallbackSecretConfigured();
   const n8nApiConfigured = isN8nConfigured();
   const zapierConfigured = isZapierMcpConfigured();
+  const scheduledProcessorConfigured = envPresent("CRON_SECRET");
 
   const entries: AutomationRegistryEntry[] = [
     {
@@ -239,9 +240,10 @@ export function buildAutomationRegistry(): AutomationRegistrySnapshot {
       route: "/api/integrations/connect",
       owner: "Integrations",
       currentBehavior:
-        "Returns setup_needed or an OAuth authorize URL. Token exchange and server-side token storage are deferred.",
-      activationGate: "GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, callback/token storage implementation.",
-      preparedFor: ["Google status", "Gmail intake", "Drive intake", "Calendar automation"],
+        "Returns setup_needed or an OAuth authorize URL. Callback stores per-user tokens server-side; Gmail, Drive, Calendar, YouTube, and GBP actions use those signed-in user grants.",
+      activationGate:
+        "GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, user consent, per-channel live-action gates, and explicit confirmations for writes.",
+      preparedFor: ["Google status", "Gmail send/draft", "Drive writes", "Calendar automation"],
     },
     {
       id: "google_drive_needs_review",
@@ -267,9 +269,9 @@ export function buildAutomationRegistry(): AutomationRegistrySnapshot {
       liveWritesEnabled: meta.paid_enabled,
       owner: "Social Studio",
       currentBehavior:
-        "Meta connector is a disabled-by-default stub. No outbound Meta calls are made by this module.",
+        "Direct Meta Graph publisher targets the signed-in user's selected Facebook Page or Instagram business account and fails closed unless every live gate passes.",
       activationGate:
-        "Meta env presence, account connection record, publish switch, and ALLOW_LIVE_SOCIAL_PUBLISH.",
+        "META_APP_ID/META_APP_SECRET, per-user Facebook OAuth grant, selected destination row, publish switch, and ALLOW_LIVE_SOCIAL_PUBLISH.",
       preparedFor: ["Meta status", "Social publishing"],
     },
     {
@@ -313,6 +315,21 @@ export function buildAutomationRegistry(): AutomationRegistrySnapshot {
       preparedFor: ["Browser Companion automation paths", "Audit logs"],
     },
     {
+      id: "scheduled_publish_processor",
+      label: "Scheduled social/email processor",
+      category: "scheduled_job",
+      status: scheduledProcessorConfigured ? "configured" : "partial",
+      safety: "queued",
+      liveWritesEnabled: liveSocial || liveEmail,
+      route: "/api/cron/process-scheduled",
+      owner: "Automation",
+      currentBehavior:
+        "Netlify scheduled function exists and calls the protected processor route. The route fails closed without CRON_SECRET and dispatches through enqueueAutomationJob with retry/backoff columns.",
+      activationGate:
+        "CRON_SECRET, Netlify scheduled function, per-channel live-action gates, n8n dispatch permission, and configured webhooks.",
+      preparedFor: ["Scheduled social posts", "Scheduled email campaigns", "Retry handling"],
+    },
+    {
       id: "loan_memory_schedule",
       label: "Loan Memory scheduled jobs",
       category: "scheduled_job",
@@ -323,7 +340,7 @@ export function buildAutomationRegistry(): AutomationRegistrySnapshot {
       owner: "Loan Memory",
       currentBehavior:
         "Typed descriptors only. No cron is registered, no n8n workflow is enabled, and no schedule route exists.",
-      activationGate: "Future owner approval, route implementation, secret verification, and dry-run validation.",
+      activationGate: "Route implementation, scoped secret verification, and dry-run validation.",
       preparedFor: SCHEDULE_DESCRIPTORS.map((job) => job.label),
     },
     {
@@ -372,7 +389,7 @@ export function buildAutomationRegistry(): AutomationRegistrySnapshot {
       meta_writes_enabled: meta.paid_enabled,
       live_social_publish_enabled: liveSocial,
       live_email_send_enabled: liveEmail,
-      scheduled_jobs_activated: false,
+      scheduled_jobs_activated: scheduledProcessorConfigured,
     },
     entries,
   };

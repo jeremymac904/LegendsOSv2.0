@@ -4,22 +4,22 @@ import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { N8nPanel } from "@/components/admin/N8nPanel";
 import { getEffectiveProfile } from "@/lib/impersonation";
-import { isOwner } from "@/lib/permissions";
+import { isAdminOrOwner } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
-// n8n Automation Control Panel — owner only.
+// n8n Automation Control Panel — owner/admin only.
 //
 // This is an operations panel for the owner to inspect n8n config, test
-// webhook URLs, view recent automation jobs, retry failures, and trigger
-// workflows by ID. Team members never see this; they trigger approved
-// workflows through LegendsOS module pages only.
+// webhook presence, view workflow registry, review recent automation jobs, and
+// retry failures through the existing queue gates. Team members use /automation
+// for their allowed automations and own run history.
 
 export default async function N8nAdminPage() {
   let ownerGated = false;
   try {
     const { profile } = await getEffectiveProfile();
-    if (!profile || !isOwner(profile)) redirect("/dashboard");
+    if (!profile || !isAdminOrOwner(profile)) redirect("/dashboard");
     ownerGated = true;
   } catch (e) {
     // If getEffectiveProfile throws (Supabase misconfigured etc.), redirect
@@ -41,8 +41,8 @@ export default async function N8nAdminPage() {
       <SectionHeader
         eyebrow="Admin"
         title="n8n Automation Control"
-        description="Owner-only control panel for the n8n workflow engine. Inspect connection state (presence only — no secrets), view active workflows, test webhook URLs, review recent automation jobs, retry failures, and manually trigger workflows by ID. Team members never interact here; they trigger approved automations through their module pages."
-        action={<StatusPill status="warn" label="owner only" />}
+        description="Owner/admin control panel for the n8n workflow engine. Inspect connection state (presence only — no secrets), workflow registry, webhook status, recent jobs, dispatch logs, credential presence, and safe failed-job retry."
+        action={<StatusPill status="warn" label="owner/admin" />}
       />
       <N8nPanel />
     </div>

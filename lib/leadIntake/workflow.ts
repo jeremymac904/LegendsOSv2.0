@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { createHandoff } from "@/lib/agents/handoffs";
+import type { AgentHandoff, AgentType as RuntimeAgentType } from "@/lib/agents/types";
 import { PUBLIC_ENV } from "@/lib/env";
 import type {
   LeadIntakePayload,
@@ -17,6 +19,7 @@ interface WorkflowResult {
   contact: MarketingContact | null;
   assignment: LeadAssignment | null;
   tasks: LeadFollowupTask[];
+  atlasHandoff: AgentHandoff | null;
 }
 
 const PARTNER_TYPES = new Set<LeadType>([
@@ -342,6 +345,49 @@ function buildCrmDraft(payload: LeadIntakePayload): string {
   ].join("\n");
 }
 
+async function createAtlasDraftHandoff(
+  client: SupabaseClient,
+  payload: LeadIntakePayload,
+  ownerId: string | null,
+  lead: LeadIntakeEvent,
+  assignment: LeadAssignment,
+  tasks: LeadFollowupTask[],
+  routeReason: string
+): Promise<AgentHandoff | null> {
+  if (!ownerId) return null;
+
+  const summaryTask = tasks.find((task) => task.task_type === "lead_summary");
+  const approvalTaskIds = tasks
+    .filter((task) => task.requires_approval)
+    .map((task) => task.id);
+  const handoff = await createHandoff(client, {
+    fromUserId: ownerId,
+    fromAgentType: assignment.assigned_agent_type as RuntimeAgentType,
+    toAgentType: "owner_atlas",
+    toUserId: ownerId,
+    reason: `Lead intake review: ${leadName(payload)}`,
+    contextSummary:
+      summaryTask?.draft_body ??
+      [
+        `Lead ${leadName(payload)} arrived from ${sourceLabel(payload) || payload.source_system}.`,
+        routeReason,
+        "Draft follow-up tasks were created for human review. No external action was taken.",
+      ].join("\n"),
+    metadata: {
+      source: "lead_intake",
+      lead_event_id: lead.id,
+      assignment_id: assignment.id,
+      contact_id: assignment.contact_id,
+      task_ids: tasks.map((task) => task.id),
+      approval_task_ids: approvalTaskIds,
+      assigned_agent_type: assignment.assigned_agent_type,
+      no_external_actions: true,
+    },
+  });
+
+  return handoff.ok ? handoff.handoff : null;
+}
+
 export async function processLeadIntake(
   client: SupabaseClient,
   payload: LeadIntakePayload
@@ -452,6 +498,17 @@ export async function processLeadIntake(
     .insert(taskRows)
     .select("*");
   if (taskError) throw taskError;
+  const taskList = (tasks ?? []) as LeadFollowupTask[];
+
+  const atlasHandoff = await createAtlasDraftHandoff(
+    client,
+    payload,
+    ownerId,
+    lead,
+    assignment as LeadAssignment,
+    taskList,
+    route.reason
+  );
 
   await client.from("marketing_attribution_events").insert({
     contact_id: contact?.id ?? null,
@@ -473,7 +530,14 @@ export async function processLeadIntake(
   const finalStatus = route.status === "needs_review" ? "needs_review" : "contact_drafted";
   const { data: updatedLead } = await client
     .from("lead_intake_events")
-    .update({ status: finalStatus })
+    .update({
+      status: finalStatus,
+      metadata: {
+        ...metadata,
+        atlas_handoff_id: atlasHandoff?.id ?? null,
+        atlas_handoff_status: atlasHandoff ? "pending" : "not_created",
+      },
+    })
     .eq("id", lead.id)
     .select("*")
     .single();
@@ -482,7 +546,8 @@ export async function processLeadIntake(
     leadEvent: (updatedLead as LeadIntakeEvent | null) ?? { ...lead, status: finalStatus },
     contact,
     assignment: assignment as LeadAssignment,
-    tasks: (tasks ?? []) as LeadFollowupTask[],
+    tasks: taskList,
+    atlasHandoff,
   };
 }
 

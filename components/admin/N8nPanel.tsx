@@ -4,37 +4,22 @@ import { useCallback, useEffect, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
-  ChevronDown,
-  ChevronUp,
+  FileJson,
+  KeyRound,
   Loader2,
   RefreshCw,
   RotateCcw,
-  Send,
+  ShieldCheck,
   Webhook,
   Workflow,
   Zap,
+  type LucideIcon,
 } from "lucide-react";
 
 import { StatusPill } from "@/components/ui/StatusPill";
 import { cn } from "@/lib/utils";
 
-// Mirror of the server-side N8nWebhookKey union. Kept here so the client
-// component does not import the server-only lib/automation/n8n module.
-type N8nWebhookKey =
-  | "social_publish"
-  | "gbp_post"
-  | "facebook_post"
-  | "instagram_post"
-  | "youtube_post"
-  | "email_send"
-  | "daily_usage"
-  | "provider_health"
-  | "content_reminder"
-  | "failed_publish_recovery";
-
-// ---------------------------------------------------------------------------
-// Types (mirrors the route contract)
-// ---------------------------------------------------------------------------
+type PillTone = "ok" | "warn" | "err" | "info" | "off";
 
 interface N8nConfigState {
   configured: boolean;
@@ -42,6 +27,7 @@ interface N8nConfigState {
   webhooks: Record<string, boolean>;
   api_key_present: boolean;
   hmac_secret_present: boolean;
+  n8n_dispatch_allowed: boolean;
 }
 
 interface N8nWorkflow {
@@ -51,49 +37,79 @@ interface N8nWorkflow {
   tags?: string[];
 }
 
+interface LocalWorkflow {
+  file: string;
+  name: string;
+  active: boolean;
+  node_count: number;
+  credential_reference_count: number;
+  credential_placeholder_count: number;
+  env_reference_count: number;
+  env_references: string[];
+  webhook_paths: string[];
+}
+
+interface WebhookStatus {
+  key: string;
+  env_var: string;
+  present: boolean;
+}
+
 interface AutomationJobRow {
   id: string;
-  job_type: string | null;
-  webhook_key: string | null;
-  status: string | null;
+  user_id: string | null;
+  job_type: string;
+  module: string | null;
+  target_table: string | null;
+  target_id: string | null;
+  inferred_webhook_key: string | null;
+  webhook_configured: boolean;
+  webhook_url_present: boolean;
+  status: string;
+  attempts: number;
   created_at: string | null;
-  dispatched_at: string | null;
+  updated_at: string | null;
+  started_at: string | null;
   completed_at: string | null;
   last_error: string | null;
+}
+
+interface DispatchLog {
+  id: string;
+  action: string;
+  target_type: string | null;
+  target_id: string | null;
+  created_at: string | null;
+  metadata: Record<string, unknown>;
+}
+
+interface CredentialPresence {
+  provider: string;
+  stored_status: string | null;
+  env_var_name: string | null;
+  is_enabled: boolean | null;
+  updated_at: string | null;
 }
 
 interface N8nStatusResponse {
   ok: boolean;
   configured: boolean;
+  api_configured: boolean;
+  workflow_list_status: string;
+  workflow_list_message: string;
   config: N8nConfigState;
+  webhookStatus: WebhookStatus[];
   workflows: N8nWorkflow[];
+  localWorkflows: LocalWorkflow[];
   recentJobs: AutomationJobRow[];
+  dispatchLogs: DispatchLog[];
+  credentialPresence: CredentialPresence | null;
 }
 
-// The known webhook keys shown as testable buttons. Source of truth is the
-// N8nWebhookKey union in lib/automation/n8n.ts — replicate here so the client
-// panel doesn't import a server-only module.
-const WEBHOOK_KEYS: N8nWebhookKey[] = [
-  "social_publish",
-  "email_send",
-  "content_reminder",
-  "daily_usage",
-  "provider_health",
-  "failed_publish_recovery",
-  "gbp_post",
-  "facebook_post",
-  "instagram_post",
-  "youtube_post",
-];
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 function formatWhen(iso: string | null): string {
-  if (!iso) return "—";
+  if (!iso) return "-";
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
+  if (Number.isNaN(d.getTime())) return "-";
   return d.toLocaleString(undefined, {
     month: "short",
     day: "numeric",
@@ -102,101 +118,81 @@ function formatWhen(iso: string | null): string {
   });
 }
 
-function shortId(id: string): string {
-  return id.slice(0, 8);
+function shortId(id: string | null | undefined): string {
+  return id ? id.slice(0, 8) : "-";
 }
 
-function jobStatusPill(status: string | null): { tone: "ok" | "warn" | "err" | "info" | "off"; label: string } {
-  switch (status) {
-    case "sent":
-      return { tone: "ok", label: "sent" };
-    case "queued":
-      return { tone: "info", label: "queued" };
-    case "failed":
-      return { tone: "err", label: "failed" };
-    case "blocked":
-      return { tone: "warn", label: "blocked" };
-    default:
-      return { tone: "off", label: status ?? "unknown" };
-  }
+function pretty(value: string | null | undefined): string {
+  return value ? value.replace(/_/g, " ") : "-";
 }
 
-// ---------------------------------------------------------------------------
-// Sub-components
-// ---------------------------------------------------------------------------
+function jobTone(status: string): PillTone {
+  if (status === "succeeded" || status === "sent") return "ok";
+  if (status === "failed") return "err";
+  if (status === "queued") return "info";
+  if (status === "cancelled") return "off";
+  return "warn";
+}
 
-function PresenceDot({ present, label }: { present: boolean; label: string }) {
+function PresenceLine({
+  label,
+  present,
+  detail,
+}: {
+  label: string;
+  present: boolean;
+  detail?: string | null;
+}) {
   return (
-    <li className="flex items-center gap-2 font-mono text-[10px] text-ink-700 dark:text-ink-300">
-      <span
-        aria-hidden
-        className={cn(
-          "inline-block h-1.5 w-1.5 rounded-full",
-          present ? "bg-status-ok" : "bg-status-warn"
+    <li className="flex items-center justify-between gap-3 rounded-lg border border-ink-200 bg-white/60 px-3 py-2 text-sm dark:border-ink-800 dark:bg-ink-900/40">
+      <div className="min-w-0">
+        <p className="font-medium text-ink-900 dark:text-ink-100">{label}</p>
+        {detail && (
+          <p className="mt-0.5 break-all font-mono text-[10px] text-ink-500 dark:text-ink-400">
+            {detail}
+          </p>
         )}
+      </div>
+      <StatusPill
+        status={present ? "ok" : "warn"}
+        label={present ? "present" : "missing"}
       />
-      {label}
-      <span
-        className={cn(
-          "font-sans text-[9px]",
-          present ? "text-status-ok" : "text-status-warn"
-        )}
-      >
-        {present ? "present" : "missing"}
-      </span>
     </li>
   );
 }
 
 function SectionBlock({
   title,
+  icon: Icon,
   children,
 }: {
   title: string;
+  icon: LucideIcon;
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-ink-200 bg-white/60 p-4 dark:border-ink-800 dark:bg-ink-900/40">
-      <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-500 dark:text-ink-400">
-        {title}
-      </p>
+    <section className="card-padded space-y-4">
+      <div className="section-title">
+        <div>
+          <h2 className="flex items-center gap-2">
+            <Icon size={15} className="text-accent-gold" />
+            {title}
+          </h2>
+        </div>
+      </div>
       {children}
-    </div>
+    </section>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Main panel
-// ---------------------------------------------------------------------------
 
 export function N8nPanel() {
   const [data, setData] = useState<N8nStatusResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
-
-  // Webhook test state: key → result
-  const [webhookResults, setWebhookResults] = useState<
-    Record<string, { ok: boolean; status_code?: number; message?: string } | null>
-  >({});
-  const [webhookBusy, setWebhookBusy] = useState<string | null>(null);
-
-  // Retry job state
   const [retryResults, setRetryResults] = useState<
     Record<string, { ok: boolean; message: string } | null>
   >({});
   const [retryBusy, setRetryBusy] = useState<string | null>(null);
-
-  // Trigger workflow form
-  const [triggerName, setTriggerName] = useState("");
-  const [triggerPayload, setTriggerPayload] = useState("");
-  const [triggerResult, setTriggerResult] = useState<{
-    ok: boolean;
-    message: string;
-  } | null>(null);
-  const [triggerBusy, setTriggerBusy] = useState(false);
-
-  // Workflow table expand
-  const [workflowsExpanded, setWorkflowsExpanded] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -211,8 +207,7 @@ export function N8nPanel() {
         setFetchError(`API returned ${res.status}`);
         return;
       }
-      const json = (await res.json()) as N8nStatusResponse;
-      setData(json);
+      setData((await res.json()) as N8nStatusResponse);
     } catch (e) {
       setFetchError(e instanceof Error ? e.message : "Network error");
     } finally {
@@ -224,48 +219,6 @@ export function N8nPanel() {
     void load();
   }, [load]);
 
-  // ---- Test webhook -------------------------------------------------------
-  async function testWebhook(key: string) {
-    setWebhookBusy(key);
-    setWebhookResults((r) => ({ ...r, [key]: null }));
-    try {
-      const res = await fetch("/api/admin/n8n", {
-        method: "POST",
-        credentials: "include",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "test_webhook", webhook_key: key }),
-      });
-      const json = (await res.json()) as {
-        ok: boolean;
-        status_code?: number;
-        message?: string;
-        status?: string;
-      };
-      setWebhookResults((r) => ({
-        ...r,
-        [key]: {
-          ok: json.ok,
-          status_code: json.status_code,
-          message:
-            json.message ??
-            (json.status === "not_configured"
-              ? "Not configured"
-              : json.ok
-              ? `HTTP ${json.status_code}`
-              : `HTTP ${json.status_code ?? "error"}`),
-        },
-      }));
-    } catch {
-      setWebhookResults((r) => ({
-        ...r,
-        [key]: { ok: false, message: "Network error" },
-      }));
-    } finally {
-      setWebhookBusy(null);
-    }
-  }
-
-  // ---- Retry job ----------------------------------------------------------
   async function retryJob(jobId: string) {
     setRetryBusy(jobId);
     setRetryResults((r) => ({ ...r, [jobId]: null }));
@@ -281,14 +234,17 @@ export function N8nPanel() {
         status?: string;
         reason?: string;
         new_job_id?: string;
+        dispatch?: boolean;
+        dispatch_reason?: string;
+        message?: string;
       };
       setRetryResults((r) => ({
         ...r,
         [jobId]: {
           ok: json.ok,
           message: json.ok
-            ? `Retried → new job ${json.new_job_id ? shortId(json.new_job_id) : ""}  (${json.status})`
-            : json.reason ?? "Retry failed",
+            ? `New job ${shortId(json.new_job_id)} (${json.status}; ${json.dispatch ? "dispatch requested" : `queued: ${json.dispatch_reason}`})`
+            : json.message ?? json.reason ?? "Retry failed",
         },
       }));
       if (json.ok) void load();
@@ -302,63 +258,14 @@ export function N8nPanel() {
     }
   }
 
-  // ---- Trigger workflow ---------------------------------------------------
-  async function triggerWorkflow(e: React.FormEvent) {
-    e.preventDefault();
-    if (!triggerName.trim()) return;
-    setTriggerBusy(true);
-    setTriggerResult(null);
-    let payload: Record<string, unknown> = {};
-    if (triggerPayload.trim()) {
-      try {
-        payload = JSON.parse(triggerPayload) as Record<string, unknown>;
-      } catch {
-        setTriggerResult({ ok: false, message: "Payload must be valid JSON." });
-        setTriggerBusy(false);
-        return;
-      }
-    }
-    try {
-      const res = await fetch("/api/admin/n8n", {
-        method: "POST",
-        credentials: "include",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          action: "trigger_workflow",
-          workflow_name: triggerName.trim(),
-          payload,
-        }),
-      });
-      const json = (await res.json()) as { ok: boolean; message?: string; status?: string };
-      setTriggerResult({
-        ok: json.ok,
-        message: json.message ?? (json.ok ? "Triggered." : "Failed."),
-      });
-    } catch {
-      setTriggerResult({ ok: false, message: "Network error." });
-    } finally {
-      setTriggerBusy(false);
-    }
-  }
-
-  // ---- Derived display state ----------------------------------------------
-  const configured = data?.configured ?? false;
   const config = data?.config;
-  const workflows = data?.workflows ?? [];
-  const recentJobs = data?.recentJobs ?? [];
-  const configuredWebhookKeys = WEBHOOK_KEYS.filter(
-    (k) => config?.webhooks?.[k] === true
-  );
-  const displayedWorkflows = workflowsExpanded
-    ? workflows
-    : workflows.slice(0, 5);
+  const failedJobs = data?.recentJobs.filter((job) => job.status === "failed") ?? [];
 
   return (
     <div className="space-y-6">
-      {/* Loading / error */}
       {loading && (
         <div className="flex items-center gap-2 text-sm text-ink-500 dark:text-ink-400">
-          <Loader2 className="h-4 w-4 animate-spin" /> Loading n8n status…
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading n8n status...
         </div>
       )}
 
@@ -378,9 +285,8 @@ export function N8nPanel() {
         </section>
       )}
 
-      {!loading && !fetchError && (
+      {!loading && !fetchError && data && config && (
         <>
-          {/* 1) Connection status header */}
           <section className="card-padded space-y-4">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -389,17 +295,17 @@ export function N8nPanel() {
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-ink-900 dark:text-ink-100">
-                    n8n connection
+                    n8n control center
                   </p>
                   <p className="text-xs text-ink-500 dark:text-ink-400">
-                    API key + base URL determines overall status
+                    Presence-only config, queue status, safe retry, and workflow registry.
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <StatusPill
-                  status={configured ? "ok" : "warn"}
-                  label={configured ? "configured" : "not configured"}
+                  status={data.configured ? "ok" : "warn"}
+                  label={data.configured ? "configured" : "setup needed"}
                 />
                 <button
                   type="button"
@@ -412,325 +318,164 @@ export function N8nPanel() {
               </div>
             </div>
 
-            {/* Config block */}
-            {config && (
-              <div className="rounded-lg border border-ink-200 bg-ink-50/60 p-3 dark:border-ink-800 dark:bg-ink-950/30">
-                <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-500 dark:text-ink-400">
-                  Environment variables (presence only — values never shown)
-                </p>
-                <ul className="space-y-1">
-                  <PresenceDot
-                    present={config.base_url_present}
-                    label="N8N_BASE_URL / N8N_WEBHOOK_BASE_URL"
-                  />
-                  <PresenceDot
-                    present={config.api_key_present}
-                    label="N8N_API_KEY"
-                  />
-                  <PresenceDot
-                    present={config.hmac_secret_present}
-                    label="N8N_WEBHOOK_SECRET (HMAC callback)"
-                  />
-                </ul>
-
-                <p className="mb-1.5 mt-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-500 dark:text-ink-400">
-                  Webhook keys
-                </p>
-                <ul className="space-y-1">
-                  {Object.entries(config.webhooks).map(([key, present]) => (
-                    <li
-                      key={key}
-                      className="flex items-center gap-2 font-mono text-[10px] text-ink-700 dark:text-ink-300"
-                    >
-                      <span
-                        aria-hidden
-                        className={cn(
-                          "inline-block h-1.5 w-1.5 rounded-full",
-                          present ? "bg-status-ok" : "bg-ink-400"
-                        )}
-                      />
-                      {key}
-                      <span
-                        className={cn(
-                          "font-sans text-[9px]",
-                          present
-                            ? "text-status-ok"
-                            : "text-ink-500 dark:text-ink-400"
-                        )}
-                      >
-                        {present ? "set" : "unset"}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </section>
-
-          {/* 2) Workflow registry */}
-          <section className="card-padded space-y-4">
-            <div className="section-title">
-              <div>
-                <h2 className="flex items-center gap-2">
-                  <Workflow size={15} className="text-accent-gold" />
-                  Workflow registry
-                </h2>
-                <p>
-                  Active workflows fetched from n8n via API key.{" "}
-                  {workflows.length === 0 && !configured
-                    ? "n8n is not configured — no workflows available."
-                    : `${workflows.length} workflow${workflows.length === 1 ? "" : "s"} found.`}
-                </p>
-              </div>
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <PresenceLine
+                label="Base URL"
+                present={config.base_url_present}
+                detail="N8N_BASE_URL / N8N_WEBHOOK_BASE_URL"
+              />
+              <PresenceLine
+                label="API key"
+                present={config.api_key_present}
+                detail="N8N_API_KEY"
+              />
+              <PresenceLine
+                label="Callback HMAC"
+                present={config.hmac_secret_present}
+                detail="N8N_WEBHOOK_SECRET"
+              />
+              <PresenceLine
+                label="n8n dispatch gate"
+                present={config.n8n_dispatch_allowed}
+                detail="integration_settings.provider_flags.allow_n8n_dispatch"
+              />
             </div>
 
-            {workflows.length === 0 ? (
-              <p className="text-[11px] text-ink-500 dark:text-ink-400">
-                {configured
-                  ? "No active workflows returned. Workflows marked inactive in n8n are excluded."
-                  : "Configure N8N_BASE_URL and N8N_API_KEY to list workflows."}
-              </p>
-            ) : (
-              <>
-                <div className="overflow-x-auto rounded-xl border border-ink-200 dark:border-ink-800">
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-ink-100/70 text-[10px] uppercase tracking-[0.18em] text-ink-600 dark:bg-ink-900/70 dark:text-ink-300">
-                      <tr>
-                        <th className="px-3 py-2">ID</th>
-                        <th className="px-3 py-2">Name</th>
-                        <th className="px-3 py-2">Status</th>
-                        <th className="px-3 py-2">Tags</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {displayedWorkflows.map((wf) => (
-                        <tr
-                          key={wf.id}
-                          className="border-t border-ink-200 dark:border-ink-800"
-                        >
-                          <td className="px-3 py-2 font-mono text-[11px] text-ink-600 dark:text-ink-400">
-                            {wf.id}
-                          </td>
-                          <td className="px-3 py-2 text-ink-900 dark:text-ink-100">
-                            {wf.name}
-                          </td>
-                          <td className="px-3 py-2">
-                            <StatusPill
-                              status={wf.active ? "ok" : "off"}
-                              label={wf.active ? "active" : "inactive"}
-                            />
-                          </td>
-                          <td className="px-3 py-2 text-[11px] text-ink-600 dark:text-ink-400">
-                            {(wf.tags ?? []).join(", ") || "—"}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+            <div className="rounded-lg border border-ink-200 bg-ink-50/60 p-3 dark:border-ink-800 dark:bg-ink-950/30">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="flex items-center gap-2 text-sm font-semibold text-ink-900 dark:text-ink-100">
+                    <KeyRound size={14} className="text-accent-gold" />
+                    Credential presence
+                  </p>
+                  <p className="mt-1 text-xs text-ink-600 dark:text-ink-300">
+                    Environment and stored provider rows only. Secret values are never returned.
+                  </p>
                 </div>
-                {workflows.length > 5 && (
-                  <button
-                    type="button"
-                    onClick={() => setWorkflowsExpanded((v) => !v)}
-                    className="btn-ghost h-7 px-3 text-xs"
-                  >
-                    {workflowsExpanded ? (
-                      <>
-                        <ChevronUp size={12} className="mr-1" /> Show fewer
-                      </>
-                    ) : (
-                      <>
-                        <ChevronDown size={12} className="mr-1" /> Show all{" "}
-                        {workflows.length}
-                      </>
-                    )}
-                  </button>
-                )}
-              </>
-            )}
-          </section>
-
-          {/* 3) Test webhooks */}
-          <section className="card-padded space-y-4">
-            <div className="section-title">
-              <div>
-                <h2 className="flex items-center gap-2">
-                  <Webhook size={15} className="text-accent-gold" />
-                  Test webhooks
-                </h2>
-                <p>
-                  Send a safe test payload to each configured webhook URL. Only
-                  configured webhooks are shown.
-                </p>
+                <StatusPill
+                  status={data.credentialPresence?.stored_status === "configured" ? "ok" : "warn"}
+                  label={data.credentialPresence?.stored_status ?? "missing"}
+                />
               </div>
-            </div>
-
-            {configuredWebhookKeys.length === 0 ? (
-              <p className="text-[11px] text-ink-500 dark:text-ink-400">
-                No webhook URLs are configured. Set N8N_WEBHOOK_* environment
-                variables to enable testing.
+              <p className="mt-2 text-[11px] text-ink-500 dark:text-ink-400">
+                Stored provider row:{" "}
+                <span className="font-mono">
+                  {data.credentialPresence?.env_var_name ?? "n8n provider row not found"}
+                </span>
+                {data.credentialPresence?.updated_at
+                  ? ` · updated ${formatWhen(data.credentialPresence.updated_at)}`
+                  : ""}
               </p>
-            ) : (
-              <div className="grid gap-2 sm:grid-cols-2">
-                {configuredWebhookKeys.map((key) => {
-                  const result = webhookResults[key];
-                  const busy = webhookBusy === key;
-                  return (
-                    <div
-                      key={key}
-                      className="flex flex-col gap-1 rounded-lg border border-ink-200 bg-ink-50/60 p-2.5 dark:border-ink-800 dark:bg-ink-950/30"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-mono text-[11px] text-ink-900 dark:text-ink-100">
-                          {key}
-                        </span>
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() => void testWebhook(key)}
-                          className="btn-secondary h-6 px-2 text-[10px] disabled:opacity-40"
-                        >
-                          {busy ? (
-                            <Loader2 size={10} className="animate-spin" />
-                          ) : (
-                            "Test"
-                          )}
-                        </button>
-                      </div>
-                      {result !== null && result !== undefined && (
-                        <div className="flex items-center gap-1.5">
-                          {result.ok ? (
-                            <CheckCircle2
-                              size={11}
-                              className="text-status-ok"
-                            />
-                          ) : (
-                            <AlertTriangle
-                              size={11}
-                              className="text-status-warn"
-                            />
-                          )}
-                          <span
-                            className={cn(
-                              "text-[10px]",
-                              result.ok
-                                ? "text-status-ok"
-                                : "text-status-warn"
-                            )}
-                          >
-                            {result.message ??
-                              (result.status_code
-                                ? `HTTP ${result.status_code}`
-                                : result.ok
-                                ? "ok"
-                                : "failed")}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            </div>
           </section>
 
-          {/* 4) Trigger workflow by name */}
-          <section className="card-padded space-y-4">
-            <div className="section-title">
-              <div>
-                <h2 className="flex items-center gap-2">
-                  <Send size={15} className="text-accent-gold" />
-                  Trigger workflow by ID
-                </h2>
-                <p>
-                  Manually trigger an n8n workflow by its numeric or string ID.
-                  Optionally pass a JSON payload.
-                </p>
-              </div>
+          <SectionBlock title="Webhook Status" icon={Webhook}>
+            <div className="grid gap-2 md:grid-cols-2">
+              {data.webhookStatus.map((hook) => (
+                <PresenceLine
+                  key={hook.key}
+                  label={hook.key}
+                  present={hook.present}
+                  detail={hook.env_var}
+                />
+              ))}
             </div>
+          </SectionBlock>
 
-            <form onSubmit={(e) => void triggerWorkflow(e)} className="space-y-3">
-              <div>
-                <label
-                  htmlFor="n8n-workflow-name"
-                  className="block text-[11px] font-medium text-ink-700 dark:text-ink-300"
-                >
-                  Workflow ID
-                </label>
-                <input
-                  id="n8n-workflow-name"
-                  type="text"
-                  value={triggerName}
-                  onChange={(e) => setTriggerName(e.target.value)}
-                  placeholder="e.g. 42 or workflow-uuid"
-                  className="mt-1 w-full rounded-lg border border-ink-300 bg-white/80 px-3 py-1.5 text-xs text-ink-900 placeholder-ink-400 focus:outline-none focus:ring-2 focus:ring-accent-gold/50 dark:border-ink-700 dark:bg-ink-900/60 dark:text-ink-100"
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="n8n-workflow-payload"
-                  className="block text-[11px] font-medium text-ink-700 dark:text-ink-300"
-                >
-                  Payload (optional JSON)
-                </label>
-                <textarea
-                  id="n8n-workflow-payload"
-                  rows={3}
-                  value={triggerPayload}
-                  onChange={(e) => setTriggerPayload(e.target.value)}
-                  placeholder={'{"key": "value"}'}
-                  className="mt-1 w-full rounded-lg border border-ink-300 bg-white/80 px-3 py-1.5 font-mono text-xs text-ink-900 placeholder-ink-400 focus:outline-none focus:ring-2 focus:ring-accent-gold/50 dark:border-ink-700 dark:bg-ink-900/60 dark:text-ink-100"
-                />
-              </div>
-              <div className="flex items-center gap-3">
-                <button
-                  type="submit"
-                  disabled={triggerBusy || !triggerName.trim() || !configured}
-                  className="btn-primary h-8 px-4 text-xs disabled:opacity-40"
-                  title={
-                    !configured
-                      ? "n8n is not configured"
-                      : !triggerName.trim()
-                      ? "Enter a workflow ID"
-                      : undefined
-                  }
-                >
-                  {triggerBusy ? (
-                    <Loader2 size={12} className="animate-spin" />
+          <SectionBlock title="Workflow Registry" icon={Workflow}>
+            <div className="grid gap-4 xl:grid-cols-2">
+              <div className="rounded-xl border border-ink-200 dark:border-ink-800">
+                <div className="flex items-center justify-between gap-3 border-b border-ink-200 px-3 py-2 dark:border-ink-800">
+                  <p className="flex items-center gap-2 text-sm font-semibold text-ink-900 dark:text-ink-100">
+                    <FileJson size={14} className="text-accent-gold" />
+                    Local workflow files
+                  </p>
+                  <StatusPill status="info" label={`${data.localWorkflows.length} files`} />
+                </div>
+                <div className="divide-y divide-ink-200 dark:divide-ink-800">
+                  {data.localWorkflows.length === 0 ? (
+                    <p className="p-3 text-xs text-ink-500 dark:text-ink-400">
+                      No local workflow files found.
+                    </p>
                   ) : (
-                    "Trigger"
+                    data.localWorkflows.map((wf) => (
+                      <div key={wf.file} className="p-3 text-sm">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="font-semibold text-ink-900 dark:text-ink-100">
+                              {wf.name}
+                            </p>
+                            <p className="mt-0.5 break-all font-mono text-[10px] text-ink-500 dark:text-ink-400">
+                              {wf.file}
+                            </p>
+                          </div>
+                          <StatusPill
+                            status={wf.active ? "warn" : "off"}
+                            label={wf.active ? "active in file" : "inactive"}
+                          />
+                        </div>
+                        <p className="mt-2 text-[11px] text-ink-600 dark:text-ink-300">
+                          {wf.node_count} nodes · {wf.credential_reference_count} credential refs · {wf.credential_placeholder_count} placeholders · {wf.env_reference_count} env refs
+                        </p>
+                      </div>
+                    ))
                   )}
-                </button>
-                {triggerResult && (
-                  <span
-                    className={cn(
-                      "text-[11px]",
-                      triggerResult.ok
-                        ? "text-status-ok"
-                        : "text-status-err"
-                    )}
-                  >
-                    {triggerResult.message}
-                  </span>
-                )}
+                </div>
               </div>
-            </form>
-          </section>
 
-          {/* 5) Recent automation jobs */}
-          <section className="card-padded space-y-4">
-            <div className="section-title">
-              <div>
-                <h2>Recent automation jobs</h2>
-                <p>
-                  Last 20 automation_jobs rows. Payload bodies are excluded
-                  (may contain PII). Failed jobs can be retried.
+              <div className="rounded-xl border border-ink-200 dark:border-ink-800">
+                <div className="flex items-center justify-between gap-3 border-b border-ink-200 px-3 py-2 dark:border-ink-800">
+                  <p className="text-sm font-semibold text-ink-900 dark:text-ink-100">
+                    n8n API workflow list
+                  </p>
+                  <StatusPill
+                    status={data.workflow_list_status === "listed" ? "ok" : "warn"}
+                    label={data.workflow_list_status}
+                  />
+                </div>
+                <p className="px-3 pt-3 text-xs text-ink-600 dark:text-ink-300">
+                  {data.workflow_list_message}
                 </p>
+                <div className="mt-3 divide-y divide-ink-200 dark:divide-ink-800">
+                  {data.workflows.length === 0 ? (
+                    <p className="px-3 pb-3 text-xs text-ink-500 dark:text-ink-400">
+                      No active workflows returned by the n8n API.
+                    </p>
+                  ) : (
+                    data.workflows.map((wf) => (
+                      <div key={wf.id} className="px-3 py-2 text-sm">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="font-medium text-ink-900 dark:text-ink-100">
+                            {wf.name}
+                          </p>
+                          <StatusPill
+                            status={wf.active ? "ok" : "off"}
+                            label={wf.active ? "active" : "inactive"}
+                          />
+                        </div>
+                        <p className="mt-0.5 font-mono text-[10px] text-ink-500 dark:text-ink-400">
+                          {wf.id}
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             </div>
+          </SectionBlock>
 
-            {recentJobs.length === 0 ? (
-              <p className="text-[11px] text-ink-500 dark:text-ink-400">
+          <SectionBlock title="Job Queue" icon={RotateCcw}>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs text-ink-600 dark:text-ink-300">
+                Last 20 automation jobs. Payloads and webhook URLs are excluded.
+              </p>
+              <StatusPill
+                status={failedJobs.length > 0 ? "warn" : "ok"}
+                label={`${failedJobs.length} failed`}
+              />
+            </div>
+            {data.recentJobs.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-ink-300 p-3 text-sm text-ink-500 dark:border-ink-800 dark:text-ink-400">
                 No automation jobs recorded yet.
               </p>
             ) : (
@@ -740,70 +485,67 @@ export function N8nPanel() {
                     <tr>
                       <th className="px-3 py-2">ID</th>
                       <th className="px-3 py-2">Type</th>
-                      <th className="px-3 py-2">Webhook key</th>
+                      <th className="px-3 py-2">Webhook</th>
                       <th className="px-3 py-2">Status</th>
-                      <th className="px-3 py-2">Created</th>
-                      <th className="px-3 py-2">Dispatched</th>
+                      <th className="px-3 py-2">Attempts</th>
+                      <th className="px-3 py-2">Started</th>
                       <th className="px-3 py-2">Completed</th>
                       <th className="px-3 py-2">Error</th>
                       <th className="px-3 py-2" />
                     </tr>
                   </thead>
                   <tbody>
-                    {recentJobs.map((job) => {
-                      const pill = jobStatusPill(job.status);
-                      const isFailed = job.status === "failed";
+                    {data.recentJobs.map((job) => {
                       const retrying = retryBusy === job.id;
                       const retryResult = retryResults[job.id];
                       return (
-                        <tr
-                          key={job.id}
-                          className="border-t border-ink-200 dark:border-ink-800"
-                        >
+                        <tr key={job.id} className="border-t border-ink-200 dark:border-ink-800">
                           <td className="px-3 py-2 font-mono text-[11px] text-ink-600 dark:text-ink-400">
                             {shortId(job.id)}
                           </td>
                           <td className="px-3 py-2 text-ink-900 dark:text-ink-100">
-                            {job.job_type ?? "—"}
-                          </td>
-                          <td className="px-3 py-2 font-mono text-[11px] text-ink-700 dark:text-ink-300">
-                            {job.webhook_key ?? "—"}
+                            {pretty(job.job_type)}
                           </td>
                           <td className="px-3 py-2">
-                            <StatusPill
-                              status={pill.tone}
-                              label={pill.label}
-                            />
+                            <div className="flex flex-col gap-1">
+                              <span className="font-mono text-[11px] text-ink-700 dark:text-ink-300">
+                                {job.inferred_webhook_key ?? "-"}
+                              </span>
+                              <StatusPill
+                                status={job.webhook_configured ? "ok" : "off"}
+                                label={job.webhook_configured ? "configured" : "unset"}
+                              />
+                            </div>
+                          </td>
+                          <td className="px-3 py-2">
+                            <StatusPill status={jobTone(job.status)} label={job.status} />
+                          </td>
+                          <td className="px-3 py-2 text-[11px] tabular-nums text-ink-600 dark:text-ink-400">
+                            {job.attempts}
                           </td>
                           <td className="px-3 py-2 text-[11px] text-ink-600 dark:text-ink-400">
-                            {formatWhen(job.created_at)}
-                          </td>
-                          <td className="px-3 py-2 text-[11px] text-ink-600 dark:text-ink-400">
-                            {formatWhen(job.dispatched_at)}
+                            {formatWhen(job.started_at)}
                           </td>
                           <td className="px-3 py-2 text-[11px] text-ink-600 dark:text-ink-400">
                             {formatWhen(job.completed_at)}
                           </td>
-                          <td className="max-w-[160px] px-3 py-2 text-[11px] text-status-warn">
+                          <td className="max-w-[180px] px-3 py-2 text-[11px] text-status-warn">
                             {job.last_error
-                              ? job.last_error.slice(0, 80) +
-                                (job.last_error.length > 80 ? "…" : "")
-                              : "—"}
+                              ? job.last_error.slice(0, 100) +
+                                (job.last_error.length > 100 ? "..." : "")
+                              : "-"}
                           </td>
                           <td className="px-3 py-2">
-                            {isFailed && (
+                            {job.status === "failed" && (
                               <div className="flex flex-col items-start gap-1">
                                 <button
                                   type="button"
                                   disabled={retrying}
                                   onClick={() => void retryJob(job.id)}
-                                  className="flex items-center gap-1 btn-ghost h-6 px-2 text-[10px] disabled:opacity-40"
+                                  className="flex h-6 items-center gap-1 rounded-md border border-ink-300 px-2 text-[10px] hover:border-accent-gold/50 disabled:opacity-40 dark:border-ink-700"
                                 >
                                   {retrying ? (
-                                    <Loader2
-                                      size={10}
-                                      className="animate-spin"
-                                    />
+                                    <Loader2 size={10} className="animate-spin" />
                                   ) : (
                                     <RotateCcw size={10} />
                                   )}
@@ -812,10 +554,8 @@ export function N8nPanel() {
                                 {retryResult && (
                                   <span
                                     className={cn(
-                                      "text-[10px]",
-                                      retryResult.ok
-                                        ? "text-status-ok"
-                                        : "text-status-err"
+                                      "max-w-[220px] text-[10px]",
+                                      retryResult.ok ? "text-status-ok" : "text-status-err"
                                     )}
                                   >
                                     {retryResult.message}
@@ -831,7 +571,41 @@ export function N8nPanel() {
                 </table>
               </div>
             )}
-          </section>
+          </SectionBlock>
+
+          <SectionBlock title="Dispatch Logs" icon={ShieldCheck}>
+            {data.dispatchLogs.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-ink-300 p-3 text-sm text-ink-500 dark:border-ink-800 dark:text-ink-400">
+                No matching dispatch audit rows found.
+              </p>
+            ) : (
+              <div className="grid gap-2 md:grid-cols-2">
+                {data.dispatchLogs.map((log) => (
+                  <div
+                    key={log.id}
+                    className="rounded-xl border border-ink-200 bg-white/70 p-3 text-sm dark:border-ink-800 dark:bg-ink-900/40"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-ink-900 dark:text-ink-100">
+                          {pretty(log.action)}
+                        </p>
+                        <p className="mt-0.5 text-[11px] text-ink-500 dark:text-ink-400">
+                          {log.target_type ?? "system"} · {formatWhen(log.created_at)}
+                        </p>
+                      </div>
+                      <CheckCircle2 size={14} className="text-status-info" />
+                    </div>
+                    {Object.keys(log.metadata).length > 0 && (
+                      <p className="mt-2 break-words font-mono text-[10px] text-ink-600 dark:text-ink-300">
+                        {JSON.stringify(log.metadata)}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </SectionBlock>
         </>
       )}
     </div>

@@ -82,9 +82,6 @@ const CATEGORIES: CategoryMeta[] = [
     varOrder: [
       "META_APP_ID",
       "META_APP_SECRET",
-      "META_ACCESS_TOKEN",
-      "META_PAGE_ID",
-      "META_INSTAGRAM_ACCOUNT_ID",
       "ALLOW_LIVE_SOCIAL_PUBLISH",
       "ALLOW_LIVE_EMAIL_SEND",
     ],
@@ -93,7 +90,11 @@ const CATEGORIES: CategoryMeta[] = [
     key: "google_services",
     label: "Google Services",
     icon: Globe,
-    varOrder: ["GBP_ACCOUNT_ID", "GBP_LOCATION_ID", "YOUTUBE_CHANNEL_ID"],
+    varOrder: [
+      "GOOGLE_OAUTH_CLIENT_ID",
+      "GOOGLE_OAUTH_CLIENT_SECRET",
+      "GOOGLE_OAUTH_REDIRECT_URI",
+    ],
   },
   {
     key: "zapier",

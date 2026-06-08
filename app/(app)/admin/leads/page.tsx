@@ -203,6 +203,8 @@ function LeadReviewCard({ row }: { row: LeadReviewRow }) {
   const contact = row.contact;
   const summaryTask = row.tasks.find((task) => task.task_type === "lead_summary");
   const followupTasks = row.tasks.filter((task) => task.task_type !== "lead_summary");
+  const atlasHandoffStatus = metadataValue(lead, "atlas_handoff_status");
+  const atlasHandoffId = metadataValue(lead, "atlas_handoff_id");
 
   return (
     <article className="card space-y-4 p-4">
@@ -233,6 +235,13 @@ function LeadReviewCard({ row }: { row: LeadReviewRow }) {
           </p>
           <p className="mt-1 max-w-md text-ink-500 dark:text-ink-400">
             {row.assignment?.assignment_reason ?? "No assignment record yet."}
+          </p>
+          <p className="mt-1 max-w-md text-ink-500 dark:text-ink-400">
+            Atlas handoff:{" "}
+            {atlasHandoffStatus
+              ? atlasHandoffStatus.replace(/_/g, " ")
+              : "not recorded"}
+            {atlasHandoffId ? ` - ${atlasHandoffId.slice(0, 8)}` : ""}
           </p>
         </div>
       </div>
@@ -481,6 +490,10 @@ function marketValue(lead: LeadIntakeEvent, key: string): string | null {
 
 function relationValue(lead: LeadIntakeEvent, key: string): string | null {
   return recordValue(lead.relationship, key);
+}
+
+function metadataValue(lead: LeadIntakeEvent, key: string): string | null {
+  return recordValue(lead.metadata, key);
 }
 
 function consentValue(lead: LeadIntakeEvent, key: string): unknown {

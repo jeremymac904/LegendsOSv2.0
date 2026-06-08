@@ -143,7 +143,7 @@ export interface MetaReadinessCheck {
     | "app_configured"
     | "identity_present"
     | "page_connected"
-    | "owner_publish_enabled"
+    | "user_publish_enabled"
     | "live_safety_flag";
   label: string;
   /** True only when this requirement is actually satisfied. Never optimistic. */
@@ -167,7 +167,7 @@ export interface MetaReadiness {
 
 /**
  * Build the publish-readiness checklist. Inputs that come from the database
- * (the owner-approval switch row) are passed in so this helper stays a pure
+ * (the user's destination publish switch row) are passed in so this helper stays a pure
  * function of env-presence + the provided flags — it reads NO secret values
  * and performs NO I/O.
  *
@@ -211,12 +211,12 @@ export function publishReadiness(opts: {
         : "No Meta account connection saved yet (setup needed).",
     },
     {
-      id: "owner_publish_enabled",
-      label: "Owner approval switch",
+      id: "user_publish_enabled",
+      label: "User destination publish toggle",
       passed: opts.publishEnabled,
       detail: opts.publishEnabled
-        ? "Owner has turned the publish-enabled switch on."
-        : "Owner has not enabled publishing for this account.",
+        ? "This destination has publishing enabled."
+        : "This destination has publishing disabled.",
     },
     {
       id: "live_safety_flag",
@@ -244,8 +244,8 @@ export function publishReadiness(opts: {
 //
 // Targets the signed-in user's OWN selected destination (Facebook Page /
 // Instagram business account) with the user's OWN stored token. It refuses to
-// run unless EVERY gate is satisfied: full env configuration, the owner/user
-// approval switch (is_publish_enabled), the live safety flag
+// run unless EVERY gate is satisfied: full env configuration, the user's
+// destination publish toggle (is_publish_enabled), the live safety flag
 // (ALLOW_LIVE_SOCIAL_PUBLISH), a selected destination, and a connected token.
 // ---------------------------------------------------------------------------
 
@@ -259,7 +259,7 @@ export interface MetaPublishPost {
 }
 
 export interface MetaPublishGateContext {
-  /** social_account_connections.is_publish_enabled for the target account. */
+  /** social_account_connections.is_publish_enabled for the target destination. */
   is_publish_enabled: boolean;
   /** Optional caller context for audit-only metadata. */
   actor?: Profile | null;
@@ -269,7 +269,7 @@ export class MetaPublishGateError extends Error {
   constructor(
     public readonly reason:
       | "not_configured"
-      | "owner_not_approved"
+      | "user_publish_disabled"
       | "live_flag_off"
       | "no_destination"
       | "not_connected"
@@ -328,7 +328,7 @@ async function getPageAccessToken(userToken: string, pageId: string): Promise<st
  *
  * Refuses (throws MetaPublishGateError) unless:
  *   1. detectMetaConfig().configured                       (env present)
- *   2. ctx.is_publish_enabled === true                     (owner/user switch)
+ *   2. ctx.is_publish_enabled === true                     (user destination toggle)
  *   3. ALLOW_LIVE_SOCIAL_PUBLISH is on                     (server master switch)
  *   4. the user has a SELECTED destination for the surface (no_destination)
  *   5. the user has a connected Facebook token              (not_connected)
@@ -350,7 +350,7 @@ export async function publishToMeta(
     throw new MetaPublishGateError("not_configured");
   }
   if (!ctx.is_publish_enabled) {
-    throw new MetaPublishGateError("owner_not_approved");
+    throw new MetaPublishGateError("user_publish_disabled");
   }
   if (!readBool("ALLOW_LIVE_SOCIAL_PUBLISH", false)) {
     throw new MetaPublishGateError("live_flag_off");

@@ -404,13 +404,13 @@ const GOOGLE_CARD_META: Record<
     provider: "gmail",
     icon: Mail,
     subtitle:
-      "Read-only Gmail access for AI intake and follow-up drafting. Acts on your own connection.",
+      "Gmail access for listing recent messages, creating drafts, and gated sends. Acts on your own connection.",
   },
   google_drive: {
     provider: "google_drive",
     icon: HardDrive,
     subtitle:
-      "Read-only Drive access so Atlas can retrieve approved files. Acts on your own connection.",
+      "Drive access for listing folders plus gated folder, upload, move, and edit actions. Acts on your own connection.",
   },
   google_calendar: {
     provider: "google_calendar",
@@ -520,7 +520,7 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
     }
   }
 
-  // ----- Meta owner-approval switch -----
+  // ----- Legacy Meta status card -----
 
   async function setMetaPublishEnabled(enabled: boolean) {
     setMetaBusy(true);
@@ -536,10 +536,10 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
       if (!json.ok) {
         setActionMsg((m) => ({
           ...m,
-          meta: json.message ?? "Could not update the approval switch.",
+          meta: json.message ?? "Could not update the destination switch.",
         }));
       } else {
-        setActionMsg((m) => ({ ...m, meta: json.note ?? "Approval switch updated." }));
+        setActionMsg((m) => ({ ...m, meta: json.note ?? "Destination switch updated." }));
         await loadAll();
       }
     } catch {
@@ -561,7 +561,7 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
   const metaConfigured = Boolean(metaConfig?.configured);
   const metaConnected = Boolean(meta?.connection?.connected);
   const metaPublishEnabled = Boolean(meta?.connection?.is_publish_enabled);
-  const metaCanManage = meta?.can_manage ?? true;
+  const metaCanManage = meta?.can_manage ?? false;
 
   const youtube = status?.integrations.youtube;
   const gbp = status?.integrations.google_business_profile;
@@ -803,7 +803,7 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
           <CardShell
             icon={Facebook}
             title="Meta (Facebook)"
-            subtitle="Facebook Page publishing. Requires a connected account, owner approval, and the live-social toggle. Publisher wiring is pending."
+            subtitle="Facebook Page publishing. Requires Meta app credentials, the signed-in user's connected account, selected Page destination, that user's publish toggle, and the live-social toggle."
             pillTone={
               !metaConfigured
                 ? "warn"
@@ -818,8 +818,8 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
                 ? "Not configured"
                 : metaConnected
                   ? metaPublishEnabled
-                    ? "Connected · approved"
-                    : "Connected · owner approval required"
+                    ? "Connected · publishing on"
+                    : "Connected · publishing off"
                   : "Configured · not connected"
             }
           >
@@ -828,21 +828,19 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
                 vars={[
                   { name: "META_APP_ID", present: false },
                   { name: "META_APP_SECRET", present: false },
-                  { name: "META_PAGE_ID", present: false },
-                  { name: "META_INSTAGRAM_ACCOUNT_ID", present: false },
                 ]}
-                note="Live publishing requires connected account + owner approval + live-social toggle; publisher wiring is pending."
+                note="App credentials are global. Page and Instagram destinations are selected per user after OAuth."
               />
             ) : (
               <>
                 <div className="flex items-center justify-between gap-3 rounded-lg border border-ink-200 bg-white/50 p-2.5 dark:border-ink-800 dark:bg-ink-950/30">
                   <div className="min-w-0">
                     <p className="text-xs font-medium text-ink-900 dark:text-ink-100">
-                      Owner approval to publish
+                      Your destination publish toggle
                     </p>
                     <p className="mt-0.5 text-[10px] text-ink-600 dark:text-ink-300">
-                      Approval alone never sends. Live-social toggle + connected
-                      account are still required.
+                      Manage this on your own selected destination row. Admin can
+                      view team status but cannot change a user's destination.
                     </p>
                   </div>
                   <button
@@ -854,9 +852,9 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
                     title={
                       metaCanManage
                         ? metaPublishEnabled
-                          ? "Click to remove approval"
-                          : "Click to approve publishing"
-                        : "Owner only"
+                          ? "Click to disable publishing"
+                          : "Click to enable publishing"
+                        : "Use Connection Center to manage your own destination"
                     }
                     className={cn(
                       "relative inline-flex h-5 w-10 shrink-0 items-center rounded-full border transition",
@@ -875,8 +873,9 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
                   </button>
                 </div>
                 <p className="text-[10px] leading-relaxed text-ink-600 dark:text-ink-300">
-                  Live publishing requires connected account + owner approval +
-                  live-social toggle; publisher wiring is pending.
+                  Live publishing uses the signed-in user's selected Facebook or
+                  Instagram destination and still requires that user's destination
+                  toggle plus the live-social toggle.
                 </p>
               </>
             )}
@@ -891,11 +890,11 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
           <CardShell
             icon={Instagram}
             title="Instagram"
-            subtitle="Instagram Business publishing rides the Meta connector. Requires an Instagram account id plus the Meta app credentials. Publisher wiring is pending."
+            subtitle="Instagram Business publishing rides the signed-in user's Meta connection and selected Instagram destination."
             pillTone={instagram?.configured ? "info" : "warn"}
             pillLabel={
               instagram?.configured
-                ? "Configured (publisher pending)"
+                ? "Configured · destination gated"
                 : "Not configured"
             }
           >
@@ -903,13 +902,8 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
               vars={[
                 { name: "META_APP_ID", present: instagram?.configured ? true : undefined },
                 { name: "META_APP_SECRET", present: instagram?.configured ? true : undefined },
-                { name: "META_ACCESS_TOKEN", present: instagram?.configured ? true : undefined },
-                {
-                  name: "META_INSTAGRAM_ACCOUNT_ID",
-                  present: instagram?.configured ? true : undefined,
-                },
               ]}
-              note="Publishing not implemented yet — there is no Test/Publish action because the platform cannot post to Instagram. Owner approval is managed on the Meta (Facebook) card."
+              note="Connect Meta, select the user's Instagram business destination, then enable publishing on that destination."
             />
           </CardShell>
 
@@ -917,15 +911,18 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
           <CardShell
             icon={Youtube}
             title="YouTube"
-            subtitle="Channel target for future publishing. Authentication runs through Google OAuth."
+            subtitle="YouTube channel selection is per user through the Google social OAuth grant."
             pillTone={youtube?.configured ? "info" : "warn"}
             pillLabel={
-              youtube?.configured ? "Configured (publisher pending)" : "Not configured"
+              youtube?.configured ? "Configured · channel gated" : "Not configured"
             }
           >
             <SetupChecklist
-              vars={[{ name: "YOUTUBE_CHANNEL_ID", present: youtube?.configured ?? undefined }]}
-              note="Publishing not implemented yet — there is no Test/Publish action because the platform cannot post to YouTube."
+              vars={[
+                { name: "GOOGLE_OAUTH_CLIENT_ID", present: youtube?.configured ?? undefined },
+                { name: "GOOGLE_OAUTH_CLIENT_SECRET", present: youtube?.configured ?? undefined },
+              ]}
+              note="Users connect Google social, select their own YouTube channel, and publish only through gated user-owned destinations."
             />
           </CardShell>
 
@@ -933,18 +930,18 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
           <CardShell
             icon={Building2}
             title="Google Business Profile"
-            subtitle="GBP location target for future posts + review replies. Authentication runs through Google OAuth."
+            subtitle="GBP location selection is per user through the Google social OAuth grant."
             pillTone={gbp?.configured ? "info" : "warn"}
             pillLabel={
-              gbp?.configured ? "Configured (publisher pending)" : "Not configured"
+              gbp?.configured ? "Configured · location gated" : "Not configured"
             }
           >
             <SetupChecklist
               vars={[
-                { name: "GBP_ACCOUNT_ID", present: gbp?.configured ?? undefined },
-                { name: "GBP_LOCATION_ID", present: gbp?.configured ?? undefined },
+                { name: "GOOGLE_OAUTH_CLIENT_ID", present: gbp?.configured ?? undefined },
+                { name: "GOOGLE_OAUTH_CLIENT_SECRET", present: gbp?.configured ?? undefined },
               ]}
-              note="Publishing not implemented yet — there is no Test/Publish action because the platform cannot post to GBP."
+              note="Users connect Google social, select their own GBP location, and publish only through gated user-owned destinations."
             />
           </CardShell>
 
@@ -1246,7 +1243,7 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
                 </p>
                 <p className="mt-0.5 text-[10px] text-ink-500 dark:text-ink-400">
                   POST to this path with the webhook secret in the
-                  X-Webhook-Secret header.
+                  x-legendsos-webhook-secret header.
                 </p>
               </div>
             )}

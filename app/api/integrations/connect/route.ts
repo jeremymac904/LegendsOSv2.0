@@ -32,8 +32,9 @@ const PROVIDERS = [
 ] as const;
 type ProviderId = (typeof PROVIDERS)[number];
 
-// Google OAuth scopes per capability. Requested at connect time later; listed
-// here so the contract is explicit and the UI can show what will be asked.
+// Google OAuth scopes per capability. Requested at connect time; listed here
+// so the contract is explicit and the UI can show what will be asked. These
+// must stay aligned with app/api/integrations/google/* action routes.
 const PROVIDER_SCOPES: Record<ProviderId, string[]> = {
   google: ["openid", "email", "profile"],
   google_social: [
@@ -42,9 +43,14 @@ const PROVIDER_SCOPES: Record<ProviderId, string[]> = {
     "profile",
     "https://www.googleapis.com/auth/business.manage",
     "https://www.googleapis.com/auth/youtube.readonly",
+    "https://www.googleapis.com/auth/youtube.upload",
   ],
-  gmail: ["https://www.googleapis.com/auth/gmail.readonly"],
-  google_drive: ["https://www.googleapis.com/auth/drive.readonly"],
+  gmail: [
+    "https://www.googleapis.com/auth/gmail.readonly",
+    "https://www.googleapis.com/auth/gmail.compose",
+    "https://www.googleapis.com/auth/gmail.send",
+  ],
+  google_drive: ["https://www.googleapis.com/auth/drive"],
   google_calendar: ["https://www.googleapis.com/auth/calendar.events"],
   facebook: [
     "pages_show_list",

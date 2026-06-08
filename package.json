@@ -14,6 +14,7 @@
     "test:loan-memory": "tsx tests/loan-memory/run.ts",
     "test:e2e:install": "playwright install --with-deps chromium",
     "index-assets": "tsx scripts/index-local-assets.ts",
+    "index-training-assets": "tsx scripts/index-training-assets.ts",
     "seed-assistants": "tsx scripts/seed-atlas-assistants-from-local.ts",
     "ingest-twins": "node scripts/ingest-ai-twins.mjs",
     "import-local-knowledge": "tsx scripts/import-local-knowledge.ts",

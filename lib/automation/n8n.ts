@@ -16,6 +16,32 @@ export type N8nWebhookKey =
   | "content_reminder"
   | "failed_publish_recovery";
 
+export const N8N_WEBHOOK_KEYS: N8nWebhookKey[] = [
+  "social_publish",
+  "gbp_post",
+  "facebook_post",
+  "instagram_post",
+  "youtube_post",
+  "email_send",
+  "daily_usage",
+  "provider_health",
+  "content_reminder",
+  "failed_publish_recovery",
+];
+
+export const N8N_WEBHOOK_ENV_VARS: Record<N8nWebhookKey, string> = {
+  social_publish: "N8N_WEBHOOK_SOCIAL_PUBLISH",
+  gbp_post: "N8N_WEBHOOK_GBP_POST",
+  facebook_post: "N8N_WEBHOOK_FACEBOOK_POST",
+  instagram_post: "N8N_WEBHOOK_INSTAGRAM_POST",
+  youtube_post: "N8N_WEBHOOK_YOUTUBE_POST",
+  email_send: "N8N_WEBHOOK_EMAIL_SEND",
+  daily_usage: "N8N_WEBHOOK_DAILY_USAGE",
+  provider_health: "N8N_WEBHOOK_PROVIDER_HEALTH",
+  content_reminder: "N8N_WEBHOOK_CONTENT_REMINDER",
+  failed_publish_recovery: "N8N_WEBHOOK_FAILED_PUBLISH_RECOVERY",
+};
+
 export interface EnqueueArgs {
   profile: Profile | null;
   job_type: string;
@@ -58,14 +84,9 @@ export function getWebhookUrl(jobType: N8nWebhookKey): string | null {
 export function getN8nConfigState() {
   const env = getServerEnv();
   const webhooks = env.N8N_WEBHOOKS;
-  const flags = {
-    social_publish: Boolean(webhooks.social_publish),
-    email_send: Boolean(webhooks.email_send),
-    content_reminder: Boolean(webhooks.content_reminder),
-    daily_usage: Boolean(webhooks.daily_usage),
-    failed_publish_recovery: Boolean(webhooks.failed_publish_recovery),
-    provider_health: Boolean(webhooks.provider_health),
-  };
+  const flags = Object.fromEntries(
+    N8N_WEBHOOK_KEYS.map((key) => [key, Boolean(webhooks[key])])
+  ) as Record<N8nWebhookKey, boolean>;
   const base_url_present = Boolean(env.N8N_BASE_URL || env.N8N_WEBHOOK_BASE_URL);
   const anyWebhook = Object.values(flags).some(Boolean);
   return {

@@ -506,12 +506,13 @@ export async function POST(req: Request) {
     );
   }
 
-  if (destination.user_id !== profile.id && !isAdminOrOwner(profile)) {
+  if (destination.user_id !== profile.id) {
     return NextResponse.json(
       {
         ok: false,
         error: "forbidden",
-        message: "You can only manage your own destination rows.",
+        message:
+          "Only the destination owner can manage this row. Owner/admin can view team status but cannot change a user's destination selection.",
       },
       { status: 403 }
     );
