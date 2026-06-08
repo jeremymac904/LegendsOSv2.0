@@ -37,10 +37,20 @@ export default async function ProtectedLayout({
   }
 
   const path = pathFromHeaders();
-  const fullBleed = path.startsWith("/atlas");
+  // Atlas runs full-bleed (its own internal flex column pins the composer).
+  // Other chat surfaces (FLO/Coordinator/Marketing) live in the standard padded
+  // scroll area but size themselves with h-full, so AgentChat fills the
+  // fixed-height main and its composer stays pinned — no page scroll either way.
+  const fullBleed = path === "/atlas" || path.startsWith("/atlas/");
 
   return (
-    <div className="flex min-h-screen flex-col">
+    // App shell = EXACTLY the viewport height (100dvh) and never page-scrolls.
+    // All scrolling happens INSIDE the content area (or the chat message list).
+    // This is the single fix for "composer below the fold" + "page scroll traps":
+    // the shell is fixed-height, so a chat page's h-full resolves to the viewport
+    // and its internal flex column pins the composer; non-chat pages scroll within
+    // <main> instead of growing the whole document.
+    <div className="flex h-[100dvh] flex-col overflow-hidden">
       {impersonating && realProfile && (
         <ImpersonationBanner
           targetName={profile.full_name ?? profile.email}
@@ -50,14 +60,14 @@ export default async function ProtectedLayout({
           }
         />
       )}
-      <div className="flex min-h-screen">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         <Sidebar profile={profile} />
-        <div className="flex min-h-screen w-full flex-col">
+        <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden">
           <TopBar profile={profile} />
           {fullBleed ? (
-            <main className="flex-1 overflow-hidden">{children}</main>
+            <main className="min-h-0 flex-1 overflow-hidden">{children}</main>
           ) : (
-            <main className="flex-1 px-4 py-6 sm:px-5 lg:px-6">
+            <main className="min-h-0 flex-1 overflow-y-auto px-4 py-6 scrollbar-thin sm:px-5 lg:px-6">
               <div className="mx-auto w-full max-w-[1500px]">{children}</div>
             </main>
           )}
