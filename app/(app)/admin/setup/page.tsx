@@ -359,26 +359,26 @@ export default async function TeamSetupPage() {
       href: "/settings",
     },
     {
-      title: "Zapier MCP",
+      title: "Zapier Publishing",
       detail: zapier
-        ? "ZAP_MCP_KEY present (not verified). Connector is still a stub — no Zaps are triggered."
-        : "Zapier MCP key not set. Connector returns not_configured.",
+        ? "Zapier MCP key present (not verified). Recommended social path: Zapier -> Facebook, Instagram, YouTube, TikTok, Google Business Profile, and LinkedIn."
+        : "Connect Zapier MCP in Settings. Recommended: Connect social accounts through Zapier for the fastest setup and highest reliability.",
       label: zapier ? "key present (not verified)" : "not connected",
       icon: PlugZap,
       href: "/settings",
     },
     {
-      title: "Meta / HeroPost (social)",
+      title: "Meta Direct API (optional)",
       detail: meta.configured
         ? meta.paid_enabled
-          ? "Configured and live publishing is allowed — but the publisher is still a stub (no posts sent)."
-          : "Configured, but live publishing is off (ALLOW_LIVE_SOCIAL_PUBLISH=false). Nothing is published."
-        : "Meta app/token/identity not fully configured. No social publishing.",
+          ? "Advanced direct API path is configured and live publishing is allowed. Zapier remains the recommended publishing method."
+          : "Advanced direct API path is configured, but live publishing is off (ALLOW_LIVE_SOCIAL_PUBLISH=false)."
+        : "Optional direct API path is not configured. Use Zapier for the recommended social publishing path.",
       label: meta.configured
         ? meta.paid_enabled
           ? "key present (not verified)"
           : "disabled"
-        : "setup needed",
+        : "disabled",
       icon: Megaphone,
       href: "/social",
     },

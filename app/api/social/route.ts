@@ -83,6 +83,8 @@ const schema = z.object({
   media_ids: z.array(z.string().min(1)).nullish(),
   scheduled_at: z.string().datetime().nullish(),
   action: z.enum(["draft", "schedule"]).default("draft"),
+  publishing_route: z.enum(["manual", "zapier", "n8n", "direct_api"]).default("zapier"),
+  publishing_method: z.enum(["manual", "zapier", "direct_api"]).default("zapier"),
   // YouTube needs its own title field separate from the internal `title`.
   // We stash it in `metadata.youtube_title` rather than carving out a new
   // column. Front-end only sends it when YouTube is in `channels`.
@@ -135,8 +137,10 @@ export async function POST(req: Request) {
   if (data.youtube_title && data.channels.includes("youtube")) {
     metadata.youtube_title = data.youtube_title.trim();
   }
+  metadata.publishing_route = data.publishing_route;
+  metadata.publishing_method = data.publishing_method;
 
-  if (data.action === "schedule") {
+  if (data.action === "schedule" && data.publishing_method === "direct_api") {
     const channelsNeedingDestinations = data.channels as SocialChannel[];
     const { data: destinationRows, error: destinationError } = await supabase
       .from("social_account_connections")
@@ -295,11 +299,9 @@ export async function POST(req: Request) {
     metadata: { post_id: post.id, channels: data.channels, edited: !!data.post_id },
   });
 
-  // If scheduling, enqueue an automation job. A live dispatch requires BOTH
-  // the signed-in user's in-app live-social toggle (integration_settings,
-  // resolved per user) AND, for every selected channel, the user's publish
-  // switch on that platform's connection (social_account_connections.is_publish_enabled).
-  // If either is off, the post stays queued/draft — it is NEVER published.
+  // If scheduling, enqueue an automation job. Zapier is the default publishing
+  // method and does not depend on direct Google Social destination discovery.
+  // Direct Platform API remains fail-closed behind per-user destination rows.
   let job: { job_id: string; status: string; reason?: string } | null = null;
   let publishGate: { live: boolean; reason: string } | null = null;
   let directResults: Array<{
@@ -314,13 +316,16 @@ export async function POST(req: Request) {
       organizationId: profile.organization_id,
       userId: profile.id,
     });
-    const enabledPlatforms = await publishEnabledPlatforms(
-      profile.id,
-      data.channels.map((channel) => CHANNEL_PLATFORM[channel])
-    );
-    const blockedChannels = data.channels.filter(
-      (c) => !enabledPlatforms.has(CHANNEL_PLATFORM[c])
-    );
+    const directApiSelected = data.publishing_method === "direct_api";
+    const enabledPlatforms = directApiSelected
+      ? await publishEnabledPlatforms(
+          profile.id,
+          data.channels.map((channel) => CHANNEL_PLATFORM[channel])
+        )
+      : new Set<string>();
+    const blockedChannels = directApiSelected
+      ? data.channels.filter((c) => !enabledPlatforms.has(CHANNEL_PLATFORM[c]))
+      : [];
     const accountsAllEnabled = blockedChannels.length === 0;
     const dispatchLive = liveSetting.allowed && accountsAllEnabled;
 
@@ -330,7 +335,7 @@ export async function POST(req: Request) {
         ? "ok"
         : !liveSetting.allowed
         ? `live_social_${liveSetting.reason}`
-        : `account_publish_disabled:${blockedChannels.join(",")}`,
+        : `direct_api_destination_disabled:${blockedChannels.join(",")}`,
     };
 
     // ------------------------------------------------------------------
@@ -343,7 +348,7 @@ export async function POST(req: Request) {
     // channel failures — the post is always saved; publish is best-effort.
     // ------------------------------------------------------------------
 
-    if (dispatchLive) {
+    if (dispatchLive && directApiSelected) {
       const imageUrl = metadataStringValue(post.metadata, "image_url");
       const videoUrl = metadataStringValue(post.metadata, "video_url");
 
@@ -528,6 +533,8 @@ export async function POST(req: Request) {
           body: data.body,
           channels: channelsForN8n,
           scheduled_at: data.scheduled_at,
+          publishing_method: data.publishing_method,
+          publishing_route: data.publishing_route,
           youtube_title:
             data.youtube_title && channelsForN8n.includes("youtube")
               ? data.youtube_title.trim()
@@ -555,10 +562,15 @@ export async function POST(req: Request) {
               organization_id: profile.organization_id,
               social_post_id: post!.id,
               platform: CHANNEL_PLATFORM[channel],
-              route: "n8n",
+              route: data.publishing_method === "zapier" ? "zapier" : "n8n",
               status: attemptStatus,
               error: dispatchLive ? null : publishGate!.reason,
-              metadata: { channel, job_id: job!.job_id },
+              metadata: {
+                channel,
+                job_id: job!.job_id,
+                publishing_method: data.publishing_method,
+                publishing_route: data.publishing_route,
+              },
             })
           )
       );
@@ -571,6 +583,8 @@ export async function POST(req: Request) {
       target_id: post.id,
       metadata: {
         channels: data.channels,
+        publishing_method: data.publishing_method,
+        publishing_route: data.publishing_route,
         dispatch: dispatchLive,
         gate_reason: publishGate.reason,
         job_id: job.job_id,

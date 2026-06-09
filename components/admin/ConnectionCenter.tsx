@@ -811,8 +811,8 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
           {/* Meta (Facebook) */}
           <CardShell
             icon={Facebook}
-            title="Meta (Facebook)"
-            subtitle="Facebook Page publishing. Requires Meta app credentials, the signed-in user's connected account, selected Page destination, that user's publish toggle, and the live-social toggle."
+            title="Meta (Facebook) Direct API"
+            subtitle="Advanced direct API path for Facebook Page publishing. Zapier is recommended for the fastest and most reliable setup."
             pillTone={
               !metaConfigured
                 ? "warn"
@@ -847,9 +847,9 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
                     <p className="text-xs font-medium text-ink-900 dark:text-ink-100">
                       Your destination publish toggle
                     </p>
-                    <p className="mt-0.5 text-[10px] text-ink-600 dark:text-ink-300">
-                      Manage this on your own selected destination row. Admin can
-                      view team status but cannot change a user's destination.
+                  <p className="mt-0.5 text-[10px] text-ink-600 dark:text-ink-300">
+                      Manage this only for the advanced direct API path. Admin
+                      can view team status but cannot change a user's destination.
                     </p>
                   </div>
                   <button
@@ -883,8 +883,8 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
                 </div>
                 <p className="text-[10px] leading-relaxed text-ink-600 dark:text-ink-300">
                   Live publishing uses the signed-in user's selected Facebook or
-                  Instagram destination and still requires that user's destination
-                  toggle plus the live-social toggle.
+                  Instagram destination only for Direct Platform API (Advanced).
+                  Zapier publishing does not use global Page or Instagram IDs.
                 </p>
               </>
             )}
@@ -898,8 +898,8 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
           {/* Instagram (via Meta) */}
           <CardShell
             icon={Instagram}
-            title="Instagram"
-            subtitle="Instagram Business publishing rides the signed-in user's Meta connection and selected Instagram destination."
+            title="Instagram Direct API"
+            subtitle="Advanced direct API path. Recommended publishing is Zapier -> Instagram."
             pillTone={instagram?.configured ? "info" : "warn"}
             pillLabel={
               instagram?.configured
@@ -919,17 +919,13 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
           {/* YouTube */}
           <CardShell
             icon={Youtube}
-            title="YouTube"
-            subtitle="YouTube channel selection is per user through the Google social OAuth grant."
-            pillTone={
-              youtube?.configured ? "ok" : youtube?.base_connected ? "info" : "warn"
-            }
+            title="YouTube Direct API"
+            subtitle="Optional direct integration for advanced users. Recommended publishing is Zapier -> YouTube."
+            pillTone="info"
             pillLabel={
               youtube?.configured
-                ? "Channel selected"
-                : youtube?.base_connected
-                  ? "Needs channel selection"
-                  : "Connect Google social"
+                ? "Optional direct connected"
+                : "Optional Direct Integration"
             }
           >
             <SetupChecklist
@@ -945,8 +941,8 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
               ]}
               note={
                 youtube?.base_connected
-                  ? `${youtube.available_destination_count ?? 0} YouTube channel option${(youtube.available_destination_count ?? 0) === 1 ? "" : "s"} detected. Select a channel in the per-user Connection Center before publishing.`
-                  : "Users connect Google social, select their own YouTube channel, and publish only through gated user-owned destinations."
+                  ? `${youtube.available_destination_count ?? 0} YouTube channel option${(youtube.available_destination_count ?? 0) === 1 ? "" : "s"} detected for the optional direct API path. Zapier remains the recommended publishing route.`
+                  : "Google Social APIs are optional. Use Zapier -> YouTube for the recommended publishing route."
               }
             />
           </CardShell>
@@ -954,17 +950,13 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
           {/* Google Business Profile */}
           <CardShell
             icon={Building2}
-            title="Google Business Profile"
-            subtitle="GBP location selection is per user through the Google social OAuth grant."
-            pillTone={
-              gbp?.configured ? "ok" : gbp?.base_connected ? "info" : "warn"
-            }
+            title="Google Business Profile Direct API"
+            subtitle="Optional direct integration for advanced users. Recommended publishing is Zapier -> Google Business Profile."
+            pillTone="info"
             pillLabel={
               gbp?.configured
-                ? "Location selected"
-                : gbp?.base_connected
-                  ? "Needs location selection"
-                  : "Connect Google social"
+                ? "Optional direct connected"
+                : "Optional Direct Integration"
             }
           >
             <SetupChecklist
@@ -980,8 +972,8 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
               ]}
               note={
                 gbp?.base_connected
-                  ? `${gbp.available_account_count ?? 0} GBP account option${(gbp.available_account_count ?? 0) === 1 ? "" : "s"} and ${gbp.available_location_count ?? 0} location option${(gbp.available_location_count ?? 0) === 1 ? "" : "s"} detected. Select a location in the per-user Connection Center before publishing.`
-                  : "Users connect Google social, select their own GBP location, and publish only through gated user-owned destinations."
+                  ? `${gbp.available_account_count ?? 0} GBP account option${(gbp.available_account_count ?? 0) === 1 ? "" : "s"} and ${gbp.available_location_count ?? 0} location option${(gbp.available_location_count ?? 0) === 1 ? "" : "s"} detected for the optional direct API path. Zapier remains the recommended publishing route.`
+                  : "Google Social APIs are optional. Use Zapier -> Google Business Profile for the recommended publishing route."
               }
             />
           </CardShell>
@@ -1043,8 +1035,8 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
           {/* Zapier MCP */}
           <CardShell
             icon={Zap}
-            title="Zapier MCP"
-            subtitle="Per-user automation bridge. Configured individually under Settings → MCP connections, not globally here."
+            title="Zapier Publishing (Recommended)"
+            subtitle="Recommended: Connect your social accounts through Zapier for the fastest setup and highest reliability."
             pillTone={
               zapierMcp && zapierMcp.connection_count > 0 ? "ok" : "info"
             }
@@ -1055,11 +1047,14 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
             }
           >
             <p className="text-[11px] leading-relaxed text-ink-600 dark:text-ink-300">
-              Zapier MCP is connected per team member in{" "}
+              Use Zapier -&gt; Facebook, Zapier -&gt; Instagram, Zapier -&gt;
+              YouTube, Zapier -&gt; TikTok, Zapier -&gt; Google Business
+              Profile, and Zapier -&gt; LinkedIn. Zapier MCP is connected per
+              team member in{" "}
               <span className="font-medium text-ink-800 dark:text-ink-200">
                 Settings → MCP connections
               </span>
-              . There is no org-wide credential to set here.
+              . There is no org-wide destination ID to set here.
               {zapierMcp && zapierMcp.connection_count === 0 && (
                 <> No team member has saved a Zapier MCP connection yet.</>
               )}

@@ -13,7 +13,6 @@ import {
   loadSocialAssetUsageCounts,
 } from "@/lib/admin/orgAssets";
 import { getServerEnv, PUBLIC_ENV } from "@/lib/env";
-import { getN8nConfigState } from "@/lib/automation/n8n";
 import { isZapierMcpConfigured } from "@/lib/automation/zapier-mcp";
 import { detectMetaConfig } from "@/lib/integrations/meta";
 import { isOwner } from "@/lib/permissions";
@@ -203,7 +202,6 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
   const preselectedMediaId = searchParams?.media ?? null;
 
   const publishEnabled = env.SAFETY.allowLiveSocialPublish;
-  const n8nConnected = Boolean(env.N8N_WEBHOOKS.social_publish);
   const platformWebhooksReady = Boolean(
     env.N8N_WEBHOOKS.facebook_post ||
       env.N8N_WEBHOOKS.instagram_post ||
@@ -218,62 +216,44 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
   // composer. NOTHING here dispatches or publishes — every external route is
   // "disabled until configured + approved". Only Manual export is usable now.
   // ---------------------------------------------------------------------------
-  const n8nState = getN8nConfigState();
   const zapierConfigured = isZapierMcpConfigured();
   const metaState = detectMetaConfig();
 
   const publishingRoutes: PublishingRoute[] = [
     {
+      id: "zapier",
+      label: "Zapier (Recommended)",
+      detail:
+        "Recommended: Connect your social accounts through Zapier for the fastest setup and highest reliability. Use Zapier to publish to Facebook, Instagram, YouTube, TikTok, Google Business Profile, and LinkedIn.",
+      status: zapierConfigured ? "key_present" : "setup_needed",
+      statusLabel: zapierConfigured
+        ? "key present (not verified)"
+        : "connect Zapier MCP",
+      external: true,
+    },
+    {
+      id: "direct_api",
+      label: "Direct Platform API (Advanced)",
+      detail:
+        metaState.configured
+          ? "Advanced direct publishing for user-owned Meta destinations. Google Social APIs are optional direct integrations and are no longer required for the recommended Zapier path."
+          : "Advanced direct publishing. Meta app credentials are not connected, and Google Social APIs remain optional.",
+      status: metaState.configured
+        ? "key_present"
+        : "not_connected",
+      statusLabel: metaState.configured
+        ? "advanced path available"
+        : "optional direct integration",
+      external: true,
+    },
+    {
       id: "manual",
       label: "Manual export",
       detail:
         "Copy the caption to your clipboard or download it as a .txt file, then post by hand on each platform. Available now — no configuration required.",
-      // Manual export is the only route that actually does something today.
-      // It never leaves the browser and never dispatches anything externally.
       status: "available",
       statusLabel: "available now",
       external: false,
-    },
-    {
-      id: "zapier",
-      label: "Zapier MCP",
-      detail:
-        "Route approved drafts through a Zapier MCP connection. Disabled until the Zapier MCP key is configured and publishing is approved by the owner.",
-      status: zapierConfigured ? "key_present" : "setup_needed",
-      statusLabel: zapierConfigured
-        ? "key present (not verified)"
-        : "setup needed",
-      external: true,
-    },
-    {
-      id: "n8n",
-      label: "n8n",
-      detail:
-        "Hand approved drafts to an n8n workflow that posts to each channel. Disabled until the n8n base URL and the social-publish webhook are configured and publishing is approved.",
-      status: n8nState.configured
-        ? "key_present"
-        : n8nState.base_url_present || n8nState.webhooks.social_publish
-        ? "setup_needed"
-        : "not_connected",
-      statusLabel: n8nState.configured
-        ? "key present (not verified)"
-        : n8nState.base_url_present || n8nState.webhooks.social_publish
-        ? "setup needed"
-        : "not connected",
-      external: true,
-    },
-    {
-      id: "heropost",
-      label: "HeroPost (Meta)",
-      detail:
-        metaState.configured
-          ? "Meta (Facebook / Instagram) connector env is present, but live publishing stays off until the owner approves it. Disabled until configured + approved."
-          : "Direct Meta (Facebook / Instagram) publishing. Not connected — Meta app credentials and a Page or Instagram account are not configured.",
-      status: metaState.configured ? "key_present" : "not_connected",
-      statusLabel: metaState.configured
-        ? "key present (not verified)"
-        : "not connected",
-      external: true,
     },
   ];
 
@@ -290,8 +270,9 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
       children: (
         <div className="space-y-3">
           <p className="text-xs text-ink-600 dark:text-ink-300">
-            Drafting is live. External publishing stays disabled until the owner
-            flag and n8n webhooks are configured.
+            Drafting is live. Zapier is the recommended publishing path for
+            Facebook, Instagram, YouTube, TikTok, Google Business Profile, and
+            LinkedIn. Direct platform APIs are optional advanced integrations.
           </p>
           <div className="grid gap-2 md:grid-cols-3">
             <SetupStatusCard
@@ -300,14 +281,14 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
               ready={publishEnabled}
             />
             <SetupStatusCard
-              title="n8n publish broker"
-              detail="N8N_WEBHOOK_SOCIAL_PUBLISH"
-              ready={n8nConnected}
+              title="Zapier publishing"
+              detail="Zapier MCP + platform Zaps"
+              ready={zapierConfigured}
             />
             <SetupStatusCard
-              title="Platform webhooks"
-              detail="FACEBOOK / INSTAGRAM / GBP / YOUTUBE"
-              ready={platformWebhooksReady}
+              title="Direct Platform API"
+              detail="Optional advanced Meta / Google APIs"
+              ready={metaState.configured || platformWebhooksReady}
             />
           </div>
           <Link href="/settings" className="btn-ghost text-xs">
@@ -336,11 +317,11 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
               }
             />
             <StatusPill
-              status={n8nConnected ? "warn" : "off"}
+              status={zapierConfigured ? "info" : "warn"}
               label={
-                n8nConnected
-                  ? "n8n configured (inactive unless verified)"
-                  : "n8n not configured"
+                zapierConfigured
+                  ? "Zapier MCP present"
+                  : "connect Zapier MCP"
               }
             />
           </div>
@@ -364,7 +345,7 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
         </span>
         <span className="text-ink-500 dark:text-ink-400">·</span>
         <span className="text-ink-600 dark:text-ink-300">
-          n8n {n8nConnected ? "configured (inactive unless verified)" : "not configured"}
+          Zapier {zapierConfigured ? "MCP present" : "recommended setup"}
         </span>
         <Link href="/settings" className="btn-ghost ml-auto text-[11px]">
           <ExternalLink size={12} />
