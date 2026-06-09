@@ -49,6 +49,11 @@ interface PublishIntegration {
   publish_capability?: boolean;
   env_required?: string[];
   capabilities?: string[];
+  actions_available?: boolean;
+  base_connected?: boolean;
+  available_destination_count?: number;
+  available_account_count?: number;
+  available_location_count?: number;
 }
 
 interface GoogleIntegration {
@@ -916,17 +921,33 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
             icon={Youtube}
             title="YouTube"
             subtitle="YouTube channel selection is per user through the Google social OAuth grant."
-            pillTone={youtube?.configured ? "info" : "warn"}
+            pillTone={
+              youtube?.configured ? "ok" : youtube?.base_connected ? "info" : "warn"
+            }
             pillLabel={
-              youtube?.configured ? "Configured · channel gated" : "Not configured"
+              youtube?.configured
+                ? "Channel selected"
+                : youtube?.base_connected
+                  ? "Needs channel selection"
+                  : "Connect Google social"
             }
           >
             <SetupChecklist
               vars={[
-                { name: "GOOGLE_OAUTH_CLIENT_ID", present: youtube?.configured ?? undefined },
-                { name: "GOOGLE_OAUTH_CLIENT_SECRET", present: youtube?.configured ?? undefined },
+                {
+                  name: "GOOGLE_OAUTH_CLIENT_ID",
+                  present: youtube?.base_connected ?? undefined,
+                },
+                {
+                  name: "GOOGLE_OAUTH_CLIENT_SECRET",
+                  present: youtube?.base_connected ?? undefined,
+                },
               ]}
-              note="Users connect Google social, select their own YouTube channel, and publish only through gated user-owned destinations."
+              note={
+                youtube?.base_connected
+                  ? `${youtube.available_destination_count ?? 0} YouTube channel option${(youtube.available_destination_count ?? 0) === 1 ? "" : "s"} detected. Select a channel in the per-user Connection Center before publishing.`
+                  : "Users connect Google social, select their own YouTube channel, and publish only through gated user-owned destinations."
+              }
             />
           </CardShell>
 
@@ -935,17 +956,33 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
             icon={Building2}
             title="Google Business Profile"
             subtitle="GBP location selection is per user through the Google social OAuth grant."
-            pillTone={gbp?.configured ? "info" : "warn"}
+            pillTone={
+              gbp?.configured ? "ok" : gbp?.base_connected ? "info" : "warn"
+            }
             pillLabel={
-              gbp?.configured ? "Configured · location gated" : "Not configured"
+              gbp?.configured
+                ? "Location selected"
+                : gbp?.base_connected
+                  ? "Needs location selection"
+                  : "Connect Google social"
             }
           >
             <SetupChecklist
               vars={[
-                { name: "GOOGLE_OAUTH_CLIENT_ID", present: gbp?.configured ?? undefined },
-                { name: "GOOGLE_OAUTH_CLIENT_SECRET", present: gbp?.configured ?? undefined },
+                {
+                  name: "GOOGLE_OAUTH_CLIENT_ID",
+                  present: gbp?.base_connected ?? undefined,
+                },
+                {
+                  name: "GOOGLE_OAUTH_CLIENT_SECRET",
+                  present: gbp?.base_connected ?? undefined,
+                },
               ]}
-              note="Users connect Google social, select their own GBP location, and publish only through gated user-owned destinations."
+              note={
+                gbp?.base_connected
+                  ? `${gbp.available_account_count ?? 0} GBP account option${(gbp.available_account_count ?? 0) === 1 ? "" : "s"} and ${gbp.available_location_count ?? 0} location option${(gbp.available_location_count ?? 0) === 1 ? "" : "s"} detected. Select a location in the per-user Connection Center before publishing.`
+                  : "Users connect Google social, select their own GBP location, and publish only through gated user-owned destinations."
+              }
             />
           </CardShell>
 
