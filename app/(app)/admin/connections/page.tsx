@@ -5,7 +5,7 @@ import { StatusPill } from "@/components/ui/StatusPill";
 import { SectionErrorBoundary } from "@/components/ui/SectionErrorBoundary";
 import { ConnectionCenter } from "@/components/admin/ConnectionCenter";
 import { getEffectiveProfile } from "@/lib/impersonation";
-import { isOwner } from "@/lib/permissions";
+import { isAdminOrOwner } from "@/lib/permissions";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -48,7 +48,7 @@ async function safeRecentActivity(): Promise<IntegrationActivityRow[]> {
 
 export default async function ConnectionCenterPage() {
   const { profile } = await getEffectiveProfile();
-  if (!profile || !isOwner(profile)) redirect("/dashboard");
+  if (!profile || !isAdminOrOwner(profile)) redirect("/dashboard");
 
   const recentActivity = await safeRecentActivity();
   const ownerEmail = profile.email ?? null;
@@ -58,8 +58,8 @@ export default async function ConnectionCenterPage() {
       <SectionHeader
         eyebrow="Connections"
         title="OAuth Connection Center"
-        description="Owner-only oversight for every external integration LegendsOS can use — Google OAuth, Gmail, Drive, Calendar, Meta, Instagram, YouTube, Google Business Profile, n8n, and Zapier MCP. Status is honest: users connect and choose their own destinations, live actions stay gated, and no secret value is ever shown."
-        action={<StatusPill status="ok" label="owner gated" />}
+        description="Owner/admin oversight for every external integration LegendsOS can use — Google OAuth, Gmail, Drive, Calendar, Meta, Instagram, YouTube, Google Business Profile, n8n, and Zapier MCP. Status is honest: users connect and choose their own destinations, live actions stay gated, and no secret value is ever shown."
+        action={<StatusPill status="ok" label="owner/admin gated" />}
       />
 
       <SectionErrorBoundary title="Connection Center">

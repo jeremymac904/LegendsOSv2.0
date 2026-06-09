@@ -278,6 +278,21 @@ export default async function TeamSetupPage() {
     process.env.GOOGLE_OAUTH_CLIENT_ID && process.env.GOOGLE_OAUTH_CLIENT_SECRET
   );
   const netlifyUrl = "https://legndsosv20.netlify.app";
+  let ownerCalendarConnected = false;
+
+  try {
+    const { data, error } = await getSupabaseServerClient()
+      .from("user_integration_connections")
+      .select("status")
+      .eq("user_id", profile.id)
+      .eq("provider", "google_calendar")
+      .maybeSingle();
+    if (!error && data?.status?.toLowerCase() === "connected") {
+      ownerCalendarConnected = true;
+    }
+  } catch {
+    // keep honest placeholder state
+  }
 
   const integrations: {
     title: string;
@@ -318,11 +333,15 @@ export default async function TeamSetupPage() {
     {
       title: "Google Calendar",
       detail: googleOAuthPresent
-        ? "Depends on the Google OAuth client (present). Per-user calendar connection is not wired yet."
+        ? ownerCalendarConnected
+          ? "Owner user connected Google Calendar successfully."
+          : "Depends on the Google OAuth client (present), then per-user calendar consent."
         : "Needs the Google OAuth client first, then per-user calendar consent.",
-      // Per-user calendar connection is never wired yet — honestly setup needed
-      // even when the underlying Google OAuth client is present.
-      label: "setup needed",
+      label: googleOAuthPresent
+        ? ownerCalendarConnected
+          ? "connected/verified"
+          : "setup needed"
+        : "setup needed",
       icon: CalendarDays,
       href: "/calendar",
     },

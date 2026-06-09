@@ -608,7 +608,7 @@ export default async function SettingsPage() {
     {
       id: "mcp",
       title: "MCP connections",
-      icon: Plug,
+      icon: <Plug size={16} />,
       children: (
         <SectionErrorBoundary title="MCP connections">
           <div id="mcp-connections" className="scroll-mt-24">
@@ -620,7 +620,7 @@ export default async function SettingsPage() {
     {
       id: "branding",
       title: "Branding",
-      icon: Sparkles,
+      icon: <Sparkles size={16} />,
       children: (
         <SectionErrorBoundary title="Branding">
           <div>

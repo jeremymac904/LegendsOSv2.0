@@ -8,16 +8,59 @@ import {
 import { getN8nConfigState } from "@/lib/automation/n8n";
 import { isWebhookSecretConfigured } from "@/lib/emailIntake/webhook";
 import { detectMetaConfig } from "@/lib/integrations/meta";
-import { isOwner } from "@/lib/permissions";
+import { isAdminOrOwner } from "@/lib/permissions";
 import { getCurrentProfile, getSupabaseServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+type ConnectionStatus = "connected" | "error" | "disabled" | "unknown";
+
+type SocialSummaryRow = {
+  user_id: string;
+  platform: string;
+  destination_label: string | null;
+  destination_type: string | null;
+  status: string | null;
+  is_publish_enabled: boolean;
+  updated_at: string | null;
+};
+
+type UserIntegrationRow = {
+  provider: string;
+  status: string | null;
+};
+
 function readBool(name: string, fallback = false): boolean {
   const raw = process.env[name];
   if (!raw) return fallback;
   return ["1", "true", "yes", "on"].includes(raw.toLowerCase());
+}
+
+function normalizeStatus(raw: string | null | undefined): ConnectionStatus {
+  switch ((raw ?? "").toLowerCase()) {
+    case "connected":
+    case "active":
+      return "connected";
+    case "error":
+    case "failed":
+      return "error";
+    case "disabled":
+    case "revoked":
+    case "disconnected":
+      return "disabled";
+    default:
+      return "unknown";
+  }
+}
+
+function hasConnectedDestination(
+  rows: Array<{ platform: string; status: string | null }>,
+  platform: string
+): boolean {
+  return rows.some(
+    (row) => row.platform === platform && normalizeStatus(row.status) === "connected"
+  );
 }
 
 export async function GET() {
@@ -28,9 +71,10 @@ export async function GET() {
       { status: 401 }
     );
   }
-  if (!isOwner(profile)) {
+
+  if (!isAdminOrOwner(profile)) {
     return NextResponse.json(
-      { ok: false, error: "forbidden", message: "Owner-only endpoint." },
+      { ok: false, error: "forbidden", message: "Owner/admin only endpoint." },
       { status: 403 }
     );
   }
@@ -40,11 +84,14 @@ export async function GET() {
   const n8n = getN8nConfigState();
   const meta = detectMetaConfig();
   const appUrl = PUBLIC_ENV.APP_URL.replace(/\/$/, "");
+  const callbackUri =
+    process.env.GOOGLE_OAUTH_REDIRECT_URI ?? `${appUrl}/api/integrations/connect/callback`;
   const googleOauthConfigured = Boolean(
     process.env.GOOGLE_OAUTH_CLIENT_ID && process.env.GOOGLE_OAUTH_CLIENT_SECRET
   );
 
   const supabase = getSupabaseServerClient();
+
   let teamDestinations: Array<{
     user_id: string;
     full_name: string | null;
@@ -56,7 +103,8 @@ export async function GET() {
     is_publish_enabled: boolean;
     updated_at: string | null;
   }> = [];
-  let platformCounts = {
+
+  const platformCounts = {
     facebook: 0,
     instagram: 0,
     google_business_profile: 0,
@@ -71,31 +119,28 @@ export async function GET() {
       .order("updated_at", { ascending: false });
 
     if (!error) {
-      const rows = (data ?? []) as Array<{
-        user_id: string;
-        platform: string;
-        destination_label: string | null;
-        destination_type: string | null;
-        status: string | null;
-        is_publish_enabled: boolean;
-        updated_at: string | null;
-      }>;
+      const rows = (data ?? []) as SocialSummaryRow[];
       const userIds = Array.from(new Set(rows.map((row) => row.user_id)));
       const profileNames = new Map<
         string,
         { full_name: string | null; email: string | null }
       >();
+
       if (userIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from("profiles")
-          .select("id,full_name,email")
-          .in("id", userIds);
-        for (const p of (profiles ?? []) as Array<{
-          id: string;
-          full_name: string | null;
-          email: string | null;
-        }>) {
-          profileNames.set(p.id, { full_name: p.full_name, email: p.email });
+        try {
+          const { data: profiles } = await supabase
+            .from("profiles")
+            .select("id,full_name,email")
+            .in("id", userIds);
+          for (const p of (profiles ?? []) as Array<{
+            id: string;
+            full_name: string | null;
+            email: string | null;
+          }>) {
+            profileNames.set(p.id, { full_name: p.full_name, email: p.email });
+          }
+        } catch {
+          // best-effort names only
         }
       }
 
@@ -121,9 +166,46 @@ export async function GET() {
       }
     }
   } catch {
-    // Best-effort summary only.
+    // best effort status only
   }
 
+  let userIntegrationRows: UserIntegrationRow[] = [];
+  let userDestinationRows: Array<{ platform: string; status: string | null }> = [];
+
+  try {
+    const { data, error } = await supabase
+      .from("user_integration_connections")
+      .select("provider,status")
+      .eq("user_id", profile.id)
+      .in("provider", ["google", "google_social", "gmail", "google_drive", "google_calendar"]);
+    if (!error) {
+      userIntegrationRows = (data ?? []) as UserIntegrationRow[];
+    }
+  } catch {
+    // best effort status only
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("social_account_connections")
+      .select("platform,status")
+      .eq("user_id", profile.id);
+    if (!error) {
+      userDestinationRows = (data ?? []) as Array<{ platform: string; status: string | null }>;
+    }
+  } catch {
+    // best effort status only
+  }
+
+  const byProvider = new Map<string, string | null>(
+    userIntegrationRows.map((row) => [row.provider, row.status])
+  );
+
+  const hasGmail = normalizeStatus(byProvider.get("gmail")) === "connected";
+  const hasDrive =
+    normalizeStatus(byProvider.get("google_drive")) === "connected";
+  const hasCalendar =
+    normalizeStatus(byProvider.get("google_calendar")) === "connected";
   return NextResponse.json({
     ok: true,
     providers: {
@@ -150,12 +232,55 @@ export async function GET() {
         configured: googleOauthConfigured,
         paid_enabled: googleOauthConfigured,
         capabilities: googleOauthConfigured ? ["oauth_grant"] : [],
+        redirect_uri_expected: callbackUri,
+      },
+      gmail: {
+        configured: hasGmail,
+        actions_available: hasGmail,
+        env_required: ["GOOGLE_OAUTH_CLIENT_ID", "GOOGLE_OAUTH_CLIENT_SECRET"],
+        capabilities: ["gmail_read", "gmail_draft", "gmail_send"],
+      },
+      drive: {
+        configured: hasDrive,
+        actions_available: hasDrive,
+        env_required: ["GOOGLE_OAUTH_CLIENT_ID", "GOOGLE_OAUTH_CLIENT_SECRET"],
+        capabilities: ["drive_read", "drive_write"],
+      },
+      calendar: {
+        configured: hasCalendar,
+        actions_available: hasCalendar,
+        env_required: ["GOOGLE_OAUTH_CLIENT_ID", "GOOGLE_OAUTH_CLIENT_SECRET"],
+        capabilities: ["calendar_read", "calendar_write"],
+      },
+      instagram: {
+        configured: hasConnectedDestination(userDestinationRows, "instagram"),
+        actions_available: true,
+        capabilities: ["instagram_publish"],
+      },
+      youtube: {
+        configured: hasConnectedDestination(userDestinationRows, "youtube"),
+        actions_available: true,
+        capabilities: ["youtube_publish"],
+      },
+      google_business_profile: {
+        configured: hasConnectedDestination(
+          userDestinationRows,
+          "google_business_profile"
+        ),
+        actions_available: true,
+        capabilities: ["google_business_profile_publish"],
       },
       social_destinations: {
         selected_rows: teamDestinations.length,
         publish_enabled_rows: publishEnabledCount,
         platform_counts: platformCounts,
         team_destinations: teamDestinations,
+      },
+      zapier_mcp: {
+        configured: false,
+        actions_available: false,
+        connection_count: 0,
+        scope: "mcp",
       },
     },
     safety_flags: {
@@ -170,5 +295,7 @@ export async function GET() {
       configured: isWebhookSecretConfigured(),
       webhook_url: `${appUrl}/api/webhooks/lead-intake`,
     },
+    redirect_uri: callbackUri,
+    meta_connection_connected: meta.configured,
   });
 }
