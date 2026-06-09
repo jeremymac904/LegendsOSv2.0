@@ -447,7 +447,8 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
     void loadAll();
   }, [loadAll]);
 
-  const googleOauth = status?.integrations.google_oauth;
+  const integrations = status?.integrations;
+  const googleOauth = integrations?.google_oauth;
   const oauthConfigured = Boolean(googleOauth?.configured);
   const connByProvider = new Map(
     (userConns?.connections ?? []).map((c) => [c.provider, c])
@@ -558,18 +559,18 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
     ? { tone: "ok", label: "Ready (OAuth configured)" }
     : { tone: "warn", label: "Not configured" };
 
-  const n8n = status?.automations.n8n;
+  const n8n = status?.automations?.n8n;
   const n8nConfigured = Boolean(n8n?.configured);
-  const metaConfig = meta?.config ?? status?.integrations.meta;
+  const metaConfig = meta?.config ?? integrations?.meta;
   const metaConfigured = Boolean(metaConfig?.configured);
   const metaConnected = Boolean(meta?.connection?.connected);
   const metaPublishEnabled = Boolean(meta?.connection?.is_publish_enabled);
   const metaCanManage = meta?.can_manage ?? false;
 
-  const youtube = status?.integrations.youtube;
-  const gbp = status?.integrations.google_business_profile;
-  const instagram = status?.integrations.instagram;
-  const zapierMcp = status?.integrations.zapier_mcp;
+  const youtube = integrations?.youtube;
+  const gbp = integrations?.google_business_profile;
+  const instagram = integrations?.instagram;
+  const zapierMcp = integrations?.zapier_mcp;
 
   // New sections derived state
   const leadIntake = status?.lead_intake;

@@ -21,6 +21,7 @@ import {
   Settings,
   ShieldAlert,
   ShieldCheck,
+  Plug,
   Share2,
   Sparkles,
   UserCheck,
@@ -226,6 +227,14 @@ export const NAV_ITEMS: NavItem[] = [
     description: "Roster provisioning, invites, integration status",
     icon: UserPlus,
     gate: { ownerOnly: true },
+  },
+  {
+    section: "owner",
+    href: "/admin/connections",
+    label: "Connection Center",
+    description: "Owner/admin integration status, destination gating, and reconnect actions",
+    icon: Plug,
+    gate: { adminOrOwner: true },
   },
   {
     section: "owner",
