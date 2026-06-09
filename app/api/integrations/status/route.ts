@@ -29,6 +29,7 @@ type SocialSummaryRow = {
 type UserIntegrationRow = {
   provider: string;
   status: string | null;
+  metadata: Record<string, unknown> | null;
 };
 
 function readBool(name: string, fallback = false): boolean {
@@ -175,7 +176,7 @@ export async function GET() {
   try {
     const { data, error } = await supabase
       .from("user_integration_connections")
-      .select("provider,status")
+      .select("provider,status,metadata")
       .eq("user_id", profile.id)
       .in("provider", ["google", "google_social", "gmail", "google_drive", "google_calendar"]);
     if (!error) {
@@ -206,6 +207,34 @@ export async function GET() {
     normalizeStatus(byProvider.get("google_drive")) === "connected";
   const hasCalendar =
     normalizeStatus(byProvider.get("google_calendar")) === "connected";
+  const googleSocialRow = userIntegrationRows.find(
+    (row) => row.provider === "google_social"
+  );
+  const hasGoogleSocial =
+    normalizeStatus(googleSocialRow?.status) === "connected";
+  const googleSocialMetadata =
+    (googleSocialRow?.metadata ?? {}) as Record<string, unknown>;
+  const googleBusinessAccountCount = Array.isArray(
+    googleSocialMetadata.google_business_accounts
+  )
+    ? googleSocialMetadata.google_business_accounts.length
+    : 0;
+  const googleBusinessLocationCount = Array.isArray(
+    googleSocialMetadata.google_business_locations
+  )
+    ? googleSocialMetadata.google_business_locations.length
+    : 0;
+  const youtubeChannelCount = Array.isArray(googleSocialMetadata.youtube_channels)
+    ? googleSocialMetadata.youtube_channels.length
+    : 0;
+  const hasYoutubeDestination = hasConnectedDestination(
+    userDestinationRows,
+    "youtube"
+  );
+  const hasGoogleBusinessDestination = hasConnectedDestination(
+    userDestinationRows,
+    "google_business_profile"
+  );
   return NextResponse.json({
     ok: true,
     providers: {
@@ -258,16 +287,18 @@ export async function GET() {
         capabilities: ["instagram_publish"],
       },
       youtube: {
-        configured: hasConnectedDestination(userDestinationRows, "youtube"),
-        actions_available: true,
+        configured: hasYoutubeDestination,
+        actions_available: hasGoogleSocial,
+        base_connected: hasGoogleSocial,
+        available_destination_count: youtubeChannelCount,
         capabilities: ["youtube_publish"],
       },
       google_business_profile: {
-        configured: hasConnectedDestination(
-          userDestinationRows,
-          "google_business_profile"
-        ),
-        actions_available: true,
+        configured: hasGoogleBusinessDestination,
+        actions_available: hasGoogleSocial,
+        base_connected: hasGoogleSocial,
+        available_account_count: googleBusinessAccountCount,
+        available_location_count: googleBusinessLocationCount,
         capabilities: ["google_business_profile_publish"],
       },
       social_destinations: {

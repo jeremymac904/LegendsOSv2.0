@@ -104,6 +104,25 @@ interface DestinationOption {
   metadata?: Record<string, unknown>;
 }
 
+interface GoogleSocialDiscoverySummary {
+  apis_called: {
+    google_business_accounts: boolean;
+    google_business_locations: number;
+    youtube_channels: boolean;
+  };
+  counts: {
+    google_business_accounts: number;
+    google_business_locations: number;
+    youtube_channels: number;
+  };
+  errors: Array<{ api: string; message: string }>;
+}
+
+interface GoogleSocialDiscoveryResult {
+  destinations: DestinationOption[];
+  summary: GoogleSocialDiscoverySummary;
+}
+
 function providerFromState(rawState: string | null): {
   provider: ProviderId;
   targetUserId: string;
@@ -278,17 +297,45 @@ async function fetchFacebookPages(accessToken: string): Promise<DestinationOptio
   return [...pageDestinations, ...instagramDestinations];
 }
 
-async function fetchGoogleSocialDestinations(accessToken: string): Promise<DestinationOption[]> {
+function safeErrorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : "request_failed";
+}
+
+async function fetchGoogleSocialDestinations(
+  accessToken: string
+): Promise<GoogleSocialDiscoveryResult> {
   const destinations: DestinationOption[] = [];
+  const summary: GoogleSocialDiscoverySummary = {
+    apis_called: {
+      google_business_accounts: false,
+      google_business_locations: 0,
+      youtube_channels: false,
+    },
+    counts: {
+      google_business_accounts: 0,
+      google_business_locations: 0,
+      youtube_channels: 0,
+    },
+    errors: [],
+  };
 
-  const accounts = await fetchJson<GoogleBusinessAccountListResponse>(
-    "https://mybusinessaccountmanagement.googleapis.com/v1/accounts",
-    {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    }
-  );
+  let businessAccounts: GoogleBusinessAccount[] = [];
+  try {
+    summary.apis_called.google_business_accounts = true;
+    const accounts = await fetchJson<GoogleBusinessAccountListResponse>(
+      "https://mybusinessaccountmanagement.googleapis.com/v1/accounts",
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    );
+    businessAccounts = accounts.accounts ?? [];
+  } catch (err) {
+    summary.errors.push({
+      api: "google_business_accounts",
+      message: safeErrorMessage(err),
+    });
+  }
 
-  const businessAccounts = accounts.accounts ?? [];
   for (const account of businessAccounts) {
     if (!account.name) continue;
 
@@ -306,6 +353,7 @@ async function fetchGoogleSocialDestinations(accessToken: string): Promise<Desti
     });
 
     try {
+      summary.apis_called.google_business_locations += 1;
       const locations = await fetchJson<GoogleBusinessLocationListResponse>(
         `https://mybusinessbusinessinformation.googleapis.com/v1/${account.name}/locations?pageSize=100`,
         {
@@ -331,12 +379,17 @@ async function fetchGoogleSocialDestinations(accessToken: string): Promise<Desti
           },
         });
       }
-    } catch {
+    } catch (err) {
+      summary.errors.push({
+        api: "google_business_locations",
+        message: safeErrorMessage(err),
+      });
       // Keep the account row even if locations are not readable yet.
     }
   }
 
   try {
+    summary.apis_called.youtube_channels = true;
     const channels = await fetchJson<YouTubeChannelListResponse>(
       "https://www.googleapis.com/youtube/v3/channels?part=id,snippet&mine=true",
       {
@@ -357,11 +410,31 @@ async function fetchGoogleSocialDestinations(accessToken: string): Promise<Desti
         },
       });
     }
-  } catch {
+  } catch (err) {
+    summary.errors.push({
+      api: "youtube_channels",
+      message: safeErrorMessage(err),
+    });
     // Keep GBP destinations even if YouTube is not available on the grant.
   }
 
-  return destinations;
+  summary.counts.google_business_accounts = destinations.filter(
+    (destination) =>
+      destination.platform === "google_business_profile" &&
+      destination.destination_type === "google_business_account"
+  ).length;
+  summary.counts.google_business_locations = destinations.filter(
+    (destination) =>
+      destination.platform === "google_business_profile" &&
+      destination.destination_type === "google_business_location"
+  ).length;
+  summary.counts.youtube_channels = destinations.filter(
+    (destination) =>
+      destination.platform === "youtube" &&
+      destination.destination_type === "youtube_channel"
+  ).length;
+
+  return { destinations, summary };
 }
 
 function scopesFromResponse(
@@ -409,6 +482,19 @@ function scopesFromResponse(
     return ["https://www.googleapis.com/auth/drive"];
   }
   return ["https://www.googleapis.com/auth/calendar.events"];
+}
+
+function hasGoogleSocialScopes(scopes: string[]): boolean {
+  const socialScopes = new Set([
+    "https://www.googleapis.com/auth/business.manage",
+    "https://www.googleapis.com/auth/youtube",
+    "https://www.googleapis.com/auth/youtube.force-ssl",
+    "https://www.googleapis.com/auth/youtube.readonly",
+    "https://www.googleapis.com/auth/youtube.upload",
+    "https://www.googleapis.com/auth/youtubepartner",
+    "https://www.googleapis.com/auth/youtubepartner-channel-audit",
+  ]);
+  return scopes.some((scope) => socialScopes.has(scope));
 }
 
 function secretPayloadFromToken(
@@ -484,9 +570,13 @@ export async function GET(request: Request) {
       throw new Error("OAuth token exchange did not return an access token.");
     }
 
+    const scopes = scopesFromResponse(state.provider, token);
     const metadata: Record<string, unknown> = {};
+    let googleSocialMetadata: Record<string, unknown> | null = null;
     let availableDestinations: DestinationOption[] = [];
     let userSummary: Record<string, unknown> = {};
+    const shouldSyncGoogleSocial =
+      state.provider === "google_social" || hasGoogleSocialScopes(scopes);
 
     if (state.provider === "facebook") {
       availableDestinations = await fetchFacebookPages(token.access_token);
@@ -496,24 +586,33 @@ export async function GET(request: Request) {
       metadata.instagram_accounts = availableDestinations.filter(
         (destination) => destination.platform === "instagram"
       );
-    } else if (state.provider === "google_social") {
-      availableDestinations = await fetchGoogleSocialDestinations(token.access_token);
-      metadata.google_business_accounts = availableDestinations.filter(
-        (destination) =>
-          destination.platform === "google_business_profile" &&
-          destination.destination_type === "google_business_account"
-      );
-      metadata.google_business_locations = availableDestinations.filter(
-        (destination) =>
-          destination.platform === "google_business_profile" &&
-          destination.destination_type === "google_business_location"
-      );
-      metadata.youtube_channels = availableDestinations.filter(
-        (destination) =>
-          destination.platform === "youtube" &&
-          destination.destination_type === "youtube_channel"
-      );
-    } else {
+    } else if (shouldSyncGoogleSocial) {
+      const discovery = await fetchGoogleSocialDestinations(token.access_token);
+      availableDestinations = discovery.destinations;
+      googleSocialMetadata = {
+        google_business_accounts: availableDestinations.filter(
+          (destination) =>
+            destination.platform === "google_business_profile" &&
+            destination.destination_type === "google_business_account"
+        ),
+        google_business_locations: availableDestinations.filter(
+          (destination) =>
+            destination.platform === "google_business_profile" &&
+            destination.destination_type === "google_business_location"
+        ),
+        youtube_channels: availableDestinations.filter(
+          (destination) =>
+            destination.platform === "youtube" &&
+            destination.destination_type === "youtube_channel"
+        ),
+        google_social_discovery: discovery.summary,
+      };
+      if (state.provider === "google_social") {
+        Object.assign(metadata, googleSocialMetadata);
+      }
+    }
+
+    if (state.provider !== "facebook") {
       const info = await fetchGoogleUserInfo(token.access_token);
       if (info) {
         userSummary = {
@@ -527,67 +626,135 @@ export async function GET(request: Request) {
 
     if (Object.keys(userSummary).length > 0) {
       metadata.google_account = userSummary;
+      if (googleSocialMetadata) {
+        googleSocialMetadata.google_account = userSummary;
+      }
     }
 
-    const scopes = scopesFromResponse(state.provider, token);
-    const userIntegration = await service
-      .from("user_integration_connections")
-      .upsert(
-        {
-          user_id: state.targetUserId,
-          organization_id: profile.organization_id,
-          provider: state.provider,
-          status: "connected",
-          scopes,
-          connected_at: now,
-          last_checked_at: now,
-          metadata,
-        },
-        { onConflict: "user_id,provider" }
-      )
-      .select("id,user_id,provider,status")
-      .single();
-
-    if (userIntegration.error || !userIntegration.data) {
-      throw new Error(userIntegration.error?.message ?? "Could not save connection.");
+    if (shouldSyncGoogleSocial && state.provider !== "google_social") {
+      metadata.google_social_discovery = googleSocialMetadata?.google_social_discovery;
     }
 
-    const secret = await service
-      .from("social_connection_secrets")
-      .upsert(
-        {
-          user_id: state.targetUserId,
-          organization_id: profile.organization_id,
-          user_integration_connection_id: userIntegration.data.id,
-          provider: state.provider,
-          encrypted_secret: secretPayloadFromToken(state.provider, token),
-          token_type: token.token_type ?? "bearer",
-          scopes,
-          expires_at:
-            typeof token.expires_in === "number"
-              ? new Date(Date.now() + token.expires_in * 1000).toISOString()
-              : null,
-          metadata: {
-            stored_at: now,
-            provider: state.provider,
-            destination_count: availableDestinations.length,
-            access_token_type: token.token_type ?? "bearer",
+    const upsertConnection = async (
+      provider: ProviderId,
+      connectionMetadata: Record<string, unknown>
+    ) => {
+      const result = await service
+        .from("user_integration_connections")
+        .upsert(
+          {
+            user_id: state.targetUserId,
+            organization_id: profile.organization_id,
+            provider,
+            status: "connected",
+            scopes,
+            connected_at: now,
+            last_checked_at: now,
+            metadata: connectionMetadata,
           },
-        },
-        { onConflict: "user_integration_connection_id" }
-      )
-      .select("id")
-      .single();
+          { onConflict: "user_id,provider" }
+        )
+        .select("id,user_id,provider,status")
+        .single();
 
-    if (secret.error || !secret.data) {
-      throw new Error(secret.error?.message ?? "Could not store secret.");
+      if (result.error || !result.data) {
+        throw new Error(result.error?.message ?? `Could not save ${provider} connection.`);
+      }
+      return result.data;
+    };
+
+    const upsertSecret = async (
+      provider: ProviderId,
+      connectionId: string,
+      destinationCount: number
+    ) => {
+      const result = await service
+        .from("social_connection_secrets")
+        .upsert(
+          {
+            user_id: state.targetUserId,
+            organization_id: profile.organization_id,
+            user_integration_connection_id: connectionId,
+            provider,
+            encrypted_secret: secretPayloadFromToken(provider, token),
+            token_type: token.token_type ?? "bearer",
+            scopes,
+            expires_at:
+              typeof token.expires_in === "number"
+                ? new Date(Date.now() + token.expires_in * 1000).toISOString()
+                : null,
+            metadata: {
+              stored_at: now,
+              provider,
+              destination_count: destinationCount,
+              access_token_type: token.token_type ?? "bearer",
+            },
+          },
+          { onConflict: "user_integration_connection_id" }
+        )
+        .select("id")
+        .single();
+
+      if (result.error || !result.data) {
+        throw new Error(result.error?.message ?? `Could not store ${provider} secret.`);
+      }
+      return result.data;
+    };
+
+    const userIntegration = await upsertConnection(state.provider, metadata);
+    await upsertSecret(
+      state.provider,
+      userIntegration.id,
+      state.provider === "facebook" || state.provider === "google_social"
+        ? availableDestinations.length
+        : 0
+    );
+
+    if (shouldSyncGoogleSocial && state.provider !== "google_social") {
+      const googleSocialConnection = await upsertConnection(
+        "google_social",
+        googleSocialMetadata ?? {
+          google_business_accounts: [],
+          google_business_locations: [],
+          youtube_channels: [],
+          google_social_discovery: {
+            apis_called: {
+              google_business_accounts: false,
+              google_business_locations: 0,
+              youtube_channels: false,
+            },
+            counts: {
+              google_business_accounts: 0,
+              google_business_locations: 0,
+              youtube_channels: 0,
+            },
+            errors: [],
+          },
+        }
+      );
+      await upsertSecret(
+        "google_social",
+        googleSocialConnection.id,
+        availableDestinations.length
+      );
+      await recordAudit({
+        actor: profile,
+        action: "integration_connected",
+        target_type: "user_integration_connections",
+        target_id: googleSocialConnection.id,
+        metadata: {
+          provider: "google_social",
+          source_provider: state.provider,
+          destination_count: availableDestinations.length,
+        },
+      });
     }
 
     await recordAudit({
       actor: profile,
       action: "integration_connected",
       target_type: "user_integration_connections",
-      target_id: userIntegration.data.id,
+      target_id: userIntegration.id,
       metadata: {
         provider: state.provider,
         destination_count: availableDestinations.length,
@@ -595,7 +762,7 @@ export async function GET(request: Request) {
     });
 
     return redirectBack(origin, {
-      integration: state.provider,
+      integration: shouldSyncGoogleSocial ? "google_social" : state.provider,
       connected: "1",
       success: "1",
     }, state.returnTo);
