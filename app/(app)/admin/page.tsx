@@ -263,7 +263,6 @@ export default async function AdminCenterPage() {
     {
       id: "usage",
       label: "Live usage",
-      icon: Sparkles,
       content: (
         <LiveUsageCard
           usageList={usageList}
@@ -276,7 +275,6 @@ export default async function AdminCenterPage() {
     {
       id: "automation",
       label: "Automation & providers",
-      icon: Server,
       content: (
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-[2fr_1fr]">
           <section className="card-padded">
@@ -396,7 +394,6 @@ export default async function AdminCenterPage() {
     {
       id: "activity",
       label: "Recent activity",
-      icon: MessageCircle,
       content: (
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           <section className="card-padded">
@@ -558,7 +555,6 @@ export default async function AdminCenterPage() {
     {
       id: "audit",
       label: "Audit log",
-      icon: ShieldCheck,
       content: (
         <section className="card-padded">
           <div className="section-title">
