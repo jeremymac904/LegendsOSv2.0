@@ -237,9 +237,9 @@ export default async function AutomationControlCenterPage() {
       {adminView && <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <StatusCard label="Webhook status" status={registry.status.webhook} detail="Inbound shared-secret routes" />
         <StatusCard label="n8n status" status={registry.status.n8n} detail={`${registry.readiness.n8n_webhook_count} webhook envs, ${registry.readiness.n8n_workflow_files} workflow files`} />
-        <StatusCard label="Zapier status" status={registry.status.zapier} detail="MCP stub until configured" />
+        <StatusCard label="Zapier status" status={registry.status.zapier} detail="Recommended social publishing layer" />
         <StatusCard label="Google status" status={registry.status.google} detail="Per-user OAuth; writes gated" />
-        <StatusCard label="Meta status" status={registry.status.meta} detail="Direct publisher; user destination gated" />
+        <StatusCard label="Meta status" status={registry.status.meta} detail="Optional direct API; user destination gated" />
         <StatusCard label="Email status" status={registry.status.email} detail={registry.readiness.live_email_send_enabled ? "Live send flag enabled" : "Queued by default"} />
         <StatusCard label="Drive status" status={registry.status.drive} detail="Needs Review only; borrower-folder writes blocked" />
         <StatusCard label="Browser Companion" status={registry.status.browser_companion} detail={`${browserCaptures.length} recent captures, ${browserAudit.length} audit rows`} />

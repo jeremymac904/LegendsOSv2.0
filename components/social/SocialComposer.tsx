@@ -39,7 +39,7 @@ type MediaSummary = Pick<
 >;
 
 export interface PublishingRoute {
-  id: "manual" | "zapier" | "n8n" | "heropost";
+  id: "manual" | "zapier" | "n8n" | "direct_api";
   label: string;
   detail: string;
   status: "available" | "key_present" | "setup_needed" | "not_connected";
@@ -128,7 +128,7 @@ export function SocialComposer({
   const [aiNote, setAiNote] = useState<string | null>(null);
   const aiAbortRef = useRef<AbortController | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [selectedRoute, setSelectedRoute] = useState<PublishingRoute["id"]>("manual");
+  const [selectedRoute, setSelectedRoute] = useState<PublishingRoute["id"]>("zapier");
   const [copied, setCopied] = useState(false);
   const [composerTab, setComposerTab] = useState<"draft" | "media" | "target">("draft");
 
@@ -232,6 +232,13 @@ export function SocialComposer({
             scheduled_at: action === "schedule" ? new Date(scheduledAt).toISOString() : null,
             action, media_id: selectedMediaIds[0] ?? null, media_ids: selectedMediaIds,
             youtube_title: youtubeTitle.trim() || null,
+            publishing_route: selectedRoute,
+            publishing_method:
+              selectedRoute === "direct_api"
+                ? "direct_api"
+                : selectedRoute === "manual"
+                  ? "manual"
+                  : "zapier",
           }),
         });
         const data = await res.json();
@@ -246,6 +253,7 @@ export function SocialComposer({
 
   const selectedMedia = selectedMediaIds.map((id) => library.find((m) => m.id === id)).filter((m): m is MediaSummary => Boolean(m));
   const scheduleBlocked =
+    selectedRoute === "direct_api" &&
     Boolean(destinationGate) &&
     selected.some((channel) => {
       const gate = destinationGate?.channels[channel];
@@ -254,9 +262,10 @@ export function SocialComposer({
   const scheduleHelp =
     destinationGate && scheduleBlocked
       ? destinationGate.has_any_selected_destination
-        ? "Enable publishing in Connection Center for the selected destination(s) before scheduling."
-        : "Select a destination in Connection Center before scheduling."
+        ? "Direct Platform API requires publishing enabled in Connection Center for the selected destination(s)."
+        : "Direct Platform API requires a selected destination in Connection Center."
       : null;
+  const activeRoute = publishingRoutes.find((route) => route.id === selectedRoute);
 
   return (
     <section className="card-padded space-y-4">
@@ -338,12 +347,17 @@ export function SocialComposer({
                 </div>
                 {publishingRoutes.length > 0 && (
                    <div className="border-t border-ink-100 dark:border-ink-800 pt-4">
-                      <h3 className="text-[10px] font-bold uppercase tracking-wider text-ink-500 mb-3">Export Route</h3>
-                      <div className="flex gap-2">
+                      <h3 className="text-[10px] font-bold uppercase tracking-wider text-ink-500 mb-3">Publishing Method</h3>
+                      <div className="flex flex-wrap gap-2">
                          {publishingRoutes.map(r => (
                            <button key={r.id} onClick={() => setSelectedRoute(r.id)} className={cn("rounded-lg border px-3 py-1.5 text-[10px]", selectedRoute === r.id ? "border-accent-gold bg-accent-gold/5 text-accent-gold" : "border-ink-200")}>{r.label}</button>
                          ))}
                       </div>
+                      {activeRoute && (
+                        <p className="mt-2 text-[11px] leading-relaxed text-ink-600 dark:text-ink-300">
+                          {activeRoute.detail}
+                        </p>
+                      )}
                       {selectedRoute === "manual" && (
                          <div className="mt-3 flex gap-2">
                             <button onClick={copyExport} className="btn-ghost py-1 px-3 text-[10px]">{copied ? "Copied!" : "Copy Caption"}</button>

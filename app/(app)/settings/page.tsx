@@ -210,7 +210,7 @@ export default async function SettingsPage() {
     },
     {
       id: "google-oauth",
-      title: "Google, Gmail, Calendar",
+      title: "Google Workspace",
       detail:
         process.env.GOOGLE_OAUTH_CLIENT_ID && process.env.GOOGLE_OAUTH_CLIENT_SECRET
           ? "OAuth client present"
@@ -227,7 +227,7 @@ export default async function SettingsPage() {
       steps: [
         "Create or confirm the Google OAuth client for the LegendsOS app.",
         "Add the authorized redirect URL used by the app.",
-        "Enable Gmail, Calendar, and Drive scopes only where the app supports them.",
+        "Enable Gmail, Drive, and Calendar scopes only where the app supports them.",
         "Use the Connect with Google path when it is available in the relevant module.",
       ],
       ownerAction:
@@ -261,32 +261,28 @@ export default async function SettingsPage() {
     },
     {
       id: "social-platforms",
-      title: "Meta, YouTube, GBP",
-      detail: "Social publishing stays draft-only until webhooks and owner flags are on",
+      title: "Zapier Publishing",
+      detail:
+        "Recommended: Connect your social accounts through Zapier for the fastest setup and highest reliability.",
       envNames: [
-        "N8N_WEBHOOK_FACEBOOK_POST",
-        "N8N_WEBHOOK_INSTAGRAM_POST",
-        "N8N_WEBHOOK_YOUTUBE_POST",
-        "N8N_WEBHOOK_GBP_POST",
+        "Zapier MCP URL",
+        "Zapier MCP token",
+        "ALLOW_LIVE_SOCIAL_PUBLISH",
       ],
-      configured: Boolean(
-        env.N8N_WEBHOOKS.facebook_post ||
-          env.N8N_WEBHOOKS.instagram_post ||
-          env.N8N_WEBHOOKS.youtube_post ||
-          env.N8N_WEBHOOKS.gbp_post
-      ),
+      configured: false,
       icon: "plug",
-      scope: "Owner",
+      scope: "Team",
       href: "/social",
       buttonLabel: "Open Social Studio",
       steps: [
-        "Connect approved social accounts in the external platform or n8n workflow.",
-        "Set the platform webhook names only after the workflow is tested.",
+        "Connect Zapier MCP in MCP Connections.",
+        "Connect Zapier to Facebook, Instagram, YouTube, TikTok, Google Business Profile, and LinkedIn.",
+        "Use Social Studio with Publishing Method set to Zapier (Recommended).",
         "Keep live posting disabled unless Jeremy enables the owner flag.",
       ],
       ownerAction:
-        "Use draft previews and sandbox workflow tests before enabling any external publish path.",
-      teamAction: "Create and save drafts. Live social publishing remains disabled unless configured.",
+        "Verify the Zapier MCP connection and platform Zaps before enabling any external publish path.",
+      teamAction: "Create and save drafts. Use Zapier as the default publishing method.",
     },
     {
       id: "zapier-mcp",
@@ -303,9 +299,9 @@ export default async function SettingsPage() {
       steps: [
         "Create the MCP endpoint in Zapier.",
         "Save the endpoint URL and token in the MCP Connections panel.",
-        "Test with Atlas before relying on it for workflow tasks.",
+        "Use the Zapier Publishing Wizard to choose Facebook, Instagram, YouTube, TikTok, Google Business Profile, and LinkedIn.",
       ],
-      ownerAction: "Use team scoped MCP only for shared workflows.",
+      ownerAction: "Use team scoped MCP only for shared workflows and social publishing Zaps.",
       teamAction: "Use personal MCP for personal connector actions and keep tokens private.",
     },
     {
@@ -419,11 +415,11 @@ export default async function SettingsPage() {
     },
     {
       id: "google-integrations",
-      title: "Google integrations (per-user)",
+      title: "Google Workspace & publishing",
       icon: <Link2 size={16} />,
       defaultOpen: true,
       children: (
-        <SectionErrorBoundary title="Google integrations">
+        <SectionErrorBoundary title="Google Workspace & publishing">
           <IntegrationConnections />
         </SectionErrorBoundary>
       ),

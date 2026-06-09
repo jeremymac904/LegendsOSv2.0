@@ -226,9 +226,9 @@ export function buildAutomationRegistry(): AutomationRegistrySnapshot {
       liveWritesEnabled: false,
       owner: "Automation",
       currentBehavior:
-        "Stub only. triggerZap and getZapStatus return not_configured until a Zapier MCP key is set and implementation is added.",
-      activationGate: "ZAP_MCP_KEY or ZAPIER_MCP_KEY plus a real MCP implementation.",
-      preparedFor: ["Zapier status"],
+        "Recommended social publishing layer for Facebook, Instagram, YouTube, TikTok, Google Business Profile, and LinkedIn. Requires per-user Zapier MCP plus live-social approval.",
+      activationGate: "Saved Zapier MCP connection, platform Zaps, and explicit ALLOW_LIVE_SOCIAL_PUBLISH.",
+      preparedFor: ["Zapier status", "Social publishing"],
     },
     {
       id: "google_oauth",
@@ -240,7 +240,7 @@ export function buildAutomationRegistry(): AutomationRegistrySnapshot {
       route: "/api/integrations/connect",
       owner: "Integrations",
       currentBehavior:
-        "Returns setup_needed or an OAuth authorize URL. Callback stores per-user tokens server-side; Gmail, Drive, Calendar, YouTube, and GBP actions use those signed-in user grants.",
+        "Returns setup_needed or an OAuth authorize URL. Callback stores per-user tokens server-side; Gmail, Drive, and Calendar use those signed-in user grants. Google Social APIs are optional advanced direct integrations.",
       activationGate:
         "GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, user consent, per-channel live-action gates, and explicit confirmations for writes.",
       preparedFor: ["Google status", "Gmail send/draft", "Drive writes", "Calendar automation"],
@@ -269,7 +269,7 @@ export function buildAutomationRegistry(): AutomationRegistrySnapshot {
       liveWritesEnabled: meta.paid_enabled,
       owner: "Social Studio",
       currentBehavior:
-        "Direct Meta Graph publisher targets the signed-in user's selected Facebook Page or Instagram business account and fails closed unless every live gate passes.",
+        "Optional advanced direct API publisher. Recommended social publishing goes through Zapier; direct Meta still targets the signed-in user's selected Facebook Page or Instagram business account and fails closed unless every live gate passes.",
       activationGate:
         "META_APP_ID/META_APP_SECRET, per-user Facebook OAuth grant, selected destination row, publish switch, and ALLOW_LIVE_SOCIAL_PUBLISH.",
       preparedFor: ["Meta status", "Social publishing"],

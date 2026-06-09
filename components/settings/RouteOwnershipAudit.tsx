@@ -3,12 +3,12 @@ import { StatusPill } from "@/components/ui/StatusPill";
 // Sprint 4 — Lane 5. Informational route-ownership matrix (owner/admin only).
 //
 // HONESTY: this panel ACTIVATES NOTHING. It documents which route SHOULD own
-// each capability and the recommended spine (n8n / direct API / Zapier MCP
-// fallback), consistent with docs/ZAPIER_VS_N8N_AUDIT.md. Every "current
+// each capability and the recommended spine. Social publishing is now
+// Zapier-first; direct platform APIs stay optional advanced paths. Every "current
 // status" reflects the truth today: none of these send/publish paths are
 // activated. It is a planning reference, not a control surface.
 
-type Spine = "n8n spine" | "Direct API" | "Zapier MCP (fallback)";
+type Spine = "n8n spine" | "Direct API" | "Zapier MCP";
 type Status = "none activated" | "setup needed" | "disabled" | "deferred";
 
 interface AuditRow {
@@ -21,10 +21,6 @@ interface AuditRow {
   rationale: string;
 }
 
-// Recommendations mirror docs/ZAPIER_VS_N8N_AUDIT.md §5:
-// n8n stays the orchestration spine; direct platform APIs are the eventual
-// publish/read leg for borrower-adjacent data; Zapier MCP is an unbuilt
-// escape hatch only (allowlisted, no-PII). Nothing is live today.
 const ROWS: AuditRow[] = [
   {
     capability: "Gmail intake",
@@ -44,27 +40,27 @@ const ROWS: AuditRow[] = [
   },
   {
     capability: "Social publishing (FB/IG)",
-    recommendedOwner: "Social Studio → n8n → Direct Meta Graph API",
-    spine: "n8n spine",
+    recommendedOwner: "Social Studio → Zapier MCP → Facebook / Instagram Zaps",
+    spine: "Zapier MCP",
     status: "disabled",
     rationale:
-      "n8n routes the job; the eventual publish leg is direct Meta. publishStub never calls Meta; gated by ALLOW_LIVE_SOCIAL_PUBLISH (default off).",
+      "Recommended path is Zapier for fastest setup and highest reliability. Direct Meta remains optional advanced API publishing.",
   },
   {
     capability: "Google Business Profile",
-    recommendedOwner: "Social Studio → n8n → Direct GBP API",
-    spine: "n8n spine",
+    recommendedOwner: "Social Studio → Zapier MCP → GBP Zap",
+    spine: "Zapier MCP",
     status: "disabled",
     rationale:
-      "Requires Google OAuth and a user-owned selected destination row in Connection Center. No global GBP destination id is used.",
+      "Google Social API destination discovery is optional. Recommended path is Zapier -> Google Business Profile with no global destination id.",
   },
   {
     capability: "YouTube posting",
-    recommendedOwner: "Social Studio → n8n → Direct YouTube Data API",
-    spine: "n8n spine",
+    recommendedOwner: "Social Studio → Zapier MCP → YouTube Zap",
+    spine: "Zapier MCP",
     status: "disabled",
     rationale:
-      "Requires Google OAuth and a user-owned selected destination row. Channel selection is stored per user, not in env.",
+      "YouTube direct API channel selection is optional advanced setup. Recommended path is Zapier -> YouTube.",
   },
   {
     capability: "Alerts",
@@ -87,8 +83,8 @@ const ROWS: AuditRow[] = [
 function spinePill(spine: Spine) {
   if (spine === "Direct API")
     return { tone: "info" as const, label: "Direct API" };
-  if (spine === "Zapier MCP (fallback)")
-    return { tone: "off" as const, label: "Zapier MCP (fallback)" };
+  if (spine === "Zapier MCP")
+    return { tone: "info" as const, label: "Zapier MCP" };
   return { tone: "info" as const, label: "n8n spine" };
 }
 
@@ -114,7 +110,7 @@ export function RouteOwnershipAudit() {
           <h2>Route ownership audit</h2>
           <p>
             Which route <em>should</em> own each capability and the recommended
-            spine — consistent with the Zapier vs n8n audit. This panel is
+            spine — updated for the Zapier-first social publishing pivot. This panel is
             informational and activates nothing. Every send/publish path is off
             today.
           </p>
@@ -165,13 +161,10 @@ export function RouteOwnershipAudit() {
       </div>
 
       <p className="mt-3 text-[11px] leading-relaxed text-ink-600 dark:text-ink-400">
-      Recommendation summary: n8n is the orchestration spine; direct platform
-      APIs are the eventual publish/read leg for anything borrower-adjacent
-      (Gmail, Drive, loan data) so tokens and content never leave our infra;
-      Zapier MCP stays an unbuilt, allowlisted fallback for low-sensitivity,
-      no-PII connectors only. See docs/ZAPIER_VS_N8N_AUDIT.md. Live sends
-      require a selected destination plus an enabled publishing toggle per
-      destination — never a shared global fallback.
+      Recommendation summary: Zapier MCP is the primary social publishing
+      layer for Facebook, Instagram, YouTube, TikTok, Google Business Profile,
+      and LinkedIn. Direct platform APIs remain advanced optional paths.
+      Borrower-adjacent Gmail, Drive, and loan data stay on direct APIs.
       </p>
     </section>
   );

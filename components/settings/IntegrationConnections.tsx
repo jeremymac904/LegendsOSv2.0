@@ -7,9 +7,9 @@ import {
   Link2,
   Loader2,
   Mail,
+  PlugZap,
   RefreshCw,
   Share2,
-  UserCircle,
 } from "lucide-react";
 
 import { StatusPill } from "@/components/ui/StatusPill";
@@ -113,9 +113,9 @@ interface ConnectionsResponse {
 }
 
 const PROVIDER_LABELS: Record<ProviderId, string> = {
-  facebook: "Meta / Facebook",
-  google_social: "Google social destinations",
-  google: "Google account",
+  facebook: "Meta / Instagram Direct API",
+  google_social: "Google Social APIs",
+  google: "Google Workspace account",
   gmail: "Gmail",
   google_drive: "Google Drive",
   google_calendar: "Google Calendar",
@@ -124,7 +124,7 @@ const PROVIDER_LABELS: Record<ProviderId, string> = {
 const PROVIDER_ICONS: Record<ProviderId, typeof Mail> = {
   facebook: Share2,
   google_social: Link2,
-  google: UserCircle,
+  google: PlugZap,
   gmail: Mail,
   google_drive: HardDrive,
   google_calendar: CalendarDays,
@@ -132,10 +132,10 @@ const PROVIDER_ICONS: Record<ProviderId, typeof Mail> = {
 
 const PROVIDER_DESCRIPTIONS: Record<ProviderId, string> = {
   facebook:
-    "Connect your Meta account, pick one or more Pages, then select linked Instagram business accounts.",
+    "Advanced direct API path. Zapier is recommended for Facebook and Instagram publishing.",
   google_social:
-    "Connect Google OAuth, then choose Google Business Profile accounts, locations, and YouTube channels.",
-  google: "Personal Google account connection used by LegendsOS Google tools.",
+    "Optional direct integration for advanced YouTube and Google Business Profile API publishing. Not required for Zapier publishing.",
+  google: "Base Google Workspace grant used by Gmail, Drive, and Calendar.",
   gmail: "Gmail access for listing recent messages, creating drafts, and gated sends.",
   google_drive: "Drive access for listing folders plus gated folder, upload, move, and edit actions.",
   google_calendar: "Calendar access to read and create scheduled events.",
@@ -149,10 +149,22 @@ const AVAILABLE_GROUP_LABELS: Record<string, string> = {
   youtube_channels: "YouTube channels",
 };
 
-function pillFor(status: ConnectionStatus): {
+const ZAPIER_PLATFORMS = [
+  "Facebook",
+  "Instagram",
+  "YouTube",
+  "TikTok",
+  "Google Business Profile",
+  "LinkedIn",
+] as const;
+
+function pillFor(status: ConnectionStatus, provider?: ProviderId): {
   tone: "ok" | "info" | "warn" | "err" | "off";
   label: string;
 } {
+  if (provider === "google_social" && status !== "connected" && status !== "error") {
+    return { tone: "info", label: "optional direct integration" };
+  }
   switch (status) {
     case "connected":
       return { tone: "ok", label: "connected" };
@@ -165,6 +177,157 @@ function pillFor(status: ConnectionStatus): {
     default:
       return { tone: "warn", label: "setup needed" };
   }
+}
+
+function ZapierConnectionWizard() {
+  const [selected, setSelected] = useState<string[]>([...ZAPIER_PLATFORMS]);
+  const [verifyStatus, setVerifyStatus] = useState<"idle" | "checking" | "connected" | "missing">("idle");
+  const [saved, setSaved] = useState(false);
+
+  async function verify() {
+    setVerifyStatus("checking");
+    try {
+      const res = await fetch("/api/integrations/mcp", {
+        credentials: "include",
+        headers: { accept: "application/json" },
+      });
+      const json = (await res.json()) as {
+        ok?: boolean;
+        connections?: Array<{ provider?: string }>;
+      };
+      const hasZapier = Boolean(
+        json.ok && json.connections?.some((connection) => connection.provider === "zapier")
+      );
+      setVerifyStatus(hasZapier ? "connected" : "missing");
+    } catch {
+      setVerifyStatus("missing");
+    }
+  }
+
+  function togglePlatform(platform: string) {
+    setSaved(false);
+    setSelected((current) =>
+      current.includes(platform)
+        ? current.filter((item) => item !== platform)
+        : [...current, platform]
+    );
+  }
+
+  function savePlan() {
+    try {
+      window.localStorage.setItem(
+        "legendsos:zapier-publishing-platforms",
+        JSON.stringify(selected)
+      );
+    } catch {
+      // Local browser storage is only a user preference; failing to write it
+      // should not block the wizard.
+    }
+    setSaved(true);
+  }
+
+  return (
+    <section className="rounded-2xl border border-accent-gold/25 bg-accent-gold/10 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-ink-900 dark:text-ink-100">
+            Zapier Publishing Wizard
+          </h3>
+          <p className="mt-1 max-w-3xl text-xs leading-relaxed text-ink-700 dark:text-ink-300">
+            Recommended: Connect your social accounts through Zapier for the
+            fastest setup and highest reliability.
+          </p>
+        </div>
+        <StatusPill
+          status={verifyStatus === "connected" ? "ok" : verifyStatus === "missing" ? "warn" : "info"}
+          label={
+            verifyStatus === "connected"
+              ? "Zapier MCP connected"
+              : verifyStatus === "missing"
+                ? "connect Zapier MCP"
+                : "recommended"
+          }
+        />
+      </div>
+
+      <div className="mt-4 grid gap-3 lg:grid-cols-4">
+        <div className="rounded-xl border border-ink-200 bg-white/70 p-3 dark:border-ink-800 dark:bg-ink-950/40">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500 dark:text-ink-400">
+            Step 1
+          </p>
+          <p className="mt-1 text-sm font-medium text-ink-900 dark:text-ink-100">
+            Connect Zapier MCP
+          </p>
+          <a href="#mcp-connections" className="btn-ghost mt-3 h-8 px-3 text-xs">
+            Open MCP Connections
+          </a>
+        </div>
+        <div className="rounded-xl border border-ink-200 bg-white/70 p-3 dark:border-ink-800 dark:bg-ink-950/40">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500 dark:text-ink-400">
+            Step 2
+          </p>
+          <p className="mt-1 text-sm font-medium text-ink-900 dark:text-ink-100">
+            Verify MCP connection
+          </p>
+          <button
+            type="button"
+            onClick={() => void verify()}
+            disabled={verifyStatus === "checking"}
+            className="btn-secondary mt-3 h-8 px-3 text-xs disabled:opacity-40"
+          >
+            {verifyStatus === "checking" ? "Checking..." : "Verify Zapier MCP"}
+          </button>
+        </div>
+        <div className="rounded-xl border border-ink-200 bg-white/70 p-3 dark:border-ink-800 dark:bg-ink-950/40">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500 dark:text-ink-400">
+            Step 3
+          </p>
+          <p className="mt-1 text-sm font-medium text-ink-900 dark:text-ink-100">
+            Choose platforms
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {ZAPIER_PLATFORMS.map((platform) => (
+              <button
+                key={platform}
+                type="button"
+                onClick={() => togglePlatform(platform)}
+                className={
+                  selected.includes(platform)
+                    ? "rounded-lg border border-accent-gold/40 bg-accent-gold/10 px-3 py-1.5 text-xs text-accent-gold"
+                    : "rounded-lg border border-ink-200 px-3 py-1.5 text-xs text-ink-600 dark:border-ink-800 dark:text-ink-300"
+                }
+              >
+                Zapier -&gt; {platform}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="rounded-xl border border-ink-200 bg-white/70 p-3 dark:border-ink-800 dark:bg-ink-950/40">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500 dark:text-ink-400">
+            Step 4
+          </p>
+          <p className="mt-1 text-sm font-medium text-ink-900 dark:text-ink-100">
+            Save publishing plan
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={savePlan}
+              disabled={selected.length === 0}
+              className="btn-primary h-8 px-3 text-xs disabled:opacity-40"
+            >
+              Save
+            </button>
+            {saved && (
+              <span className="text-[11px] text-status-ok">
+                Saved selected Zapier publishing platforms.
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
 }
 
 function providerForPlatform(platform: DestinationPlatform): ProviderId {
@@ -320,9 +483,9 @@ export function IntegrationConnections() {
         <div>
           <h2>Connection center</h2>
           <p>
-            Connect Meta and Google social accounts per user. Select the exact
-            destinations you want to publish to, test them, and toggle
-            publishing without exposing any tokens.
+            Google Workspace covers Gmail, Drive, and Calendar. Zapier is the
+            recommended social publishing path; direct social APIs are optional
+            advanced integrations.
           </p>
         </div>
         <button
@@ -349,10 +512,14 @@ export function IntegrationConnections() {
         </p>
       )}
 
+      <div className="mt-4">
+        <ZapierConnectionWizard />
+      </div>
+
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
-        {(loading ? [] : connections).map((connection) => {
+        {(loading ? [] : connections).filter((connection) => connection.provider !== "google").map((connection) => {
           const Icon = PROVIDER_ICONS[connection.provider];
-          const providerPill = pillFor(connection.status);
+          const providerPill = pillFor(connection.status, connection.provider);
           const selected = connection.selected_destinations ?? [];
           const groups = getDestinationGroups(
             connection.available_destinations,
@@ -411,7 +578,9 @@ export function IntegrationConnections() {
                         <div className="mt-2 space-y-2">
                           {group.items.length === 0 ? (
                             <p className="text-[11px] text-ink-600 dark:text-ink-400">
-                              No destinations detected yet.
+                              {connection.provider === "google_social"
+                                ? "Optional Direct Integration. Use Zapier for the recommended publishing path."
+                                : "No destinations detected yet."}
                             </p>
                           ) : (
                             group.items.map((destination) => {

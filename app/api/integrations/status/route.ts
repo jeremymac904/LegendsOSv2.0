@@ -9,7 +9,12 @@ import { getN8nConfigState } from "@/lib/automation/n8n";
 import { isWebhookSecretConfigured } from "@/lib/emailIntake/webhook";
 import { detectMetaConfig } from "@/lib/integrations/meta";
 import { isAdminOrOwner } from "@/lib/permissions";
-import { getCurrentProfile, getSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  getCurrentProfile,
+  getSupabaseServerClient,
+  getSupabaseServiceClient,
+  isMissingDatabaseObjectError,
+} from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -172,6 +177,7 @@ export async function GET() {
 
   let userIntegrationRows: UserIntegrationRow[] = [];
   let userDestinationRows: Array<{ platform: string; status: string | null }> = [];
+  let zapierMcpConnectionCount = 0;
 
   try {
     const { data, error } = await supabase
@@ -196,6 +202,25 @@ export async function GET() {
     }
   } catch {
     // best effort status only
+  }
+
+  try {
+    const service = getSupabaseServiceClient();
+    const query = service
+      .from("mcp_connections")
+      .select("id", { count: "exact", head: true })
+      .eq("provider", "zapier");
+    if (profile.organization_id) {
+      query.eq("organization_id", profile.organization_id);
+    }
+    const { count, error } = await query;
+    if (!error) {
+      zapierMcpConnectionCount = count ?? 0;
+    }
+  } catch (err) {
+    if (!isMissingDatabaseObjectError(err)) {
+      console.error("zapier mcp status lookup failed", err);
+    }
   }
 
   const byProvider = new Map<string, string | null>(
@@ -308,9 +333,9 @@ export async function GET() {
         team_destinations: teamDestinations,
       },
       zapier_mcp: {
-        configured: false,
-        actions_available: false,
-        connection_count: 0,
+        configured: zapierMcpConnectionCount > 0,
+        actions_available: zapierMcpConnectionCount > 0,
+        connection_count: zapierMcpConnectionCount,
         scope: "mcp",
       },
     },
