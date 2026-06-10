@@ -43,6 +43,7 @@ import {
   resolveWorkspaceRecord,
 } from "@/lib/themeServer";
 import { formatRelative } from "@/lib/utils";
+import { EmptyState } from "@/components/ui/EmptyState";
 import type {
   BrandWorkspaceSettings,
   ProviderCredentialPublic,
@@ -52,7 +53,14 @@ export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
   const { profile } = await getEffectiveProfile();
-  if (!profile) return null;
+  if (!profile) {
+    return (
+      <EmptyState
+        title="Profile unavailable"
+        description="We could not load your account profile. Refresh the page or sign in again; if this keeps happening, ask Jeremy to confirm your profile is provisioned."
+      />
+    );
+  }
 
   // HARDENING: getServerEnv()/getAIProviderStatuses() read process.env and can
   // throw if a required var is missing on a fresh deploy. Settings must never

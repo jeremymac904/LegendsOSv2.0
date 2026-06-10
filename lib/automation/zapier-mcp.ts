@@ -3,7 +3,7 @@
  *
  * Real HTTP connector for Zapier MCP integrations. Reads per-user MCP
  * connections from the DB via the service client (server-only) and calls the
- * saved URL with the stored auth token.
+ * saved URL with the stored encrypted auth token.
  *
  * Rules enforced here:
  *   - auth_token is NEVER returned to any caller — it is read server-side only.
@@ -14,6 +14,7 @@
  */
 
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
+import { decryptSecret } from "@/lib/integrations/oauth";
 
 export interface ZapierZapResult {
   ok: boolean;
@@ -40,6 +41,17 @@ export interface ZapierMcpConnectionInfo {
   label: string;
   /** True when an auth_token is stored (content never exposed to callers). */
   hasToken: boolean;
+}
+
+function isEncryptedSecretPayload(value: string): boolean {
+  const [version, iv, tag, ciphertext] = value.split(".");
+  return version === "v1" && Boolean(iv && tag && ciphertext);
+}
+
+function readStoredAuthToken(value: string | null): string | null {
+  if (!value) return null;
+  if (!isEncryptedSecretPayload(value)) return value;
+  return decryptSecret(value);
 }
 
 /**
@@ -85,9 +97,10 @@ export async function getUserZapierMcpConnection(
 }
 
 /**
- * Server-only. Reads the mcp_connections row via the service client and POSTs
- * to url+path with Authorization: Bearer <auth_token>. The token is read and
- * used exclusively on the server — never returned to any caller.
+ * Server-only. Reads the mcp_connections row via the service client, decrypts
+ * auth_token when needed, and POSTs to url+path with Authorization: Bearer
+ * <auth_token>. The token is used exclusively on the server — never returned
+ * to any caller.
  *
  * Returns the parsed response JSON, or an error-shape object.
  */
@@ -117,7 +130,7 @@ export async function callUserMcpEndpoint(
     }
 
     const baseUrl = (data.url as string).replace(/\/$/, "");
-    const authToken = data.auth_token as string | null;
+    const authToken = readStoredAuthToken(data.auth_token as string | null);
     const endpoint = `${baseUrl}${path}`;
 
     const headers: Record<string, string> = {

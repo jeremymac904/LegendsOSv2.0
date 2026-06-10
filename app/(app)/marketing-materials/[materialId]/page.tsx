@@ -10,6 +10,7 @@ import {
   resourceFromShared,
 } from "@/lib/teamResources";
 import type { SharedResource } from "@/types/database";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,14 @@ interface PageProps {
 
 export default async function MarketingMaterialDetailPage({ params }: PageProps) {
   const { profile } = await getEffectiveProfile();
-  if (!profile) return null;
+  if (!profile) {
+    return (
+      <EmptyState
+        title="Profile unavailable"
+        description="We could not load your account profile. Refresh the page or sign in again; if this keeps happening, ask Jeremy to confirm your profile is provisioned."
+      />
+    );
+  }
   const supabase = getSupabaseServerClient();
   const { data } = await supabase
     .from("shared_resources")

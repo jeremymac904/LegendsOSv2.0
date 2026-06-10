@@ -10,6 +10,7 @@ import { listLoansForProfile, sampleBoardRows } from "@/lib/loanbrain/store";
 import { getEffectiveProfile } from "@/lib/impersonation";
 import { isAdminOrOwner, isProcessor } from "@/lib/permissions";
 import { resolveThemeSnapshot } from "@/lib/themeServer";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,14 @@ export const dynamic = "force-dynamic";
 // with a workspace-specific entry surface and headline.
 export default async function FloProcessingPage() {
   const { profile } = await getEffectiveProfile();
-  if (!profile) return null;
+  if (!profile) {
+    return (
+      <EmptyState
+        title="Profile unavailable"
+        description="We could not load your account profile. Refresh the page or sign in again; if this keeps happening, ask Jeremy to confirm your profile is provisioned."
+      />
+    );
+  }
   if (!isAdminOrOwner(profile) && !isProcessor(profile)) redirect("/dashboard");
 
   const host = headers().get("x-hostname") ?? headers().get("host");

@@ -15,6 +15,7 @@ import {
   resourceFromShared,
 } from "@/lib/teamResources";
 import type { SharedResource } from "@/types/database";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +38,14 @@ const REQUIRED_AREAS = [
 
 export default async function LFResourcesPage() {
   const { profile } = await getEffectiveProfile();
-  if (!profile) return null;
+  if (!profile) {
+    return (
+      <EmptyState
+        title="Profile unavailable"
+        description="We could not load your account profile. Refresh the page or sign in again; if this keeps happening, ask Jeremy to confirm your profile is provisioned."
+      />
+    );
+  }
   const supabase = getSupabaseServerClient();
   const owner = isOwner(profile);
 

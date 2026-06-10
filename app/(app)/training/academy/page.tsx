@@ -8,6 +8,7 @@ import { SectionHeader } from "@/components/ui/SectionHeader";
 import { getEffectiveProfile } from "@/lib/impersonation";
 import { ACADEMY_TRACKS } from "@/lib/legends/curriculum";
 import { academyTrainingAssets, trainingAssetIndex } from "@/lib/legends/trainingAssets";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export const dynamic = "force-dynamic";
 
@@ -72,7 +73,14 @@ const RECOMMENDED_CHANNELS = [
 
 export default async function AcademyLandingPage() {
   const { profile } = await getEffectiveProfile();
-  if (!profile) return null;
+  if (!profile) {
+    return (
+      <EmptyState
+        title="Profile unavailable"
+        description="We could not load your account profile. Refresh the page or sign in again; if this keeps happening, ask Jeremy to confirm your profile is provisioned."
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">

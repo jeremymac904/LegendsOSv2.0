@@ -3,6 +3,7 @@ import { ArrowLeft, BookOpen } from "lucide-react";
 
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { getEffectiveProfile } from "@/lib/impersonation";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,14 @@ const REAL_SCRIPTS = [
 
 export default async function ScriptsLibraryPage() {
   const { profile } = await getEffectiveProfile();
-  if (!profile) return null;
+  if (!profile) {
+    return (
+      <EmptyState
+        title="Profile unavailable"
+        description="We could not load your account profile. Refresh the page or sign in again; if this keeps happening, ask Jeremy to confirm your profile is provisioned."
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">

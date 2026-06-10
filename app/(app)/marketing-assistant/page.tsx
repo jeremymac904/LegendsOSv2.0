@@ -4,6 +4,7 @@ import { AgentChat } from "@/components/agents/AgentChat";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { getEffectiveProfile } from "@/lib/impersonation";
 import { canSee } from "@/lib/permissions";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +12,14 @@ export const dynamic = "force-dynamic";
 // Social/Email Studio for review; never a live publish.
 export default async function MarketingAssistantPage() {
   const { profile } = await getEffectiveProfile();
-  if (!profile) return null;
+  if (!profile) {
+    return (
+      <EmptyState
+        title="Profile unavailable"
+        description="We could not load your account profile. Refresh the page or sign in again; if this keeps happening, ask Jeremy to confirm your profile is provisioned."
+      />
+    );
+  }
   if (!canSee(profile, { roles: ["marketing", "loan_officer"] })) redirect("/dashboard");
 
   return (

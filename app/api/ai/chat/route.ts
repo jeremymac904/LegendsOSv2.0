@@ -823,6 +823,7 @@ export async function POST(req: Request) {
     provider: provider ?? undefined,
     model: model ?? undefined,
     messages,
+    metadata: { organization_id: profile.organization_id },
   });
 
   // Always log a usage event so the cap is enforced even on failure.
