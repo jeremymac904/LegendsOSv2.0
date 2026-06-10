@@ -94,7 +94,12 @@ export async function POST(req: Request) {
     );
   }
 
-  const result = await runImage({ prompt, aspect_ratio, model });
+  const result = await runImage({
+    prompt,
+    aspect_ratio,
+    model,
+    metadata: { organization_id: profile.organization_id },
+  });
 
   await logUsage(profile, {
     module: "images",

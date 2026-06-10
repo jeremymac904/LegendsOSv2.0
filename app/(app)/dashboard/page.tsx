@@ -75,7 +75,14 @@ const QUICK_LAUNCH = [
 
 export default async function DashboardPage() {
   const { profile } = await getEffectiveProfile();
-  if (!profile) return null;
+  if (!profile) {
+    return (
+      <EmptyState
+        title="Profile unavailable"
+        description="We could not load your account profile. Refresh the page or sign in again; if this keeps happening, ask Jeremy to confirm your profile is provisioned."
+      />
+    );
+  }
 
   // (#10) Role-aware landing. The dashboard is the owner/admin command center.
   // Operator roles land on the surface that is actually theirs so they don't

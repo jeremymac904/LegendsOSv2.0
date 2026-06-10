@@ -25,16 +25,34 @@ test("login page renders with brand", async ({ page }) => {
   await expect(page).toHaveTitle(/LegendsOS/i);
 });
 
-test("protected dashboard bounces to login", async ({ page }) => {
-  await page.goto("/dashboard");
-  await page.waitForLoadState("domcontentloaded");
-  const url = page.url();
-  expect(url.includes("/login") || url.includes("/setup")).toBe(true);
-});
+const PROTECTED_ROUTE_SMOKE = [
+  "/dashboard",
+  "/atlas",
+  "/flo",
+  "/coordinator",
+  "/marketing-assistant",
+  "/social",
+  "/email",
+  "/images",
+  "/calendar",
+  "/knowledge",
+  "/training",
+  "/browser-companion",
+  "/settings",
+  "/admin",
+  "/admin/connections",
+  "/admin/setup",
+  "/admin/leads",
+  "/admin/n8n",
+  "/admin/users",
+  "/admin/assets",
+] as const;
 
-test("protected admin bounces to login", async ({ page }) => {
-  await page.goto("/admin");
-  await page.waitForLoadState("domcontentloaded");
-  const url = page.url();
-  expect(url.includes("/login") || url.includes("/setup")).toBe(true);
-});
+for (const route of PROTECTED_ROUTE_SMOKE) {
+  test(`protected ${route} bounces to login or setup`, async ({ page }) => {
+    await page.goto(route);
+    await page.waitForLoadState("domcontentloaded");
+    const url = page.url();
+    expect(url.includes("/login") || url.includes("/setup")).toBe(true);
+  });
+}

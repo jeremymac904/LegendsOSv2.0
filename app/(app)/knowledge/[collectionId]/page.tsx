@@ -22,7 +22,14 @@ export default async function CollectionPage({
   params: { collectionId: string };
 }) {
   const profile = await getCurrentProfile();
-  if (!profile) return null;
+  if (!profile) {
+    return (
+      <EmptyState
+        title="Profile unavailable"
+        description="We could not load your account profile. Refresh the page or sign in again; if this keeps happening, ask Jeremy to confirm your profile is provisioned."
+      />
+    );
+  }
   const supabase = getSupabaseServerClient();
 
   const { data: collection } = await supabase

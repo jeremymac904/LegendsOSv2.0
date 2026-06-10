@@ -5,6 +5,7 @@ import { ArrowLeft, Clock, Target, MessageSquare, BookOpen, ExternalLink } from 
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { Accordion, type AccordionItemData } from "@/components/ui/Accordion";
 import { getEffectiveProfile } from "@/lib/impersonation";
+import { EmptyState } from "@/components/ui/EmptyState";
 import {
   ACADEMY_TRACKS,
   findModule,
@@ -30,7 +31,14 @@ export default async function AcademyModulePage({
   params,
 }: AcademyModulePageProps) {
   const { profile } = await getEffectiveProfile();
-  if (!profile) return null;
+  if (!profile) {
+    return (
+      <EmptyState
+        title="Profile unavailable"
+        description="We could not load your account profile. Refresh the page or sign in again; if this keeps happening, ask Jeremy to confirm your profile is provisioned."
+      />
+    );
+  }
 
   const result = findModule(params.track, params.module);
   if (!result) notFound();

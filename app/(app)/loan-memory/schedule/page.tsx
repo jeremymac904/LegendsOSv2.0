@@ -11,6 +11,7 @@ import {
 import { getEffectiveProfile } from "@/lib/impersonation";
 import { isAdminOrOwner } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,14 @@ export const dynamic = "force-dynamic";
 // "not activated". No cron, no n8n, no sends, no Drive writes.
 export default async function LoanMemorySchedulePage() {
   const { profile } = await getEffectiveProfile();
-  if (!profile) return null;
+  if (!profile) {
+    return (
+      <EmptyState
+        title="Profile unavailable"
+        description="We could not load your account profile. Refresh the page or sign in again; if this keeps happening, ask Jeremy to confirm your profile is provisioned."
+      />
+    );
+  }
   if (!isAdminOrOwner(profile)) redirect("/dashboard");
 
   // Snapshot is computed server-side so no env values reach the client.

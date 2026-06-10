@@ -12,6 +12,7 @@ import {
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { getCurrentProfile, getSupabaseServerClient } from "@/lib/supabase/server";
 import { formatDate } from "@/lib/utils";
+import { EmptyState } from "@/components/ui/EmptyState";
 import type {
   CalendarItem,
   EmailCampaign,
@@ -53,7 +54,14 @@ function monthBounds(month: string): { startIso: string; endIso: string } {
 
 export default async function CalendarPage({ searchParams }: PageProps) {
   const profile = await getCurrentProfile();
-  if (!profile) return null;
+  if (!profile) {
+    return (
+      <EmptyState
+        title="Profile unavailable"
+        description="We could not load your account profile. Refresh the page or sign in again; if this keeps happening, ask Jeremy to confirm your profile is provisioned."
+      />
+    );
+  }
   const supabase = getSupabaseServerClient();
 
   const month = normalizeMonth(searchParams?.month);

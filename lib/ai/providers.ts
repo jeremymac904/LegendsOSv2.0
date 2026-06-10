@@ -4,6 +4,10 @@ import {
   getServerEnv,
   PUBLIC_ENV,
 } from "@/lib/env";
+import {
+  getSupabaseServiceClient,
+  isMissingDatabaseObjectError,
+} from "@/lib/supabase/server";
 
 import type {
   ChatRequest,
@@ -96,6 +100,53 @@ function err(
   return { ok: false, error: code, message, ...extra };
 }
 
+function requestOrganizationId(metadata?: Record<string, unknown>): string | null {
+  const raw = metadata?.organization_id;
+  return typeof raw === "string" && raw.trim() ? raw.trim() : null;
+}
+
+async function storedProviderGate(
+  provider: ProviderId,
+  organizationId: string | null
+): Promise<GatewayError | null> {
+  if (!organizationId) return null;
+  try {
+    const service = getSupabaseServiceClient();
+    const query = service
+      .from("provider_credentials")
+      .select("is_enabled")
+      .eq("provider", provider)
+      .eq("organization_id", organizationId)
+      .order("updated_at", { ascending: false })
+      .limit(1);
+
+    const { data, error } = await query.maybeSingle();
+    if (error) {
+      if (isMissingDatabaseObjectError(error)) return null;
+      return err(
+        "internal_error",
+        `Could not verify ${provider} owner toggle.`,
+        { provider }
+      );
+    }
+    if (data?.is_enabled === false) {
+      return err(
+        "provider_disabled",
+        `${provider} is disabled by the owner. Re-enable it in Settings -> AI Provider Gateway.`,
+        { provider, env_var: "provider_credentials.is_enabled" }
+      );
+    }
+    return null;
+  } catch (e) {
+    if (isMissingDatabaseObjectError(e)) return null;
+    return err(
+      "internal_error",
+      e instanceof Error ? e.message : `Could not verify ${provider} owner toggle.`,
+      { provider }
+    );
+  }
+}
+
 // =====================================================================
 // CHAT
 // =====================================================================
@@ -105,6 +156,7 @@ export async function runChat(
 ): Promise<GatewayResult<ChatResponse>> {
   const env = getServerEnv();
   const requested = (request.provider ?? env.AI_DEFAULT_TEXT_PROVIDER) as ProviderId;
+  const organizationId = requestOrganizationId(request.metadata);
 
   // Resolve a usable provider with fallback. If a provider returns a hard
   // error (timeout, 429, 5xx), we fall through to the next configured one
@@ -134,6 +186,11 @@ export async function runChat(
           : `${candidate} is not configured. Set ${gate.envVar} in environment.`,
         { provider: candidate, env_var: gate.envVar }
       );
+      continue;
+    }
+    const storedGate = await storedProviderGate(candidate, organizationId);
+    if (storedGate) {
+      lastReason = storedGate;
       continue;
     }
     let result: GatewayResult<ChatResponse>;
@@ -472,6 +529,7 @@ export async function runImage(
 ): Promise<GatewayResult<ImageResponse>> {
   const env = getServerEnv();
   const provider = (request.provider ?? "fal") as ProviderId;
+  const organizationId = requestOrganizationId(request.metadata);
 
   if (provider !== "fal") {
     return err("bad_request", `Image provider ${provider} is not supported.`, {
@@ -491,6 +549,8 @@ export async function runImage(
       { provider: "fal", env_var: gate.envVar }
     );
   }
+  const storedGate = await storedProviderGate("fal", organizationId);
+  if (storedGate) return storedGate;
 
   const model = request.model ?? env.FAL_DEFAULT_MODEL;
   let timed: TimedFetch | null = null;

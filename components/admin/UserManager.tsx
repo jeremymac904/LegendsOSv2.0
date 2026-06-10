@@ -64,6 +64,10 @@ function formatStableDate(iso: string | null | undefined): string {
   return time ? `${date} ${time.slice(0, 5)}` : date;
 }
 
+function displayUser(user: Profile): string {
+  return user.email || user.full_name || "this user";
+}
+
 interface Props {
   ownerProfileId: string;
   users: Profile[];
@@ -158,9 +162,21 @@ export function UserManager({ ownerProfileId, users }: Props) {
     });
   }
 
-  function updateRole(user_id: string, role: UserRole) {
+  function updateRole(user: Profile, role: UserRole) {
+    if (role === user.role) {
+      setEditingId(null);
+      return;
+    }
+    if (
+      !window.confirm(
+        `Change ${displayUser(user)} from ${user.role} to ${role}?\n\nThis changes their access across LegendsOS.`
+      )
+    ) {
+      setEditingId(null);
+      return;
+    }
     startTransition(async () => {
-      const data = await post({ action: "update_role", user_id, role });
+      const data = await post({ action: "update_role", user_id: user.id, role });
       if (!data) return;
       setInfo("Role updated.");
       setEditingId(null);
@@ -168,27 +184,41 @@ export function UserManager({ ownerProfileId, users }: Props) {
     });
   }
 
-  function toggleActive(user_id: string, is_active: boolean) {
+  function toggleActive(user: Profile, is_active: boolean) {
+    if (
+      !is_active &&
+      !window.confirm(
+        `Deactivate ${displayUser(user)}?\n\nThey will lose access until an owner reactivates them.`
+      )
+    ) {
+      return;
+    }
     startTransition(async () => {
-      const data = await post({ action: "set_active", user_id, is_active });
+      const data = await post({ action: "set_active", user_id: user.id, is_active });
       if (!data) return;
       setInfo(is_active ? "User reactivated." : "User deactivated.");
       router.refresh();
     });
   }
 
-  function resetPw(user_id: string) {
+  function resetPw(user: Profile) {
+    if (
+      !window.confirm(
+        `Generate a password reset link for ${displayUser(user)}?\n\nThe link can be used to sign in and set a new password.`
+      )
+    ) {
+      return;
+    }
     startTransition(async () => {
-      const data = await post({ action: "reset_password", user_id });
+      const data = await post({ action: "reset_password", user_id: user.id });
       if (!data) return;
       if (data.reset_link) {
-        const target = users.find((u) => u.id === user_id);
         setLinkInfo({
-          user_id,
+          user_id: user.id,
           kind: "reset",
           url: data.reset_link,
-          email: target?.email ?? null,
-          full_name: target?.full_name ?? null,
+          email: user.email ?? null,
+          full_name: user.full_name ?? null,
           emailSent: false,
         });
       }
@@ -355,7 +385,7 @@ export function UserManager({ ownerProfileId, users }: Props) {
                           className="input"
                           defaultValue={u.role}
                           onChange={(e) =>
-                            updateRole(u.id, e.target.value as UserRole)
+                            updateRole(u, e.target.value as UserRole)
                           }
                           disabled={isPending}
                         >
@@ -411,7 +441,7 @@ export function UserManager({ ownerProfileId, users }: Props) {
                               type="button"
                               className="btn-ghost p-1.5"
                               title="Send password reset"
-                              onClick={() => resetPw(u.id)}
+                              onClick={() => resetPw(u)}
                               disabled={isPending}
                             >
                               <KeyRound size={14} />
@@ -423,7 +453,7 @@ export function UserManager({ ownerProfileId, users }: Props) {
                                 u.is_active && "text-status-err hover:bg-status-err/10"
                               )}
                               title={u.is_active ? "Deactivate" : "Reactivate"}
-                              onClick={() => toggleActive(u.id, !u.is_active)}
+                              onClick={() => toggleActive(u, !u.is_active)}
                               disabled={isPending}
                             >
                               {u.is_active ? (

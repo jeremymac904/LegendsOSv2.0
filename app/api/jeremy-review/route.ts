@@ -196,6 +196,7 @@ export async function POST(req: Request) {
     ],
     temperature: 0.2,
     max_tokens: 900,
+    metadata: { organization_id: profile.organization_id },
   });
 
   // No provider configured / enabled — degrade honestly. The UI shows a

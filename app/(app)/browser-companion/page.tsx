@@ -5,6 +5,7 @@ import { CompanionClient } from "@/components/companion/CompanionClient";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { PUBLIC_ENV } from "@/lib/env";
 import { getEffectiveProfile } from "@/lib/impersonation";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,14 @@ export const dynamic = "force-dynamic";
 // render nothing rather than leak a shell if the profile is somehow absent.
 export default async function BrowserCompanionPage() {
   const { profile } = await getEffectiveProfile();
-  if (!profile) return null;
+  if (!profile) {
+    return (
+      <EmptyState
+        title="Profile unavailable"
+        description="We could not load your account profile. Refresh the page or sign in again; if this keeps happening, ask Jeremy to confirm your profile is provisioned."
+      />
+    );
+  }
 
   return (
     <div className="space-y-5">

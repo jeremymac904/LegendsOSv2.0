@@ -16,7 +16,14 @@ export const dynamic = "force-dynamic";
 // no connectors, no provider settings.
 export default async function MyLoansPage() {
   const { profile } = await getEffectiveProfile();
-  if (!profile) return null;
+  if (!profile) {
+    return (
+      <EmptyState
+        title="Profile unavailable"
+        description="We could not load your account profile. Refresh the page or sign in again; if this keeps happening, ask Jeremy to confirm your profile is provisioned."
+      />
+    );
+  }
   if (!isAdminOrOwner(profile) && !isLoanOfficer(profile)) redirect("/dashboard");
 
   // Prefer real, RLS-scoped loans. Falls back to safe sample rows for the demo.

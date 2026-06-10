@@ -172,6 +172,7 @@ export async function runAgentChat(
     model: input.model ?? undefined,
     messages,
     max_tokens: 1600,
+    metadata: { organization_id: profile.organization_id },
   } as Parameters<typeof runChat>[0]);
 
   if (!("ok" in result) || !result.ok) {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { encryptSecret } from "@/lib/integrations/oauth";
 import { getCurrentProfile, getSupabaseServerClient, getSupabaseServiceClient } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/usage";
 
@@ -60,6 +61,7 @@ export async function POST(req: Request) {
   }
 
   const { label, url, auth_token, provider } = parsed.data;
+  const encryptedAuthToken = auth_token ? encryptSecret(auth_token) : null;
 
   const service = getSupabaseServiceClient();
   const { data, error } = await service
@@ -69,7 +71,7 @@ export async function POST(req: Request) {
       organization_id: profile.organization_id,
       label,
       url,
-      auth_token: auth_token || null,
+      auth_token: encryptedAuthToken,
       provider,
     })
     .select("id,label,url,provider,saved_at")

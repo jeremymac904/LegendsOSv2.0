@@ -7,13 +7,21 @@ import { SectionHeader } from "@/components/ui/SectionHeader";
 import { listLoansForProfile, sampleBoardRows } from "@/lib/loanbrain/store";
 import { getEffectiveProfile } from "@/lib/impersonation";
 import { isAdminOrOwner, isCoordinator } from "@/lib/permissions";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export const dynamic = "force-dynamic";
 
 // Geraldine's follow-up board. Visible to coordinators + owner/admin.
 export default async function CoordinatorPage() {
   const { profile } = await getEffectiveProfile();
-  if (!profile) return null;
+  if (!profile) {
+    return (
+      <EmptyState
+        title="Profile unavailable"
+        description="We could not load your account profile. Refresh the page or sign in again; if this keeps happening, ask Jeremy to confirm your profile is provisioned."
+      />
+    );
+  }
   if (!isAdminOrOwner(profile) && !isCoordinator(profile)) redirect("/dashboard");
 
   // Leads + prospects are Geraldine's follow-up queue. Prefer real RLS-scoped
