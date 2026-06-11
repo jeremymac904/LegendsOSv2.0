@@ -166,7 +166,7 @@ function ImageStudioGalleryTabs({ media, browserAssets, starters, owner, falConf
     {
       id: "generated",
       label: `Generated (${media.length})`,
-      icon: ImageIcon,
+      icon: <ImageIcon size={14} aria-hidden />,
       content: (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
            {media.length === 0 ? (
@@ -182,7 +182,7 @@ function ImageStudioGalleryTabs({ media, browserAssets, starters, owner, falConf
     {
       id: "brand",
       label: "Brand Library",
-      icon: ImagePlus,
+      icon: <ImagePlus size={14} aria-hidden />,
       content: (
         <div className="space-y-4">
            <div className="flex items-center justify-between">

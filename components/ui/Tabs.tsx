@@ -1,15 +1,39 @@
 "use client";
 
-import { useState } from "react";
+import { isValidElement, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * Tab icon. Pass a RENDERED element (e.g. `<Lock size={14} />`) when the tab
+ * list is built inside a Server Component — a bare Lucide component reference
+ * cannot be serialized across the RSC boundary into this client component and
+ * crashes the render ("Functions cannot be passed directly to Client
+ * Components"). A component reference is still accepted for client callers.
+ */
+export type TabIcon = React.ReactNode | LucideIcon;
+
 export interface TabItem {
   id: string;
   label: string;
-  icon?: LucideIcon;
+  icon?: TabIcon;
   content: React.ReactNode;
+}
+
+function renderTabIcon(icon: TabIcon): React.ReactNode {
+  if (!icon) return null;
+  if (isValidElement(icon)) return icon;
+  // Bare component reference (function or forwardRef object) — only reachable
+  // from client callers; server callers must pass a rendered element.
+  if (
+    typeof icon === "function" ||
+    (typeof icon === "object" && icon !== null && "$$typeof" in (icon as object))
+  ) {
+    const Icon = icon as LucideIcon;
+    return <Icon size={14} aria-hidden />;
+  }
+  return null;
 }
 
 interface TabsProps {
@@ -52,7 +76,6 @@ export function Tabs({
         )}
       >
         {tabs.map((tab) => {
-          const Icon = tab.icon;
           const isActive = tab.id === active.id;
           return (
             <button
@@ -80,7 +103,7 @@ export function Tabs({
                     )
               )}
             >
-              {Icon && <Icon size={14} aria-hidden />}
+              {renderTabIcon(tab.icon)}
               {tab.label}
             </button>
           );

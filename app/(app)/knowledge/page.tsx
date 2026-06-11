@@ -156,7 +156,7 @@ function KnowledgeTabs({
     {
       id: "my",
       label: `Private (${priv.length})`,
-      icon: Lock,
+      icon: <Lock size={14} aria-hidden />,
       content: (
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
            {priv.length === 0 ? (
@@ -178,7 +178,7 @@ function KnowledgeTabs({
     {
       id: "team",
       label: `Team (${team.length})`,
-      icon: Users2,
+      icon: <Users2 size={14} aria-hidden />,
       content: (
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
            {team.length === 0 ? (
@@ -200,7 +200,7 @@ function KnowledgeTabs({
     {
       id: "recent",
       label: "Recent Activity",
-      icon: BookOpen,
+      icon: <BookOpen size={14} aria-hidden />,
       content: (
         <div className="space-y-2">
            {recent.length === 0 ? (
@@ -225,7 +225,7 @@ function KnowledgeTabs({
     tabs.push({
       id: "imports",
       label: "Imports",
-      icon: FolderTree,
+      icon: <FolderTree size={14} aria-hidden />,
       content: (
         <div className="space-y-2">
            {imports.map((c: any) => (
@@ -246,7 +246,7 @@ function KnowledgeTabs({
     tabs.push({
       id: "local-training-assets",
       label: `Local Index (${localCounts.indexedAssets})`,
-      icon: Database,
+      icon: <Database size={14} aria-hidden />,
       content: (
         <LocalTrainingAssetBrowser
           assets={localAssets}

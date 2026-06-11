@@ -268,7 +268,7 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
     {
       id: "posting-setup",
       title: "Posting setup path",
-      icon: PlugZap,
+      icon: <PlugZap size={16} aria-hidden />,
       meta: (
         <span className="hidden sm:inline">
           {publishEnabled ? "publishing enabled" : "publishing disabled"}
