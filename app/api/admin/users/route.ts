@@ -128,14 +128,26 @@ export async function POST(req: Request) {
   const supabase = getSupabaseServerClient();
 
   // Where minted setup/recovery links should land after the token is verified.
-  // Prefer the live request origin (handles preview/custom domains) and fall
-  // back to the configured app URL. The set-password screen lives OUTSIDE the
-  // auth-gated (app) group so a brand-new user can reach it.
-  let origin = PUBLIC_ENV.APP_URL.replace(/\/$/, "");
+  // Prefer the live request origin (handles preview/custom domains) but NEVER
+  // emit a localhost / private-host link. An owner running the app locally
+  // would otherwise mint a http://localhost:3000 setup/recovery link that the
+  // remote invitee can't open (ERR_CONNECTION_REFUSED) — fall back to the
+  // configured production app URL in that case. The set-password screen lives
+  // OUTSIDE the auth-gated (app) group so a brand-new user can reach it.
+  const configuredOrigin = PUBLIC_ENV.APP_URL.replace(/\/$/, "");
+  let origin = configuredOrigin;
   try {
-    origin = new URL(req.url).origin;
+    const reqOrigin = new URL(req.url).origin;
+    const host = new URL(reqOrigin).hostname.toLowerCase();
+    const isLocalHost =
+      host === "localhost" ||
+      host === "127.0.0.1" ||
+      host === "0.0.0.0" ||
+      host === "::1" ||
+      host.endsWith(".local");
+    if (!isLocalHost) origin = reqOrigin;
   } catch {
-    // Keep the configured fallback.
+    // Keep the configured production fallback.
   }
   const setPasswordRedirect = `${origin}/auth/set-password`;
 
