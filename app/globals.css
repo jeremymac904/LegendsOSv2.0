@@ -634,3 +634,27 @@ html[data-legendsos-desktop="true"][data-legendsos-platform="darwin"] .desktop-l
       0 0 28px -14px rgb(var(--burnt-gold) / 0.32);
   }
 }
+
+/* ─── Atlas full-bleed composer pin ──────────────────────────────────
+ * Atlas must keep its chat composer pinned to the bottom of the viewport;
+ * the user must never scroll the page to find it. The server layout tries
+ * to drop the centered/padded scroll wrapper for /atlas via an x-pathname
+ * header, but middleware-mutated request headers are not reliably forwarded
+ * to the SSR render on Netlify — so the full-bleed branch can silently fail
+ * and Atlas falls back into the padded `overflow-y-auto` <main>, pushing the
+ * composer below the fold.
+ *
+ * This rule is cause-agnostic: wherever the marked Atlas root lands, force
+ * its <main> ancestor to a non-scrolling, unpadded, full-height box so the
+ * workspace's own internal flex column owns scrolling and pins the composer.
+ * Harmless when the server branch already resolved full-bleed.
+ */
+main:has([data-atlas-fullbleed]) {
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+main:has([data-atlas-fullbleed]) > * {
+  height: 100%;
+  max-width: none;
+  margin: 0;
+}

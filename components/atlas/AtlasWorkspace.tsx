@@ -999,7 +999,10 @@ export function AtlasWorkspace({
   }
 
   return (
-    <div className="flex h-full min-h-0 max-h-full w-full overflow-hidden">
+    <div
+      data-atlas-fullbleed
+      className="flex h-full min-h-0 max-h-full w-full overflow-hidden"
+    >
       {/* Left: Projects */}
       <div className={cn("flex min-h-0 flex-col border-r border-accent-champagne/10 bg-white/60 dark:bg-ink-950/60 backdrop-blur-xl transition-all duration-200", leftOpen ? "w-72 shrink-0 xl:w-80" : "w-0 overflow-hidden")}>
         <div className="flex items-center justify-between gap-2 border-b border-ink-200 dark:border-ink-800 px-3 py-2">
