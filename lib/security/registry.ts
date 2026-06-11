@@ -327,7 +327,18 @@ export function getSecurityValidationChecks(): SecurityValidationCheck[] {
 }
 
 export function getRoleAccessChecks(profiles: Pick<Profile, "role">[]): RoleAccessCheck[] {
-  const count = (role: UserRole) => profiles.filter((p) => p.role === role).length;
+  // Precompute counts into a local record instead of a `count()` closure over
+  // the `profiles` parameter. SWC's production minifier inlined this function
+  // into the caller and beta-reduced the closure to a sequence expression that
+  // referenced `profiles` as a dangling free identifier — crashing
+  // /admin/security at runtime with "ReferenceError: profiles is not defined"
+  // (prod-only; dev is unminified). A plain local lookup table survives
+  // inlining correctly.
+  const roleCounts: Partial<Record<UserRole, number>> = {};
+  for (const p of profiles) {
+    roleCounts[p.role] = (roleCounts[p.role] ?? 0) + 1;
+  }
+  const count = (role: UserRole) => roleCounts[role] ?? 0;
   return [
     {
       role: "owner",
