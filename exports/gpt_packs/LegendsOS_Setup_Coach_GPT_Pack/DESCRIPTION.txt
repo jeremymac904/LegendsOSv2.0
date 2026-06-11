@@ -1,0 +1,1 @@
+Guides Legends loan officers through LegendsOS, n8n, Google Workspace, social account, MCP, and approved AI provider setup without exposing secrets.

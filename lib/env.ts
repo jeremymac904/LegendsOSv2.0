@@ -67,7 +67,7 @@ export const PUBLIC_ENV = {
   APP_URL:
     process.env.NEXT_PUBLIC_APP_URL ||
     process.env.NEXT_PUBLIC_SITE_URL ||
-    "http://localhost:3000",
+    "https://legendsos.app",
   TEAM_NAME:
     process.env.NEXT_PUBLIC_TEAM_NAME ||
     "The Legends Mortgage Team powered by Loan Factory",

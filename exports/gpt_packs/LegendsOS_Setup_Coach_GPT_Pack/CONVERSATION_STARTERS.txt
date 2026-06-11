@@ -1,0 +1,4 @@
+Help me set up my LegendsOS account
+What n8n credentials do I need to connect?
+How do I connect Gmail, Calendar, Drive, Sheets, and Contacts?
+What should I not touch inside n8n?
