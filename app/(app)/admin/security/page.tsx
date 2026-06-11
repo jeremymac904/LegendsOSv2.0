@@ -119,14 +119,14 @@ export default async function SecurityDashboardPage() {
   const { profile } = await getEffectiveProfile();
   if (!profile || !isOwner(profile)) redirect("/dashboard");
 
-  const [tableHealth, profiles] = await Promise.all([
+  const [tableHealth, profileRoles] = await Promise.all([
     safeTableHealth(),
     safeProfiles(),
   ]);
 
   const statusCards = getSecurityStatusCards();
   const validations = getSecurityValidationChecks();
-  const roleChecks = getRoleAccessChecks(profiles);
+  const roleChecks = getRoleAccessChecks(profileRoles ?? []);
   const presentTables = tableHealth.filter((row) => row.status === "present").length;
   const passingValidations = validations.filter((row) => row.status === "pass").length;
   const fixedFindings = SECURITY_FINDINGS.filter(
