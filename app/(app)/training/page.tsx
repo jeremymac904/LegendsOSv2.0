@@ -1,10 +1,13 @@
-import { BookOpen, PlayCircle, Sparkles } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, GraduationCap, Megaphone, Sparkles } from "lucide-react";
 
 import { LegendsOSHelpCoaches } from "@/components/help/LegendsOSHelpCoaches";
 import { ResourceLibrary } from "@/components/resources/ResourceLibrary";
+import { AcademyNav } from "@/components/training/AcademyNav";
 import { LocalTrainingAssetBrowser } from "@/components/training/LocalTrainingAssetBrowser";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { getEffectiveProfile } from "@/lib/impersonation";
+import { aiAdvantagePublishedVideos } from "@/lib/legends/aiAdvantageVideos";
 import { trainingAssetIndex, trainingAssets } from "@/lib/legends/trainingAssets";
 import { isOwner } from "@/lib/permissions";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
@@ -19,11 +22,28 @@ import { EmptyState } from "@/components/ui/EmptyState";
 
 export const dynamic = "force-dynamic";
 
-const TRAINING_NUGGETS = [
-  "Keep videos focused on one workflow or one decision.",
-  "Add a clear next action so loan officers know what to do after watching.",
-  "Use YouTube links for embeds; Drive videos open safely in a new tab.",
-  "Turn repeat questions into short Training cards instead of long docs.",
+// One unified training system: AI Advantage + Legends Mortgage Academy + Elite
+// Sales & Marketing, each shown visually and linking to real content.
+const PROGRAMS = [
+  {
+    title: "AI Advantage",
+    blurb: `${aiAdvantagePublishedVideos.length} lessons — Jeremy's AI training for loan officers.`,
+    href: "/training/ai-advantage",
+    thumb: `https://i.ytimg.com/vi/${aiAdvantagePublishedVideos[0]?.youtubeVideoId}/hqdefault.jpg`,
+    icon: Sparkles,
+  },
+  {
+    title: "Legends Mortgage Academy",
+    blurb: "12-week roadmap, daily coaching, scorecard, and graduation — with Jeremy.",
+    href: "/coaching",
+    icon: GraduationCap,
+  },
+  {
+    title: "Elite Sales & Marketing",
+    blurb: "Sales 101–601 and the marketing playbooks, guides, and templates.",
+    href: "/marketing-materials",
+    icon: Megaphone,
+  },
 ];
 
 export default async function TrainingPage() {
@@ -50,94 +70,100 @@ export default async function TrainingPage() {
   const items = [...sharedItems, ...DEFAULT_TRAINING_ITEMS];
 
   return (
-    <div className="flex h-[calc(100vh-140px)] min-h-[650px] flex-col gap-4 overflow-hidden">
-      <div className="flex items-center justify-between gap-4">
-        <SectionHeader
-          eyebrow="Training"
-          title="Training Command Center"
-          description="Build repeatable execution with targeted coaching."
-        />
-        <div className="flex items-center gap-2">
-           <span className="chip-ok text-[10px]">{owner ? "OWNER MANAGED" : "TEAM LIBRARY"}</span>
+    <div className="space-y-6">
+      <SectionHeader
+        eyebrow="Legends Growth OS · Training"
+        title="Training"
+        description="One training system — AI Advantage, the Legends Mortgage Academy, and Elite Sales & Marketing in one place."
+        action={
+          <span className="chip-ok text-[10px]">
+            {owner ? "OWNER MANAGED" : "TEAM LIBRARY"}
+          </span>
+        }
+      />
+
+      <AcademyNav />
+
+      {/* Programs — visual entry to every course */}
+      <section className="space-y-3">
+        <div className="section-title">
+          <h2>Programs</h2>
+          <p>Three programs, one system. Pick where you want to grow.</p>
         </div>
-      </div>
-
-      <div className="grid flex-1 grid-cols-1 gap-4 overflow-hidden lg:grid-cols-[300px_1fr]">
-        {/* Sidebar: Info & Stats */}
-        <div className="flex flex-col gap-4 overflow-y-auto pr-1 scrollbar-thin">
-           <div className="card-padded py-3 space-y-3">
-              <p className="label text-[10px] uppercase tracking-wider">Learning Paths</p>
-              <h2 className="text-sm font-semibold text-ink-900 dark:text-ink-100 leading-tight">Build repeatable execution.</h2>
-              <div className="grid grid-cols-1 gap-2">
-                 <HeroStat icon={PlayCircle} label="Embeds" value="YouTube Ready" />
-                 <HeroStat icon={Sparkles} label="Nuggets" value="Quick Lessons" />
-                 <HeroStat
-                   icon={BookOpen}
-                   label="Indexed"
-                   value={`${trainingAssetIndex.counts.indexedAssets} assets`}
-                 />
-              </div>
-           </div>
-
-           <div className="card-padded py-3">
-              <p className="label text-[10px] uppercase tracking-wider mb-2">Training Nuggets</p>
-              <div className="space-y-1.5">
-                 {TRAINING_NUGGETS.map(n => <p key={n} className="text-[11px] text-ink-400 leading-snug">· {n}</p>)}
-              </div>
-           </div>
-
-           <LegendsOSHelpCoaches coaches={["setup"]} />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {PROGRAMS.map((p) => {
+            const Icon = p.icon;
+            return (
+              <Link
+                key={p.href}
+                href={p.href}
+                className="group glass-card-padded block overflow-hidden p-0 transition-transform hover:-translate-y-0.5"
+              >
+                <div
+                  className="flex aspect-video w-full items-end bg-gradient-to-br from-ink-900 via-ink-950 to-ink-900 bg-cover bg-center p-3"
+                  style={
+                    p.thumb ? { backgroundImage: `url(${p.thumb})` } : undefined
+                  }
+                >
+                  <span className="grid h-9 w-9 place-items-center rounded-xl border border-accent-champagne/40 bg-ink-950/70 text-accent-champagne">
+                    <Icon size={16} />
+                  </span>
+                </div>
+                <div className="p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="text-sm font-semibold text-ink-900 dark:text-ink-100">
+                      {p.title}
+                    </h3>
+                    <ArrowRight
+                      size={15}
+                      className="text-ink-500 transition-colors group-hover:text-accent-champagne"
+                    />
+                  </div>
+                  <p className="mt-1 text-[12px] leading-relaxed text-ink-600 dark:text-ink-300">
+                    {p.blurb}
+                  </p>
+                </div>
+              </Link>
+            );
+          })}
         </div>
+      </section>
 
-        {/* Main: Library */}
-        <div className="flex flex-col overflow-hidden rounded-2xl border border-ink-200 bg-white/40 dark:border-ink-800 dark:bg-ink-950/20">
-           <div className="flex-1 space-y-4 overflow-y-auto p-4 scrollbar-thin">
-              <LocalTrainingAssetBrowser
-                assets={trainingAssets}
-                counts={trainingAssetIndex.counts}
-                driveLinks={trainingAssetIndex.driveLinks}
-                description="Search local videos, transcripts, summaries, coaching docs, community packs, and source-map files without moving source assets."
-                maxVisible={72}
-                showLocalReferences={owner}
-              />
-              <ResourceLibrary
-                mode="training"
-                resourceType={TRAINING_RESOURCE_TYPE}
-                items={items}
-                categories={TRAINING_CATEGORIES}
-                owner={owner}
-                organizationId={profile.organization_id}
-                userId={profile.id}
-                emptyTitle="No training content yet"
-                emptyDescription="Jeremy has not published training items yet."
-              />
-           </div>
+      {/* Full library */}
+      <section className="space-y-3">
+        <div className="section-title">
+          <h2>Full training library</h2>
+          <p>
+            {trainingAssetIndex.counts.indexedAssets} indexed assets — videos,
+            transcripts, summaries, coaching docs, and source maps.
+          </p>
         </div>
-      </div>
-    </div>
-  );
-}
+        <div className="rounded-2xl border border-ink-200 bg-white/40 p-4 dark:border-ink-800 dark:bg-ink-950/20">
+          <LocalTrainingAssetBrowser
+            assets={trainingAssets}
+            counts={trainingAssetIndex.counts}
+            driveLinks={trainingAssetIndex.driveLinks}
+            description="Search local videos, transcripts, summaries, coaching docs, community packs, and source-map files without moving source assets."
+            maxVisible={48}
+            showLocalReferences={owner}
+          />
+          <div className="mt-4">
+            <ResourceLibrary
+              mode="training"
+              resourceType={TRAINING_RESOURCE_TYPE}
+              items={items}
+              categories={TRAINING_CATEGORIES}
+              owner={owner}
+              organizationId={profile.organization_id}
+              userId={profile.id}
+              emptyTitle="No training content yet"
+              emptyDescription="Jeremy has not published training items yet."
+            />
+          </div>
+        </div>
+      </section>
 
-function HeroStat({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: typeof PlayCircle;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="rounded-xl border border-ink-200 bg-ink-50 p-3 backdrop-blur-sm dark:border-accent-champagne/10 dark:bg-ink-950/30">
-      <div className="flex items-center gap-2">
-        <span className="grid h-8 w-8 place-items-center rounded-lg border border-accent-champagne/20 bg-accent-gold/10 text-accent-champagne">
-          <Icon size={15} />
-        </span>
-        <p className="text-[10px] uppercase tracking-[0.18em] text-ink-600 dark:text-ink-400">
-          {label}
-        </p>
-      </div>
-      <p className="mt-3 text-sm font-semibold text-ink-900 dark:text-ink-100">{value}</p>
+      {owner && <LegendsOSHelpCoaches coaches={["setup"]} />}
     </div>
   );
 }

@@ -181,8 +181,8 @@ export const NAV_ITEMS: NavItem[] = [
   {
     section: "team",
     href: "/coaching",
-    label: "Coaching",
-    description: "LO Mastery & Alliance programs and 12-week curriculum",
+    label: "Legends Mortgage Academy",
+    description: "Jeremy's daily coaching + 12-week academy roadmap",
     icon: Trophy,
   },
   {

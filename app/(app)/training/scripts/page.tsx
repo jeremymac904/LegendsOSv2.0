@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { ArrowLeft, BookOpen } from "lucide-react";
 
+import { ScriptCard, type ScriptItem } from "@/components/training/ScriptCard";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { getEffectiveProfile } from "@/lib/impersonation";
 import { EmptyState } from "@/components/ui/EmptyState";
 
 export const dynamic = "force-dynamic";
 
-const REAL_SCRIPTS = [
+const REAL_SCRIPTS: ScriptItem[] = [
   {
     category: "Buyer Conversation",
     title: "First-call opener",
@@ -82,25 +83,7 @@ export default async function ScriptsLibraryPage() {
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           {REAL_SCRIPTS.map((script) => (
-            <div key={script.title} className="glass-card-padded space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-ink-500">{script.category}</p>
-                <button 
-                  onClick={() => navigator.clipboard.writeText(script.body)}
-                  className="text-[10px] text-accent-champagne hover:underline"
-                >
-                  Copy Script
-                </button>
-              </div>
-              <h3 className="text-base font-semibold text-ink-900 dark:text-ink-100">
-                {script.title}
-              </h3>
-              <div className="rounded-lg bg-ink-50 p-3 dark:bg-ink-950/50 border border-ink-200 dark:border-accent-champagne/10">
-                <p className="text-sm italic leading-relaxed text-ink-700 dark:text-ink-300">
-                  &quot;{script.body}&quot;
-                </p>
-              </div>
-            </div>
+            <ScriptCard key={script.title} script={script} />
           ))}
         </div>
       </section>

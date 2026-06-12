@@ -219,10 +219,10 @@ function MessageRow({ message }: { message: ChatMessage }) {
 // ─── EmptyChat ───────────────────────────────────────────────────────────────
 
 const STARTER_PROMPTS = [
-  "What can you do?",
-  "Draft a Facebook post about FHA loans for first-time homebuyers.",
-  "Write a newsletter about refinancing for past clients.",
-  "Schedule a team standup on Monday.",
+  "Draft a rate-update text for a past client.",
+  "Explain FHA vs conventional for a first-time buyer.",
+  "Write a follow-up email to a pre-approved buyer who went quiet.",
+  "Turn this week's market update into a social post.",
 ];
 
 function EmptyChat({ provider, configured, onPick }: {
@@ -239,8 +239,8 @@ function EmptyChat({ provider, configured, onPick }: {
           <div className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-accent-gold via-accent-gold to-accent-orange text-ink-950">
             <Sparkles size={15} />
           </div>
-          <h2 className="mt-2.5 text-[15px] font-semibold text-ink-900 dark:text-ink-100">How can Atlas help?</h2>
-          <p className="mt-1 text-xs text-ink-600 dark:text-ink-300">Marketing copy, mortgage explainers, drafts, or anything in your daily workflow.</p>
+          <h2 className="mt-2.5 text-lg font-semibold text-ink-900 dark:text-ink-100">How can Atlas help?</h2>
+          <p className="mt-1 max-w-md text-xs leading-relaxed text-ink-600 dark:text-ink-300">Your command center for the whole platform — marketing copy, mortgage explainers, client messages, and anything in your daily workflow. Pick a starting point or just ask.</p>
           {!configured && <p className="mt-2 text-[11px] text-status-warn">{provider} is not configured — pick another provider in the chip above.</p>}
         </div>
         <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
