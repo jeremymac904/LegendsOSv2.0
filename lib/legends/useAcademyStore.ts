@@ -8,6 +8,11 @@ import {
   todayDays,
   type SeedPost,
 } from "./academyContent";
+import {
+  loadAcademyState,
+  saveScorecardRemote,
+  saveTodayRemote,
+} from "./academyApi";
 
 // Local-first store for the Academy behavioral modules. Everything persists to
 // localStorage (no backend yet), hydrating after mount to avoid SSR mismatch.
@@ -71,8 +76,26 @@ export function useAcademyToday() {
   const [state, setState] = useState<TodayState>({});
 
   useEffect(() => {
-    setState(readLS<TodayState>(K_TODAY, {}));
-    setHydrated(true);
+    let alive = true;
+    (async () => {
+      const remote = await loadAcademyState();
+      if (!alive) return;
+      if (remote) {
+        setState(remote.today);
+        writeLS(K_TODAY, remote.today);
+        // Mirror server scorecard locally so the Scorecard page is fresh too.
+        writeLS(K_SCORE, {
+          cells: remote.scorecard.cells,
+          reflection: { ...emptyScore().reflection, ...remote.scorecard.reflection },
+        });
+      } else {
+        setState(readLS<TodayState>(K_TODAY, {}));
+      }
+      setHydrated(true);
+    })();
+    return () => {
+      alive = false;
+    };
   }, []);
 
   const getDay = useCallback(
@@ -89,21 +112,25 @@ export function useAcademyToday() {
     setState(next);
 
     // Roll numeric fields tagged with a metric into the weekly scorecard.
-    const col = DAY_COL[dayKey];
-    if (col === undefined) return;
-    const day = todayDays.find((d) => d.key === dayKey);
-    if (!day) return;
     const score = readLS<ScoreState>(K_SCORE, emptyScore());
-    let touched = false;
-    for (const field of day.fields) {
-      if (!field.metric || field.kind !== "number") continue;
-      const val = Number(fields[field.key]);
-      if (!Number.isFinite(val)) continue;
-      if (!score.cells[field.metric]) score.cells[field.metric] = [0, 0, 0, 0, 0];
-      score.cells[field.metric][col] = val;
-      touched = true;
+    const col = DAY_COL[dayKey];
+    const day = todayDays.find((d) => d.key === dayKey);
+    if (col !== undefined && day) {
+      for (const field of day.fields) {
+        if (!field.metric || field.kind !== "number") continue;
+        const val = Number(fields[field.key]);
+        if (!Number.isFinite(val)) continue;
+        if (!score.cells[field.metric]) score.cells[field.metric] = [0, 0, 0, 0, 0];
+        score.cells[field.metric][col] = val;
+      }
+      writeLS(K_SCORE, score);
     }
-    if (touched) writeLS(K_SCORE, score);
+
+    // Persist to Supabase (best-effort; localStorage already holds the truth).
+    void saveTodayRemote(dayKey, fields, {
+      cells: score.cells,
+      reflection: score.reflection as unknown as Record<string, string>,
+    });
   }, []);
 
   return { hydrated, getDay, saveDay };
@@ -115,8 +142,26 @@ export function useAcademyScorecard() {
   const [state, setState] = useState<ScoreState>(emptyScore());
 
   useEffect(() => {
-    setState(readLS<ScoreState>(K_SCORE, emptyScore()));
-    setHydrated(true);
+    let alive = true;
+    (async () => {
+      const remote = await loadAcademyState();
+      if (!alive) return;
+      if (remote) {
+        const base = emptyScore();
+        const merged: ScoreState = {
+          cells: { ...base.cells, ...remote.scorecard.cells },
+          reflection: { ...base.reflection, ...remote.scorecard.reflection },
+        };
+        setState(merged);
+        writeLS(K_SCORE, merged);
+      } else {
+        setState(readLS<ScoreState>(K_SCORE, emptyScore()));
+      }
+      setHydrated(true);
+    })();
+    return () => {
+      alive = false;
+    };
   }, []);
 
   const setCell = useCallback((metricKey: string, dayIdx: number, value: number) => {
@@ -127,6 +172,7 @@ export function useAcademyScorecard() {
       cells[metricKey] = row;
       const next = { ...prev, cells };
       writeLS(K_SCORE, next);
+      void saveScorecardRemote(next.cells, next.reflection as unknown as Record<string, string>);
       return next;
     });
   }, []);
@@ -135,6 +181,7 @@ export function useAcademyScorecard() {
     setState((prev) => {
       const next = { ...prev, reflection: { ...prev.reflection, [key]: value } };
       writeLS(K_SCORE, next);
+      void saveScorecardRemote(next.cells, next.reflection as unknown as Record<string, string>);
       return next;
     });
   }, []);
