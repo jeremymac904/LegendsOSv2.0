@@ -59,7 +59,69 @@ export interface TrainingAssetIndex {
   assets: LocalTrainingAsset[];
 }
 
-export const trainingAssetIndex = rawTrainingAssetIndex as TrainingAssetIndex;
+// ── Display-time rebranding ────────────────────────────────────────────────
+// The generated index mirrors source folder and document names from the
+// imported archive, which still carry legacy program branding. Everything we
+// surface in the UI is Legends Mortgage Academy, so user-visible text fields
+// are rebranded here at the module boundary. Local file paths and ids are
+// left untouched — they reference real files on disk.
+const REBRAND_RULES: Array<[RegExp, string]> = [
+  [/Loan Factory Coaching/g, "Legends Mortgage Academy"],
+  [/Loan Factory coaching/g, "Legends Mortgage Academy"],
+  [/Loan Factory Alliance/g, "Legends Mortgage Academy"],
+  [/LO Mastery/g, "Legends Mortgage Academy"],
+  [/\bAlliance\b/g, "Academy"],
+  // Group coaching model — no one-on-one coaching language in surfaced text.
+  [/\bone-on-one\b/gi, "group"],
+  [/\bprivate coaching\b/gi, "group coaching"],
+  [/\b1:1\b/g, "coach review"],
+  [/\bcoaching session\b/g, "group coaching call"],
+  [/\bCoaching Session\b/g, "Group Coaching Call"],
+];
+
+function rebrandText(value: string): string {
+  return REBRAND_RULES.reduce(
+    (text, [pattern, replacement]) => text.replace(pattern, replacement),
+    value
+  );
+}
+
+function rebrandRecordKeys(record: Record<string, number>): Record<string, number> {
+  return Object.fromEntries(
+    Object.entries(record).map(([key, count]) => [rebrandText(key), count])
+  );
+}
+
+function rebrandAsset(asset: LocalTrainingAsset): LocalTrainingAsset {
+  return {
+    ...asset,
+    title: rebrandText(asset.title),
+    category: rebrandText(asset.category),
+    sourceGroup: rebrandText(asset.sourceGroup),
+    summary: rebrandText(asset.summary),
+    tags: asset.tags.map(rebrandText),
+  };
+}
+
+function rebrandIndex(index: TrainingAssetIndex): TrainingAssetIndex {
+  return {
+    ...index,
+    counts: {
+      ...index.counts,
+      byCategory: rebrandRecordKeys(index.counts.byCategory),
+      bySourceGroup: rebrandRecordKeys(index.counts.bySourceGroup),
+    },
+    driveLinks: index.driveLinks.map((link) => ({
+      ...link,
+      title: rebrandText(link.title),
+    })),
+    assets: index.assets.map(rebrandAsset),
+  };
+}
+
+export const trainingAssetIndex = rebrandIndex(
+  rawTrainingAssetIndex as TrainingAssetIndex
+);
 export const trainingAssets = trainingAssetIndex.assets;
 
 const ACADEMY_CATEGORIES = new Set([

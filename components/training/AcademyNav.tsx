@@ -2,7 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarCheck, LayoutGrid, ListChecks, Megaphone, Newspaper, Trophy } from "lucide-react";
+import {
+  CalendarCheck,
+  Gem,
+  GraduationCap,
+  LayoutGrid,
+  ListChecks,
+  Megaphone,
+  Newspaper,
+  Sparkles,
+  Trophy,
+} from "lucide-react";
 
 // Sub-navigation shared across the Legends Mortgage Academy surfaces.
 const ITEMS = [
@@ -10,7 +20,10 @@ const ITEMS = [
   { href: "/training/feed", label: "Feed", icon: Newspaper },
   { href: "/training/today", label: "Today", icon: CalendarCheck },
   { href: "/training/scorecard", label: "Scorecard", icon: ListChecks },
+  { href: "/training/academy", label: "Academy", icon: GraduationCap },
   { href: "/training/resources", label: "Resources", icon: Megaphone },
+  { href: "/training/elite", label: "Elite", icon: Gem },
+  { href: "/training/ai-advantage", label: "AI Advantage", icon: Sparkles },
   { href: "/training", label: "Training", icon: Trophy },
 ];
 

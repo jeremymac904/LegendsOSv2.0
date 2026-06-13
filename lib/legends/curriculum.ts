@@ -136,7 +136,7 @@ export const ACADEMY_TRACKS: CurriculumTrack[] = [
         durationMinutes: 35,
         status: "draft",
         learningOutcomes: [
-          "Run a one-page weekly 1:1 with a mentee.",
+          "Run a one-page weekly check-in with a mentee.",
           "Diagnose pipeline issues without taking over the file.",
           "Give feedback that drives behavior change without breaking trust.",
         ],

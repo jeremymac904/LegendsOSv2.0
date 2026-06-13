@@ -1161,7 +1161,7 @@ export const DEFAULT_LF_RESOURCES: TeamResourceItem[] = [
           ],
         },
       ],
-      nextSteps: ["Use during a coaching session, then document follow-up tasks in Atlas or Calendar."],
+      nextSteps: ["Use during the weekly group coaching call, then document follow-up tasks in Atlas or Calendar."],
     },
     source: "default",
     updatedAt: null,

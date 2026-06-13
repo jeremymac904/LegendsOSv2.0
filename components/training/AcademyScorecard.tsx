@@ -1,8 +1,16 @@
 "use client";
 
-import { useMemo } from "react";
-import { Info, Target, TrendingUp } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  CheckCircle2,
+  Info,
+  MessageSquareText,
+  Send,
+  Target,
+  TrendingUp,
+} from "lucide-react";
 
+import { loadAcademyState, submitScorecardRemote } from "@/lib/legends/academyApi";
 import { scorecardDays, scorecardMetrics } from "@/lib/legends/academyContent";
 import { useAcademyScorecard, type ScoreReflection } from "@/lib/legends/useAcademyStore";
 
@@ -40,8 +48,69 @@ function rowTotal(row: number[] | undefined): number {
   return (row ?? []).reduce((sum, n) => sum + (Number.isFinite(n) ? n : 0), 0);
 }
 
+function formatStamp(iso: string | null): string {
+  if (!iso) return "";
+  const t = new Date(iso);
+  return Number.isFinite(t.getTime()) ? t.toLocaleString() : "";
+}
+
+// Coach-review state for this week's scorecard, mirrored from the server.
+interface ReviewState {
+  submitted: boolean;
+  submittedAt: string | null;
+  reviewed: boolean;
+  coachNote: string | null;
+}
+
 export function AcademyScorecard({ firstName }: { firstName: string }) {
   const { hydrated, cells, reflection, setCell, setReflection } = useAcademyScorecard();
+
+  const [review, setReview] = useState<ReviewState>({
+    submitted: false,
+    submittedAt: null,
+    reviewed: false,
+    coachNote: null,
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(false);
+
+  // Pull submitted/reviewed/coach-note state from the server. Soft-fails to
+  // the defaults above when offline or unauthenticated.
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const remote = await loadAcademyState();
+      if (!alive || !remote) return;
+      setReview({
+        submitted: Boolean(remote.scorecard.submitted),
+        submittedAt: remote.scorecard.submittedAt ?? null,
+        reviewed: Boolean(remote.scorecard.reviewed),
+        coachNote: remote.scorecard.coachNote ?? null,
+      });
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  async function handleSubmit() {
+    setSubmitting(true);
+    setSubmitError(false);
+    const ok = await submitScorecardRemote(
+      cells,
+      reflection as unknown as Record<string, string>,
+    );
+    if (ok) {
+      setReview((prev) => ({
+        ...prev,
+        submitted: true,
+        submittedAt: new Date().toISOString(),
+      }));
+    } else {
+      setSubmitError(true);
+    }
+    setSubmitting(false);
+  }
 
   const rows = useMemo(
     () =>
@@ -76,9 +145,16 @@ export function AcademyScorecard({ firstName }: { firstName: string }) {
       <section className="glass-card-padded">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
-            <p className="label flex items-center gap-1.5">
-              <TrendingUp size={12} className="text-accent-champagne" /> This week&apos;s pace
-            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="label flex items-center gap-1.5">
+                <TrendingUp size={12} className="text-accent-champagne" /> This week&apos;s pace
+              </p>
+              {review.submitted && (
+                <span className="chip-ok">
+                  <CheckCircle2 size={10} /> Submitted
+                </span>
+              )}
+            </div>
             <h2 className="mt-1 text-2xl font-semibold text-ink-900 dark:text-ink-100">
               {firstName ? `${firstName}, ` : ""}you&apos;re at {overall}% of goal
             </h2>
@@ -248,6 +324,78 @@ export function AcademyScorecard({ firstName }: { firstName: string }) {
             className="input"
           />
         </label>
+      </section>
+
+      {/* Submit to coach */}
+      <section className="glass-card-padded">
+        <div className="section-title">
+          <h2>Submit to coach</h2>
+          <p>Your coach reviews submitted scorecards before the weekly group coaching call.</p>
+        </div>
+
+        {/* Coach review note — appears once the coach has reviewed the week. */}
+        {(review.coachNote || review.reviewed) && (
+          <div className="mt-4 rounded-2xl border border-accent-champagne/25 bg-ink-50 p-4 dark:bg-ink-950/30">
+            <p className="label flex items-center gap-1.5">
+              <MessageSquareText size={12} className="text-accent-champagne" />
+              Coach review
+            </p>
+            {review.coachNote ? (
+              <p className="mt-2 text-[13px] leading-relaxed text-ink-700 dark:text-ink-200">
+                {review.coachNote}
+              </p>
+            ) : (
+              <p className="mt-2 text-[12.5px] leading-relaxed text-ink-600 dark:text-ink-300">
+                Your coach has reviewed this week&apos;s scorecard. Notes will show
+                here when added.
+              </p>
+            )}
+          </div>
+        )}
+
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            {review.submitted ? (
+              <p className="flex items-start gap-1.5 text-[12.5px] leading-relaxed text-status-ok">
+                <CheckCircle2 size={14} className="mt-0.5 shrink-0" />
+                <span>
+                  Submitted — your coach reviews this before the weekly group
+                  coaching call.
+                  {review.submittedAt && formatStamp(review.submittedAt) && (
+                    <span className="text-ink-500 dark:text-ink-400">
+                      {" "}
+                      ({formatStamp(review.submittedAt)})
+                    </span>
+                  )}
+                </span>
+              </p>
+            ) : (
+              <p className="text-[12.5px] leading-relaxed text-ink-600 dark:text-ink-300">
+                Finish your week, then submit. You can re-submit any time before
+                the call if your numbers change.
+              </p>
+            )}
+            {submitError && (
+              <p className="mt-1 text-[11px] text-status-err">
+                Couldn&apos;t reach the server — your scorecard is still saved on
+                this device. Try again in a moment.
+              </p>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={submitting}
+            className="btn-primary shrink-0 disabled:opacity-50"
+          >
+            <Send size={15} />
+            {submitting
+              ? "Submitting…"
+              : review.submitted
+                ? "Re-submit to coach"
+                : "Submit to coach"}
+          </button>
+        </div>
       </section>
     </div>
   );

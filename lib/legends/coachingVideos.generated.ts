@@ -655,7 +655,7 @@ export const coachingDailyProgramVideos: CoachingDailyVideo[] = [
     "day": "monday",
     "heygenVideoId": "8594f11c427a40ccb69b492a0b99e56f",
     "embedUrl": "https://app.heygen.com/embeds/8594f11c427a40ccb69b492a0b99e56f",
-    "title": "Mon Alliance - Edward - Edward Voice Clone"
+    "title": "Mon - Edward - Edward Voice Clone"
   },
   {
     "program": "alliance",

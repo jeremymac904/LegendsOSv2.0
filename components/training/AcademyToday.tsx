@@ -4,11 +4,18 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
+  BarChart3,
   CheckCircle2,
   CircleDashed,
+  ClipboardList,
+  FileText,
   ListChecks,
+  MessagesSquare,
+  NotebookPen,
   Save,
   Sparkles,
+  Wrench,
+  type LucideIcon,
 } from "lucide-react";
 
 import {
@@ -24,6 +31,43 @@ import { useAcademyToday } from "@/lib/legends/useAcademyStore";
 // tagged with a metric roll into the weekly Scorecard automatically on save.
 
 type FormFields = Record<string, string>;
+
+// Free-form note saved alongside the day's structured fields. Not part of
+// day.fields, so it never affects the filled-count or the scorecard rollup.
+const ACCOUNTABILITY_NOTE_KEY = "accountability_note";
+
+// Deep links into the surfaces an LO touches around the daily block.
+const TOOL_LINKS: {
+  href: string;
+  label: string;
+  description: string;
+  icon: LucideIcon;
+}[] = [
+  {
+    href: "/training/scripts",
+    label: "Scripts",
+    description: "Word-for-word call scripts",
+    icon: FileText,
+  },
+  {
+    href: "/training/resources?tab=playbooks",
+    label: "Trackers",
+    description: "Playbooks and weekly trackers",
+    icon: ClipboardList,
+  },
+  {
+    href: "/training/scorecard",
+    label: "Scorecard",
+    description: "Your weekly numbers and pace",
+    icon: BarChart3,
+  },
+  {
+    href: "/training/feed",
+    label: "Feed",
+    description: "Group wins, questions, and coaching",
+    icon: MessagesSquare,
+  },
+];
 
 function emptyForm(day: TodayDay): FormFields {
   const out: FormFields = {};
@@ -195,14 +239,15 @@ export function AcademyToday({ firstName }: { firstName: string }) {
                   {filled} of {day.fields.length} fields filled
                 </p>
                 {(justSaved || saved) && (
-                  <p className="mt-0.5 text-[11px] text-status-ok">
+                  <p className="mt-0.5 flex items-center gap-1 text-[11px] text-status-ok">
+                    <CheckCircle2 size={12} className="shrink-0" />
                     Saved{" "}
                     {justSaved
                       ? "just now"
                       : saved
                         ? relativeSaved(saved.savedAt)
                         : ""}{" "}
-                    · numeric fields rolled into the weekly Scorecard
+                    — rolled into your scorecard
                   </p>
                 )}
               </div>
@@ -213,14 +258,72 @@ export function AcademyToday({ firstName }: { firstName: string }) {
                 className="btn-primary shrink-0 disabled:opacity-50"
               >
                 <Save size={15} />
-                Save progress
+                Save day
               </button>
             </div>
+
+            {/* What do I do next — appears once the day is logged. Fridays
+                point at the Scorecard submit; every other day points at the
+                day's Feed question. */}
+            {(justSaved || saved) && (
+              <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-accent-gold/25 bg-accent-gold/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="label flex items-center gap-1.5">
+                    <ArrowRight size={12} className="text-accent-gold" />
+                    What&apos;s next
+                  </p>
+                  <p className="mt-1.5 text-[12.5px] leading-relaxed text-ink-700 dark:text-ink-200">
+                    {day.key === "friday"
+                      ? "Your numbers are rolled in. Review the week and submit your scorecard to your coach before the weekly group coaching call."
+                      : day.communityPrompt}
+                  </p>
+                </div>
+                <Link
+                  href={day.key === "friday" ? "/training/scorecard" : "/training/feed"}
+                  className="btn-ghost shrink-0"
+                >
+                  {day.key === "friday" ? "Open Scorecard" : "Answer in the Feed"}
+                  <ArrowRight size={14} />
+                </Link>
+              </div>
+            )}
           </div>
         </section>
 
-        {/* Sidebar: accountability + community */}
+        {/* Sidebar: tools + accountability + community */}
         <aside className="space-y-4 lg:sticky lg:top-4 lg:self-start">
+          <div className="glass-card-padded">
+            <p className="label flex items-center gap-1.5">
+              <Wrench size={12} className="text-accent-champagne" />
+              Tools rail
+            </p>
+            <nav className="mt-3 space-y-1.5">
+              {TOOL_LINKS.map((tool) => (
+                <Link
+                  key={tool.href}
+                  href={tool.href}
+                  className="group flex items-center gap-3 rounded-xl border border-transparent px-2.5 py-2 transition hover:border-accent-champagne/25 hover:bg-ink-100/60 dark:hover:bg-ink-950/40"
+                >
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-accent-champagne/20 bg-ink-50 text-accent-champagne dark:bg-ink-950/40">
+                    <tool.icon size={15} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[12.5px] font-semibold text-ink-900 dark:text-ink-100">
+                      {tool.label}
+                    </span>
+                    <span className="block truncate text-[11px] text-ink-500 dark:text-ink-400">
+                      {tool.description}
+                    </span>
+                  </span>
+                  <ArrowRight
+                    size={14}
+                    className="shrink-0 text-ink-400 transition group-hover:translate-x-0.5 group-hover:text-accent-champagne"
+                  />
+                </Link>
+              ))}
+            </nav>
+          </div>
+
           <div className="glass-card-padded">
             <p className="label flex items-center gap-1.5">
               <ListChecks size={12} className="text-accent-champagne" />
@@ -240,6 +343,25 @@ export function AcademyToday({ firstName }: { firstName: string }) {
                 </li>
               ))}
             </ul>
+
+            {/* Free-form accountability note — saved with the day log. */}
+            <label className="mt-4 block border-t border-accent-champagne/10 pt-4">
+              <span className="field-label flex items-center gap-1.5">
+                <NotebookPen size={12} className="text-accent-champagne" />
+                Accountability note
+              </span>
+              <textarea
+                aria-label="Accountability note"
+                value={form[ACCOUNTABILITY_NOTE_KEY] ?? ""}
+                onChange={(e) => updateField(ACCOUNTABILITY_NOTE_KEY, e.target.value)}
+                placeholder="Answer the checks above — what you'll own from today."
+                rows={3}
+                className="textarea mt-1.5 min-h-20"
+              />
+              <span className="mt-1 block text-[10.5px] text-ink-500 dark:text-ink-400">
+                Saves with your day log when you hit Save day.
+              </span>
+            </label>
           </div>
 
           <div className="rounded-2xl border border-accent-champagne/15 bg-ink-950/30 p-5">

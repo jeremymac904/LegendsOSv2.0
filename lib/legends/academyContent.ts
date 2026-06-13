@@ -1,7 +1,6 @@
-// Legends Mortgage Academy — behavioral content model (ported from the Loan
-// Factory coaching platform, rebranded to Jeremy / LegendsOS). Drives Feed,
-// Today, Scorecard, and Resources. No LO Mastery / Alliance labels, no
-// non-Jeremy presenters.
+// Legends Mortgage Academy — behavioral content model, fully rebranded to
+// Jeremy / LegendsOS. Drives Feed, Today, Scorecard, and Resources. No legacy
+// program labels, no non-Jeremy presenters.
 
 import { dailyCoachingVideos, type AcademyVideo } from "./coachingVideos";
 
@@ -306,6 +305,10 @@ export const calendarItems = [
   { day: "Friday", title: "Scorecard & next week plan", time: "3:00 PM", focus: "Scorecard, reflection, next week's number." },
 ];
 
+/** Shown on the Calendar tab — live sessions are scheduled by invite. */
+export const calendarInviteNote =
+  "Live group coaching schedule arrives by Google Calendar invite.";
+
 export const resourceTabs: ResourceTab[] = [
   {
     key: "scripts",
@@ -313,36 +316,30 @@ export const resourceTabs: ResourceTab[] = [
     blurb: "Buyer, partner, follow-up, and recapture scripts in Legends voice.",
     links: [
       { title: "Scripts Library", description: "First-call, follow-up, buyer, and partner scripts.", href: "/training/scripts" },
+      { title: "Roleplay Practice", description: "Practice the scripts out loud before the real call.", href: "/training/roleplay" },
       { title: "Script Book (PDF)", description: "Realtor, borrower, follow-up, database, and objection scripts.", href: "https://drive.google.com/file/d/1zA44f6JzhyA4RqpM-cZf46ojA08dLwTJ/view", external: true },
     ],
   },
   {
-    key: "tools",
-    label: "Tools",
-    blurb: "Trackers and planners that make the week visible.",
-    links: [
-      { title: "Weekly Scorecard", description: "Track leading activity, pace, and reflection.", href: "/training/scorecard" },
-      { title: "Today workspace", description: "Daily theme-day execution and time blocking.", href: "/training/today" },
-      { title: "Daily Time Blockers (PDF)", description: "Protected Power Blocks, appointments, admin, review.", href: "https://drive.google.com/file/d/1PxpN74w-IK3frRR2ympGC5K3mJOXbrbd/view", external: true },
-    ],
+    key: "playbooks",
+    label: "Playbooks",
+    blurb: "The Legends operating playbooks — systems you run, not pages you read once.",
+    links: [],
   },
   {
     key: "training",
     label: "Training",
-    blurb: "Every Legends course in one place.",
+    blurb: "Every Legends course and the indexed training corpus in one place.",
     links: [
-      { title: "Training Library", description: "AI Advantage, Elite Sales, and the Academy.", href: "/training" },
-      { title: "AI Advantage", description: "Jeremy's AI training for loan officers.", href: "/training/ai-advantage" },
-      { title: "Academy roadmap", description: "The 12-week Legends Mortgage Academy path.", href: "/coaching" },
+      { title: "Training Library", description: "AI Advantage, Elite Sales & Marketing, and the Academy.", href: "/training" },
+      { title: "Academy roadmap", description: "The 12-week Legends Mortgage Academy path.", href: "/training/academy" },
     ],
   },
   {
-    key: "podcast",
-    label: "Podcast",
-    blurb: "Coaching audio you can listen to on the go.",
-    links: [
-      { title: "Audio & Podcasts", description: "Coaching audio library.", href: "/training/audio" },
-    ],
+    key: "podcasts",
+    label: "Podcasts",
+    blurb: "Coaching audio you can stream on the go — sales psychology, partners, community growth, pipeline, and mindset.",
+    links: [],
   },
   {
     key: "calendar",
@@ -363,6 +360,28 @@ export const resourceTabs: ResourceTab[] = [
       { title: "Follow Up System", description: "Follow-up rhythm for buyers, leads, and past clients.", href: "https://drive.google.com/file/d/1XK_2bg8PvpJYP8PJNVwnOYwH1sVuKF8A/view", external: true },
       { title: "Realtor Growth System", description: "Partner development system.", href: "https://drive.google.com/file/d/1PxMVznSC2VDg6VA6NIXoo9mIMvsu8soc/view", external: true },
       { title: "Daily Time Blockers", description: "Daily planning templates.", href: "https://drive.google.com/file/d/1PxpN74w-IK3frRR2ympGC5K3mJOXbrbd/view", external: true },
+    ],
+  },
+  {
+    key: "marketing",
+    label: "Marketing",
+    blurb: "Marketing setup walk-throughs that support Elite levels 401 and 501 — ads, tracking, audiences, widgets, and your website quote flow.",
+    links: [],
+  },
+  {
+    key: "ai-advantage",
+    label: "AI Advantage",
+    blurb: "Jeremy's AI training for loan officers — the full lesson library, playable right here.",
+    links: [
+      { title: "Open AI Advantage", description: "The full AI Advantage surface with featured lesson and progress.", href: "/training/ai-advantage" },
+    ],
+  },
+  {
+    key: "elite",
+    label: "Elite Sales & Marketing",
+    blurb: "The six-level sales and marketing curriculum — 101 Foundation through 601 Elite Execution.",
+    links: [
+      { title: "Open Elite Sales & Marketing", description: "All six levels with lessons, assignments, and tracker metrics.", href: "/training/elite" },
     ],
   },
 ];

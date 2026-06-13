@@ -17,7 +17,11 @@ export async function GET() {
   const sb = getSupabaseServerClient();
   const [today, score, prog] = await Promise.all([
     sb.from("academy_today_entries").select("day_key,fields,saved_at").eq("user_id", profile.id),
-    sb.from("academy_scorecard").select("cells,reflection").eq("user_id", profile.id).maybeSingle(),
+    sb
+      .from("academy_scorecard")
+      .select("cells,reflection,submitted,submitted_at,reviewed,coach_note")
+      .eq("user_id", profile.id)
+      .maybeSingle(),
     sb.from("academy_progress").select("weeks_done,graduated").eq("user_id", profile.id).maybeSingle(),
   ]);
 
@@ -35,6 +39,10 @@ export async function GET() {
     scorecard: {
       cells: (score.data?.cells as Record<string, number[]>) ?? {},
       reflection: (score.data?.reflection as Record<string, string>) ?? {},
+      submitted: Boolean(score.data?.submitted),
+      submittedAt: (score.data?.submitted_at as string | null) ?? null,
+      reviewed: Boolean(score.data?.reviewed),
+      coachNote: (score.data?.coach_note as string | null) ?? null,
     },
     progress: {
       weeksDone: (prog.data?.weeks_done as number[]) ?? [],
@@ -50,7 +58,7 @@ export async function POST(req: Request) {
   }
   const body = (await req.json().catch(() => null)) as
     | { kind: "today"; dayKey: string; fields: Record<string, string>; scorecard?: { cells: Record<string, number[]>; reflection: Record<string, string> } }
-    | { kind: "scorecard"; cells: Record<string, number[]>; reflection: Record<string, string> }
+    | { kind: "scorecard"; cells: Record<string, number[]>; reflection: Record<string, string>; submit?: boolean }
     | { kind: "progress"; weeksDone: number[]; graduated: boolean }
     | null;
   if (!body) {
@@ -77,12 +85,20 @@ export async function POST(req: Request) {
         );
     }
   } else if (body.kind === "scorecard") {
+    // submit:true stamps the weekly submit-to-coach so it shows up in coach review.
+    const row: Record<string, unknown> = {
+      user_id: profile.id,
+      cells: body.cells,
+      reflection: body.reflection,
+      updated_at: now,
+    };
+    if (body.submit) {
+      row.submitted = true;
+      row.submitted_at = now;
+    }
     const { error } = await sb
       .from("academy_scorecard")
-      .upsert(
-        { user_id: profile.id, cells: body.cells, reflection: body.reflection, updated_at: now },
-        { onConflict: "user_id" },
-      );
+      .upsert(row, { onConflict: "user_id" });
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   } else if (body.kind === "progress") {
     const { error } = await sb

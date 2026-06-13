@@ -1,23 +1,25 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
+import { feedSeedPosts, scorecardMetrics, todayDays } from "./academyContent";
 import {
-  feedSeedPosts,
-  scorecardMetrics,
-  todayDays,
-  type SeedPost,
-} from "./academyContent";
-import {
+  commentRemote,
+  createPostRemote,
+  deletePostRemote,
+  likeRemote,
   loadAcademyState,
+  loadFeedRemote,
+  pinRemote,
   saveScorecardRemote,
   saveTodayRemote,
+  type RemoteFeedPost,
 } from "./academyApi";
 
-// Local-first store for the Academy behavioral modules. Everything persists to
-// localStorage (no backend yet), hydrating after mount to avoid SSR mismatch.
-// The key cross-module behavior: saving a Today day rolls its numeric fields
-// into the weekly Scorecard automatically.
+// Cloud-primary store for the Academy behavioral modules. Hooks hydrate from
+// Supabase after mount (avoiding SSR mismatch) and fall back to localStorage
+// when offline or unauthenticated. The key cross-module behavior: saving a
+// Today day rolls its numeric fields into the weekly Scorecard automatically.
 
 const K_TODAY = "legendsos:academy:today";
 const K_SCORE = "legendsos:academy:scorecard";
@@ -190,24 +192,53 @@ export function useAcademyScorecard() {
 }
 
 // ── Feed ─────────────────────────────────────────────────────────────────────
+// Cloud-primary: hydrate from /api/academy/feed (seeded coach posts + member
+// posts), optimistic local updates with background sync, and a localStorage
+// seed fallback when the API is unreachable.
+
 export interface FeedComment {
+  id?: string;
   author: string;
   body: string;
+  createdAt?: string;
 }
 export interface FeedPost {
   id: string;
+  /** "member" for LO posts; "coach" | "daily" | "weekly" for seeded coach rows. */
+  kind: string;
+  refKey?: string | null;
   author: string;
   role: string;
-  category: SeedPost["category"];
+  category: string;
+  title: string;
+  body: string;
+  pinned?: boolean;
+  /** Legacy name kept for existing UI; `embedUrl` mirrors it. */
+  videoEmbedUrl?: string;
+  embedUrl?: string;
+  attachmentUrl?: string;
+  comments: FeedComment[];
+  /** Legacy name kept for existing UI; `likeCount` mirrors it. */
+  likes: number;
+  likeCount: number;
+  /** Legacy name kept for existing UI; `likedByMe` mirrors it. */
+  liked?: boolean;
+  likedByMe: boolean;
+  createdAt?: string;
+  /** True when the current user authored the post (cloud mode only). */
+  mine?: boolean;
+}
+export interface NewFeedPostInput {
+  author?: string;
+  role?: string;
+  category: string;
   title: string;
   body: string;
   pinned?: boolean;
   videoEmbedUrl?: string;
-  comments: FeedComment[];
-  likes: number;
-  liked?: boolean;
-  createdAt?: string;
+  attachmentUrl?: string;
 }
+
 interface FeedState {
   userPosts: FeedPost[];
   liked: Record<string, boolean>;
@@ -218,86 +249,320 @@ function emptyFeed(): FeedState {
   return { userPosts: [], liked: {}, extraComments: {}, extraLikes: {} };
 }
 
+function fromRemotePost(p: RemoteFeedPost): FeedPost {
+  return {
+    id: p.id,
+    kind: p.kind || "member",
+    refKey: p.refKey ?? null,
+    author: p.author,
+    role: p.role,
+    category: p.category,
+    title: p.title,
+    body: p.body,
+    pinned: p.pinned,
+    videoEmbedUrl: p.embedUrl,
+    embedUrl: p.embedUrl,
+    attachmentUrl: p.attachmentUrl,
+    comments: p.comments.map((c) => ({
+      id: c.id,
+      author: c.author,
+      body: c.body,
+      createdAt: c.createdAt,
+    })),
+    likes: p.likeCount,
+    likeCount: p.likeCount,
+    liked: p.likedByMe,
+    likedByMe: p.likedByMe,
+    createdAt: p.createdAt,
+    mine: p.mine,
+  };
+}
+
+// Pinned first, then newest first. Seeds without timestamps keep server order.
+function sortFeed(list: FeedPost[]): FeedPost[] {
+  return [...list].sort((a, b) => {
+    if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1;
+    return (b.createdAt ?? "").localeCompare(a.createdAt ?? "");
+  });
+}
+
+// Old localStorage rows predate kind/likeCount/likedByMe — fill the gaps.
+function normalizeStoredPost(p: Partial<FeedPost> & { id: string }): FeedPost {
+  const likes = p.likes ?? p.likeCount ?? 0;
+  const liked = Boolean(p.liked ?? p.likedByMe);
+  return {
+    id: p.id,
+    kind: p.kind ?? "member",
+    refKey: p.refKey ?? null,
+    author: p.author ?? "You",
+    role: p.role ?? "Loan Officer",
+    category: p.category ?? "Wins",
+    title: p.title ?? "",
+    body: p.body ?? "",
+    pinned: p.pinned,
+    videoEmbedUrl: p.videoEmbedUrl ?? p.embedUrl,
+    embedUrl: p.embedUrl ?? p.videoEmbedUrl,
+    attachmentUrl: p.attachmentUrl,
+    comments: p.comments ?? [],
+    likes,
+    likeCount: likes,
+    liked,
+    likedByMe: liked,
+    createdAt: p.createdAt,
+    mine: p.kind === undefined || p.kind === "member" ? true : p.mine,
+  };
+}
+
+// Offline fallback: static Academy seeds merged with locally-saved activity.
+function legacyFeedPosts(state: FeedState): FeedPost[] {
+  const seeds: FeedPost[] = feedSeedPosts.map((p) => {
+    const likes = p.likes + (state.extraLikes[p.id] ?? 0);
+    const liked = Boolean(state.liked[p.id]);
+    return {
+      id: p.id,
+      kind: p.role === "Coach" ? "coach" : "member",
+      refKey: null,
+      author: p.author,
+      role: p.role,
+      category: p.category,
+      title: p.title,
+      body: p.body,
+      pinned: p.pinned,
+      videoEmbedUrl: p.videoEmbedUrl,
+      embedUrl: p.videoEmbedUrl,
+      comments: [...p.comments, ...(state.extraComments[p.id] ?? [])],
+      likes,
+      likeCount: likes,
+      liked,
+      likedByMe: liked,
+    };
+  });
+  const user = state.userPosts.map((p) =>
+    normalizeStoredPost({ ...p, liked: Boolean(state.liked[p.id] ?? p.liked) }),
+  );
+  // user posts first (newest), then pinned seeds, then the rest
+  const pinned = seeds.filter((p) => p.pinned);
+  const rest = seeds.filter((p) => !p.pinned);
+  return [...pinned, ...user, ...rest];
+}
+
+function mutateLegacyFeed(fn: (prev: FeedState) => FeedState) {
+  writeLS(K_FEED, fn(readLS<FeedState>(K_FEED, emptyFeed())));
+}
+
 export function useAcademyFeed() {
   const [hydrated, setHydrated] = useState(false);
-  const [state, setState] = useState<FeedState>(emptyFeed());
+  const [posts, setPosts] = useState<FeedPost[]>([]);
+  // "cloud" once the API hydrates; "local" keeps the localStorage fallback.
+  const modeRef = useRef<"cloud" | "local">("local");
+
+  const refresh = useCallback(async (): Promise<boolean> => {
+    const remote = await loadFeedRemote();
+    if (!remote) return false;
+    modeRef.current = "cloud";
+    setPosts(sortFeed(remote.map(fromRemotePost)));
+    return true;
+  }, []);
 
   useEffect(() => {
-    setState(readLS<FeedState>(K_FEED, emptyFeed()));
-    setHydrated(true);
+    let alive = true;
+    (async () => {
+      const remote = await loadFeedRemote();
+      if (!alive) return;
+      if (remote) {
+        modeRef.current = "cloud";
+        setPosts(sortFeed(remote.map(fromRemotePost)));
+      } else {
+        modeRef.current = "local";
+        setPosts(legacyFeedPosts(readLS<FeedState>(K_FEED, emptyFeed())));
+      }
+      setHydrated(true);
+    })();
+    return () => {
+      alive = false;
+    };
   }, []);
 
-  const persist = (next: FeedState) => {
-    writeLS(K_FEED, next);
-    setState(next);
-  };
-
-  const posts: FeedPost[] = (() => {
-    const seeds: FeedPost[] = feedSeedPosts.map((p) => ({
-      ...p,
-      likes: p.likes + (state.extraLikes[p.id] ?? 0),
-      liked: Boolean(state.liked[p.id]),
-      comments: [...p.comments, ...(state.extraComments[p.id] ?? [])],
-    }));
-    const user = state.userPosts.map((p) => ({
-      ...p,
-      liked: Boolean(state.liked[p.id]),
-    }));
-    // user posts first (newest), then pinned seeds, then the rest
-    const pinned = seeds.filter((p) => p.pinned);
-    const rest = seeds.filter((p) => !p.pinned);
-    return [...pinned, ...user, ...rest];
-  })();
-
-  const toggleLike = useCallback((id: string, isSeed: boolean) => {
-    setState((prev) => {
-      const liked = { ...prev.liked, [id]: !prev.liked[id] };
-      const delta = liked[id] ? 1 : -1;
-      const next: FeedState = isSeed
-        ? { ...prev, liked, extraLikes: { ...prev.extraLikes, [id]: (prev.extraLikes[id] ?? 0) + delta } }
-        : {
-            ...prev,
-            liked,
-            userPosts: prev.userPosts.map((p) =>
-              p.id === id ? { ...p, likes: Math.max(0, p.likes + delta) } : p,
-            ),
-          };
-      writeLS(K_FEED, next);
-      return next;
-    });
+  const addPost = useCallback((input: NewFeedPostInput) => {
+    const tempId = `local-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    const optimistic: FeedPost = {
+      id: tempId,
+      kind: "member",
+      refKey: null,
+      author: input.author?.trim() || "You",
+      role: input.role?.trim() || "Loan Officer",
+      category: input.category,
+      title: input.title,
+      body: input.body,
+      pinned: input.pinned ?? false,
+      videoEmbedUrl: input.videoEmbedUrl,
+      embedUrl: input.videoEmbedUrl,
+      attachmentUrl: input.attachmentUrl,
+      comments: [],
+      likes: 0,
+      likeCount: 0,
+      liked: false,
+      likedByMe: false,
+      createdAt: new Date().toISOString(),
+      mine: true,
+    };
+    setPosts((prev) => sortFeed([optimistic, ...prev]));
+    void (async () => {
+      const saved = await createPostRemote({
+        category: input.category,
+        title: input.title,
+        body: input.body,
+        embedUrl: input.videoEmbedUrl,
+        attachmentUrl: input.attachmentUrl,
+      });
+      if (saved) {
+        setPosts((prev) =>
+          sortFeed(prev.map((p) => (p.id === tempId ? fromRemotePost(saved) : p))),
+        );
+      } else {
+        // Offline / unauthenticated — keep it locally so it survives reloads.
+        mutateLegacyFeed((prev) => ({
+          ...prev,
+          userPosts: [optimistic, ...prev.userPosts],
+        }));
+      }
+    })();
   }, []);
 
-  const addComment = useCallback((id: string, body: string, isSeed: boolean) => {
-    const comment: FeedComment = { author: "You", body };
-    setState((prev) => {
-      const next: FeedState = isSeed
-        ? { ...prev, extraComments: { ...prev.extraComments, [id]: [...(prev.extraComments[id] ?? []), comment] } }
-        : {
-            ...prev,
-            userPosts: prev.userPosts.map((p) =>
-              p.id === id ? { ...p, comments: [...p.comments, comment] } : p,
-            ),
-          };
-      writeLS(K_FEED, next);
-      return next;
-    });
+  const addComment = useCallback((id: string, body: string, _isSeed?: boolean) => {
+    const optimistic: FeedComment = {
+      author: "You",
+      body,
+      createdAt: new Date().toISOString(),
+    };
+    setPosts((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, comments: [...p.comments, optimistic] } : p)),
+    );
+    void (async () => {
+      const saved = await commentRemote(id, body);
+      if (saved) {
+        setPosts((prev) =>
+          prev.map((p) =>
+            p.id === id
+              ? { ...p, comments: p.comments.map((c) => (c === optimistic ? saved : c)) }
+              : p,
+          ),
+        );
+      } else {
+        const isSeed = feedSeedPosts.some((s) => s.id === id);
+        mutateLegacyFeed((prev) =>
+          isSeed
+            ? {
+                ...prev,
+                extraComments: {
+                  ...prev.extraComments,
+                  [id]: [...(prev.extraComments[id] ?? []), optimistic],
+                },
+              }
+            : {
+                ...prev,
+                userPosts: prev.userPosts.map((p) =>
+                  p.id === id ? { ...p, comments: [...p.comments, optimistic] } : p,
+                ),
+              },
+        );
+      }
+    })();
   }, []);
 
-  const addPost = useCallback(
-    (post: Omit<FeedPost, "id" | "likes" | "comments" | "createdAt">) => {
-      const full: FeedPost = {
-        ...post,
-        id: `user-${Date.now()}-${Math.round(performance.now())}`,
-        likes: 0,
-        comments: [],
-        createdAt: new Date().toISOString(),
-      };
-      persist({ ...state, userPosts: [full, ...state.userPosts] });
+  const toggleLike = useCallback(
+    (id: string, _isSeed?: boolean) => {
+      const target = posts.find((p) => p.id === id);
+      if (!target) return;
+      const nextLiked = !target.likedByMe;
+      const nextCount = Math.max(0, target.likeCount + (nextLiked ? 1 : -1));
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === id
+            ? { ...p, liked: nextLiked, likedByMe: nextLiked, likes: nextCount, likeCount: nextCount }
+            : p,
+        ),
+      );
+      void (async () => {
+        const ok = await likeRemote(id, nextLiked);
+        if (!ok && modeRef.current === "local") {
+          const delta = nextLiked ? 1 : -1;
+          const isSeed = feedSeedPosts.some((s) => s.id === id);
+          mutateLegacyFeed((prev) => {
+            const liked = { ...prev.liked, [id]: nextLiked };
+            return isSeed
+              ? {
+                  ...prev,
+                  liked,
+                  extraLikes: { ...prev.extraLikes, [id]: (prev.extraLikes[id] ?? 0) + delta },
+                }
+              : {
+                  ...prev,
+                  liked,
+                  userPosts: prev.userPosts.map((p) =>
+                    p.id === id
+                      ? { ...p, likes: Math.max(0, p.likes + delta), likeCount: Math.max(0, p.likes + delta) }
+                      : p,
+                  ),
+                };
+          });
+        }
+      })();
     },
-    [state],
+    [posts],
   );
 
-  const isSeedId = (id: string) => feedSeedPosts.some((p) => p.id === id);
+  // Admin/owner only — the API enforces the role; optimistic flip here.
+  const togglePin = useCallback((id: string, pinned: boolean) => {
+    setPosts((prev) => sortFeed(prev.map((p) => (p.id === id ? { ...p, pinned } : p))));
+    void pinRemote(id, pinned);
+  }, []);
 
-  return { hydrated, posts, toggleLike, addComment, addPost, isSeedId };
+  // Own post or admin — the API enforces ownership; optimistic removal here.
+  const deletePost = useCallback((id: string) => {
+    setPosts((prev) => prev.filter((p) => p.id !== id));
+    void (async () => {
+      const ok = await deletePostRemote(id);
+      if (!ok && modeRef.current === "local") {
+        mutateLegacyFeed((prev) => ({
+          ...prev,
+          userPosts: prev.userPosts.filter((p) => p.id !== id),
+        }));
+      }
+    })();
+  }, []);
+
+  const search = useCallback(
+    (term: string): FeedPost[] => {
+      const q = term.trim().toLowerCase();
+      if (!q) return posts;
+      return posts.filter((p) =>
+        [p.title, p.body, p.author, p.category].some((s) => s?.toLowerCase().includes(q)),
+      );
+    },
+    [posts],
+  );
+
+  // Backward-compatible helper: coach/seeded rows are "seed" posts.
+  const isSeedId = useCallback(
+    (id: string) => {
+      const p = posts.find((x) => x.id === id);
+      if (p) return p.kind !== "member";
+      return feedSeedPosts.some((s) => s.id === id);
+    },
+    [posts],
+  );
+
+  return {
+    hydrated,
+    posts,
+    addPost,
+    addComment,
+    toggleLike,
+    togglePin,
+    deletePost,
+    search,
+    refresh,
+    isSeedId,
+  };
 }

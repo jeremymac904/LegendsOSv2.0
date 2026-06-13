@@ -6,7 +6,14 @@
 
 export interface AcademyRemoteState {
   today: Record<string, { fields: Record<string, string>; savedAt: string }>;
-  scorecard: { cells: Record<string, number[]>; reflection: Record<string, string> };
+  scorecard: {
+    cells: Record<string, number[]>;
+    reflection: Record<string, string>;
+    submitted?: boolean;
+    submittedAt?: string | null;
+    reviewed?: boolean;
+    coachNote?: string | null;
+  };
   progress: { weeksDone: number[]; graduated: boolean };
 }
 
@@ -59,4 +66,105 @@ export function saveProgressRemote(
   graduated: boolean,
 ): Promise<boolean> {
   return post({ kind: "progress", weeksDone, graduated });
+}
+
+// Submit the weekly scorecard to the coach for group-call review. Same payload
+// as a normal save, plus the submit flag that stamps submitted/submitted_at.
+export function submitScorecardRemote(
+  cells: Record<string, number[]>,
+  reflection: Record<string, string>,
+): Promise<boolean> {
+  return post({ kind: "scorecard", cells, reflection, submit: true });
+}
+
+// ── Feed ─────────────────────────────────────────────────────────────────────
+// Cloud feed client. Same soft-fail contract as the state API: null/false on
+// any failure so the store falls back to localStorage seeds.
+
+export interface RemoteFeedComment {
+  id: string;
+  author: string;
+  body: string;
+  createdAt: string;
+}
+
+export interface RemoteFeedPost {
+  id: string;
+  kind: string;
+  refKey: string | null;
+  category: string;
+  title: string;
+  body: string;
+  author: string;
+  authorId: string | null;
+  role: string;
+  pinned: boolean;
+  embedUrl?: string;
+  attachmentUrl?: string;
+  comments: RemoteFeedComment[];
+  likeCount: number;
+  likedByMe: boolean;
+  createdAt: string;
+  mine?: boolean;
+}
+
+async function postFeed(body: unknown): Promise<Record<string, unknown> | null> {
+  try {
+    const res = await fetch("/api/academy/feed", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as Record<string, unknown> | null;
+    return json?.ok ? json : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function loadFeedRemote(): Promise<RemoteFeedPost[] | null> {
+  try {
+    const res = await fetch("/api/academy/feed", { cache: "no-store" });
+    if (!res.ok) return null;
+    const json = await res.json();
+    if (!json?.ok || !Array.isArray(json.posts)) return null;
+    return json.posts as RemoteFeedPost[];
+  } catch {
+    return null;
+  }
+}
+
+export async function createPostRemote(input: {
+  category: string;
+  title: string;
+  body: string;
+  embedUrl?: string;
+  attachmentUrl?: string;
+}): Promise<RemoteFeedPost | null> {
+  const json = await postFeed({ action: "post", ...input });
+  return (json?.post as RemoteFeedPost | undefined) ?? null;
+}
+
+export async function commentRemote(
+  postId: string,
+  body: string,
+): Promise<RemoteFeedComment | null> {
+  const json = await postFeed({ action: "comment", postId, body });
+  return (json?.comment as RemoteFeedComment | undefined) ?? null;
+}
+
+export async function likeRemote(postId: string, like: boolean): Promise<boolean> {
+  const json = await postFeed({ action: like ? "like" : "unlike", postId });
+  return json !== null;
+}
+
+export async function pinRemote(postId: string, pinned: boolean): Promise<boolean> {
+  const json = await postFeed({ action: "pin", postId, pinned });
+  return json !== null;
+}
+
+export async function deletePostRemote(postId: string): Promise<boolean> {
+  const json = await postFeed({ action: "delete", postId });
+  return json !== null;
 }

@@ -1,60 +1,197 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { PlayCircle, Search, SearchX, Sparkles, Target } from "lucide-react";
+
+import { EmptyState } from "@/components/ui/EmptyState";
+import { currentDayKey, todayDays } from "@/lib/legends/academyContent";
+import { masteryWeeks } from "@/lib/legends/coachingProgram";
 import {
-  Heart,
-  MessageCircle,
-  Pin,
-  Send,
-  Sparkles,
-} from "lucide-react";
+  useAcademyFeed,
+  type FeedPost,
+  type NewFeedPostInput,
+} from "@/lib/legends/useAcademyStore";
+import { useTrainingProgress } from "@/lib/legends/useTrainingProgress";
 
-import { feedCategories } from "@/lib/legends/academyContent";
-import { useAcademyFeed } from "@/lib/legends/useAcademyStore";
+import { FeedComposer } from "./feed/FeedComposer";
+import { FeedLeaderboard } from "./feed/FeedLeaderboard";
+import { FeedPostCard, type PostHighlight } from "./feed/FeedPostCard";
+import { NextActionStrip } from "./feed/NextActionStrip";
+import { dailySortIndex, weeklySortIndex } from "./feed/feedUtils";
 
-// Loan officers can post into these three categories. Daily / Weekly / Pinned
-// stay coach-only (Jeremy), so they never appear in the composer dropdown.
-const LO_CATEGORIES = ["Wins", "Questions", "Scripts"] as const;
-type LoCategory = (typeof LO_CATEGORIES)[number];
+// Legends Mortgage Academy team feed. "All" is curated: the pinned welcome
+// post, today's daily coaching video, and the current week's video lead the
+// stream; the full daily and weekly libraries live behind their own pills so
+// 19 coach videos never bury member conversation.
 
-export function AcademyFeed({ firstName }: { firstName: string }) {
-  const { hydrated, posts, toggleLike, addComment, addPost, isSeedId } =
-    useAcademyFeed();
+const FILTERS = [
+  "All",
+  "Announcements",
+  "Daily",
+  "Weekly",
+  "Wins",
+  "Questions",
+  "Scripts",
+  "Coach Picks",
+] as const;
+type Filter = (typeof FILTERS)[number];
 
-  const [activeCategory, setActiveCategory] = useState<string>("All");
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
-  const [category, setCategory] = useState<LoCategory>("Wins");
-  const [commentDraft, setCommentDraft] = useState<Record<string, string>>({});
+function byNewest(a: FeedPost, b: FeedPost): number {
+  return (b.createdAt ?? "").localeCompare(a.createdAt ?? "");
+}
 
+export function AcademyFeed({
+  firstName,
+  isAdmin,
+}: {
+  firstName: string;
+  isAdmin?: boolean;
+}) {
+  const {
+    hydrated,
+    posts,
+    toggleLike,
+    addComment,
+    addPost,
+    togglePin,
+    deletePost,
+    isSeedId,
+  } = useAcademyFeed();
+  const progress = useTrainingProgress("academy");
+
+  const [activeFilter, setActiveFilter] = useState<Filter>("All");
+  const [query, setQuery] = useState("");
+
+  // Admin = explicit prop, or inferred: the API stamps owner/admin posts with
+  // role "Coach", so a coach's own post marks them. Server enforces regardless.
+  const admin =
+    isAdmin ?? posts.some((p) => p.mine && p.role === "Coach");
+
+  // First incomplete Academy week — same `academy-w{n}` ids CoachingJourney
+  // tracks, so the feed and the roadmap agree on "this week".
+  const currentWeek = useMemo(() => {
+    if (!progress.hydrated) return 1;
+    for (const w of masteryWeeks) {
+      if (!progress.isDone(`academy-w${w.week}`)) return w.week;
+    }
+    return masteryWeeks[masteryWeeks.length - 1]?.week ?? 1;
+  }, [progress]);
+
+  const dayKey = currentDayKey();
+
+  // Curated "All" order: welcome → today's daily → this week's weekly →
+  // other pinned → everything else newest-first. Off-day daily and off-week
+  // weekly coach posts stay out of All (they live in the Daily/Weekly pills).
+  const { allOrdered, highlights } = useMemo(() => {
+    const welcome = posts.find(
+      (p) => p.kind === "coach" && p.refKey === "welcome",
+    );
+    const daily = posts.find((p) => p.kind === "daily" && p.refKey === dayKey);
+    const weekly = posts.find(
+      (p) => p.kind === "weekly" && p.refKey === `w${currentWeek}`,
+    );
+
+    const lead = [welcome, daily, weekly].filter(
+      (p): p is FeedPost => Boolean(p),
+    );
+    const placed = new Set(lead.map((p) => p.id));
+
+    const otherPinned = posts.filter(
+      (p) =>
+        !placed.has(p.id) &&
+        p.pinned &&
+        p.kind !== "daily" &&
+        p.kind !== "weekly",
+    );
+    for (const p of otherPinned) placed.add(p.id);
+
+    const rest = posts
+      .filter(
+        (p) => !placed.has(p.id) && p.kind !== "daily" && p.kind !== "weekly",
+      )
+      .sort(byNewest);
+
+    const map = new Map<string, PostHighlight>();
+    if (welcome) map.set(welcome.id, { icon: Sparkles, label: "Start here" });
+    if (daily) {
+      const day = todayDays.find((d) => d.key === dayKey);
+      map.set(daily.id, {
+        icon: PlayCircle,
+        label: day ? `Today's coaching — ${day.day}` : "Today's coaching",
+      });
+    }
+    if (weekly) {
+      const theme = masteryWeeks.find((w) => w.week === currentWeek)?.theme;
+      map.set(weekly.id, {
+        icon: Target,
+        label: theme
+          ? `This week — Week ${currentWeek}: ${theme}`
+          : `This week — Week ${currentWeek}`,
+      });
+    }
+
+    return {
+      allOrdered: [...lead, ...otherPinned, ...rest],
+      highlights: map,
+    };
+  }, [posts, dayKey, currentWeek]);
+
+  // Pill filter, then live title+body search on top of it.
   const visiblePosts = useMemo(() => {
-    if (activeCategory === "All") return posts;
-    if (activeCategory === "Pinned") return posts.filter((p) => p.pinned);
-    return posts.filter((p) => p.category === activeCategory);
-  }, [posts, activeCategory]);
+    let list: FeedPost[];
+    switch (activeFilter) {
+      case "All":
+        list = allOrdered;
+        break;
+      case "Announcements":
+        list = posts
+          .filter((p) => p.category === "Pinned" || p.kind === "coach")
+          .sort(byNewest);
+        break;
+      case "Daily":
+        list = posts
+          .filter((p) => p.kind === "daily" || p.category === "Daily")
+          .sort((a, b) => dailySortIndex(a) - dailySortIndex(b));
+        break;
+      case "Weekly":
+        list = posts
+          .filter((p) => p.kind === "weekly" || p.category === "Weekly")
+          .sort((a, b) => weeklySortIndex(a) - weeklySortIndex(b));
+        break;
+      case "Coach Picks":
+        list = posts.filter((p) => p.pinned);
+        break;
+      default:
+        list = posts.filter((p) => p.category === activeFilter).sort(byNewest);
+    }
+    const q = query.trim().toLowerCase();
+    if (!q) return list;
+    return list.filter(
+      (p) =>
+        p.title.toLowerCase().includes(q) || p.body.toLowerCase().includes(q),
+    );
+  }, [activeFilter, allOrdered, posts, query]);
 
-  function submitPost() {
-    const t = title.trim();
-    const b = body.trim();
-    if (!t && !b) return;
-    addPost({
-      author: firstName || "You",
-      role: "Loan Officer",
-      category,
-      title: t || b.split("\n")[0].slice(0, 80),
-      body: b,
-    });
-    setTitle("");
-    setBody("");
-    setCategory("Wins");
-  }
-
-  function submitComment(id: string) {
-    const text = (commentDraft[id] ?? "").trim();
-    if (!text) return;
-    addComment(id, text, isSeedId(id));
-    setCommentDraft((prev) => ({ ...prev, [id]: "" }));
-  }
+  const handleAddPost = useCallback(
+    (input: NewFeedPostInput) => addPost(input),
+    [addPost],
+  );
+  const handleToggleLike = useCallback(
+    (id: string) => toggleLike(id, isSeedId(id)),
+    [toggleLike, isSeedId],
+  );
+  const handleAddComment = useCallback(
+    (id: string, body: string) => addComment(id, body, isSeedId(id)),
+    [addComment, isSeedId],
+  );
+  const handleDelete = useCallback(
+    (id: string) => {
+      if (window.confirm("Delete this post? This cannot be undone.")) {
+        deletePost(id);
+      }
+    },
+    [deletePost],
+  );
 
   if (!hydrated) {
     return (
@@ -66,223 +203,86 @@ export function AcademyFeed({ firstName }: { firstName: string }) {
 
   return (
     <div className="space-y-6">
-      {/* Composer */}
-      <section className="glass-card-padded space-y-4">
-        <div className="section-title">
-          <h2 className="flex items-center gap-1.5">
-            <Sparkles size={14} className="text-accent-champagne" /> Share with
-            the team
-          </h2>
-          <p>Post a win, ask a question, or drop a script that worked.</p>
-        </div>
+      <NextActionStrip />
 
-        <div className="grid gap-3 sm:grid-cols-[1fr_180px]">
-          <div className="space-y-1.5">
-            <label className="label">Title</label>
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Short, specific, useful"
-              className="input"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="label">Category</label>
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value as LoCategory)}
-              className="input"
-            >
-              {LO_CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="space-y-1.5">
-          <label className="label">Post</label>
-          <textarea
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            placeholder="What do you want to share with the team?"
-            className="input min-h-[110px] leading-relaxed"
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+        {/* Main stream */}
+        <div className="min-w-0 space-y-6">
+          <FeedComposer
+            firstName={firstName}
+            isAdmin={admin}
+            onSubmit={handleAddPost}
           />
-        </div>
 
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={submitPost}
-            disabled={!title.trim() && !body.trim()}
-            className="btn-primary disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Send size={14} /> Post
-          </button>
-        </div>
-      </section>
+          {/* Filter pills + search */}
+          <div className="space-y-3">
+            <div className="-mx-1 flex flex-wrap gap-1.5 overflow-x-auto px-1 pb-1 scrollbar-thin">
+              {FILTERS.map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => setActiveFilter(f)}
+                  aria-pressed={activeFilter === f}
+                  className={activeFilter === f ? "chip-active" : "chip"}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+            <div className="relative">
+              <Search
+                size={14}
+                aria-hidden
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-500 dark:text-ink-400"
+              />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search posts by title or body…"
+                aria-label="Search feed posts"
+                className="input pl-9"
+              />
+            </div>
+          </div>
 
-      {/* Category filter chips */}
-      <div className="-mx-1 flex flex-wrap gap-1.5 overflow-x-auto px-1 pb-1 scrollbar-thin">
-        {feedCategories.map((cat) => {
-          const active = activeCategory === cat;
-          return (
-            <button
-              key={cat}
-              type="button"
-              onClick={() => setActiveCategory(cat)}
-              className={active ? "chip-active" : "chip"}
-            >
-              {cat}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Posts */}
-      {visiblePosts.length === 0 ? (
-        <div className="glass-card-padded text-center">
-          <p className="text-sm text-ink-500 dark:text-ink-400">
-            Nothing in this category yet. Be the first to share.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {visiblePosts.map((post) => (
-            <article
-              key={post.id}
-              className={
-                "glass-card-padded space-y-4 " +
-                (post.pinned ? "border-accent-gold/40" : "")
+          {/* Posts */}
+          {visiblePosts.length === 0 ? (
+            <EmptyState
+              icon={query.trim() ? SearchX : Sparkles}
+              title={
+                query.trim() ? "No posts match your search" : "Nothing here yet"
               }
-            >
-              {/* Header */}
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-semibold text-ink-900 dark:text-ink-100">
-                    {post.author}
-                  </span>
-                  <span className="text-[11px] uppercase tracking-[0.14em] text-ink-500 dark:text-ink-400">
-                    {post.role}
-                  </span>
-                  <span className="chip">{post.category}</span>
-                </div>
-                {post.pinned && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-accent-gold px-2 py-0.5 text-[10px] font-semibold text-ink-950">
-                    <Pin size={11} /> Pinned
-                  </span>
-                )}
-              </div>
-
-              {post.pinned && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-accent-champagne/30 bg-ink-950/40 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-accent-champagne">
-                  <Sparkles size={11} /> Coach post from Jeremy
-                </span>
-              )}
-
-              {/* Body */}
-              <div>
-                <h3 className="text-base font-semibold text-ink-900 dark:text-ink-100">
-                  {post.title}
-                </h3>
-                {post.body && (
-                  <p className="mt-1.5 whitespace-pre-wrap text-[13.5px] leading-relaxed text-ink-700 dark:text-ink-200">
-                    {post.body}
-                  </p>
-                )}
-              </div>
-
-              {/* Video */}
-              {post.videoEmbedUrl && (
-                <div className="aspect-video w-full overflow-hidden rounded-xl border border-accent-champagne/20 bg-black">
-                  <iframe
-                    src={post.videoEmbedUrl}
-                    title={post.title}
-                    className="h-full w-full"
-                    loading="lazy"
-                    allow="encrypted-media; fullscreen"
-                    allowFullScreen
-                  />
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="flex items-center gap-4 border-t border-accent-champagne/15 pt-3">
-                <button
-                  type="button"
-                  onClick={() => toggleLike(post.id, isSeedId(post.id))}
-                  className={
-                    "inline-flex items-center gap-1.5 text-[12px] font-medium transition " +
-                    (post.liked
-                      ? "text-accent-orange"
-                      : "text-ink-500 hover:text-accent-champagne dark:text-ink-400")
+              description={
+                query.trim()
+                  ? "Try a different search term, or clear it to see the full stream."
+                  : "Be the first to share — post a win, a question, or a script that worked."
+              }
+            />
+          ) : (
+            <div className="space-y-4">
+              {visiblePosts.map((post) => (
+                <FeedPostCard
+                  key={post.id}
+                  post={post}
+                  isAdmin={admin}
+                  highlight={
+                    activeFilter === "All" ? highlights.get(post.id) : undefined
                   }
-                >
-                  <Heart
-                    size={15}
-                    className={post.liked ? "fill-current" : ""}
-                  />
-                  {post.likes}
-                </button>
-                <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-500 dark:text-ink-400">
-                  <MessageCircle size={15} />
-                  {post.comments.length}
-                </span>
-              </div>
-
-              {/* Comments */}
-              {post.comments.length > 0 && (
-                <div className="space-y-2">
-                  {post.comments.map((comment, i) => (
-                    <div
-                      key={`${post.id}-c-${i}`}
-                      className="rounded-xl border border-accent-champagne/15 bg-ink-950/30 px-3 py-2"
-                    >
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-accent-champagne">
-                        {comment.author}
-                      </p>
-                      <p className="mt-1 whitespace-pre-wrap text-[13px] leading-relaxed text-ink-700 dark:text-ink-200">
-                        {comment.body}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Add comment */}
-              <div className="flex items-end gap-2">
-                <input
-                  value={commentDraft[post.id] ?? ""}
-                  onChange={(e) =>
-                    setCommentDraft((prev) => ({
-                      ...prev,
-                      [post.id]: e.target.value,
-                    }))
-                  }
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      submitComment(post.id);
-                    }
-                  }}
-                  placeholder="Add a comment…"
-                  className="input"
+                  onToggleLike={handleToggleLike}
+                  onAddComment={handleAddComment}
+                  onTogglePin={togglePin}
+                  onDelete={handleDelete}
                 />
-                <button
-                  type="button"
-                  onClick={() => submitComment(post.id)}
-                  disabled={!(commentDraft[post.id] ?? "").trim()}
-                  className="btn-ghost shrink-0 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <Send size={14} />
-                </button>
-              </div>
-            </article>
-          ))}
+              ))}
+            </div>
+          )}
         </div>
-      )}
+
+        {/* Side panel */}
+        <aside className="space-y-6 xl:sticky xl:top-6">
+          <FeedLeaderboard posts={posts} />
+        </aside>
+      </div>
     </div>
   );
 }
