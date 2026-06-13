@@ -54,7 +54,7 @@ export default async function AcademyModulePage({
         : "chip";
 
   // Atlas deep link helper
-  const atlasQueryUrl = (query: string) => `/atlas?q=${encodeURIComponent(query)}`;
+  const atlasQueryUrl = (query: string) => `/atlas?prompt=${encodeURIComponent(query)}`;
   const body =
     "body" in moduleEntry && typeof moduleEntry.body === "string"
       ? moduleEntry.body

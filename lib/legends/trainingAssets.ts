@@ -65,19 +65,31 @@ export interface TrainingAssetIndex {
 // surface in the UI is Legends Mortgage Academy, so user-visible text fields
 // are rebranded here at the module boundary. Local file paths and ids are
 // left untouched — they reference real files on disk.
+// Patterns are separator-tolerant ([ _-]) and case-insensitive so ALL-CAPS,
+// snake_case, and lowercase folder/file-derived strings are caught too. Order
+// matters: most-specific first. Bare corporate "Loan Factory" (the parent
+// company) is intentionally NOT rewritten — only legacy coaching-program
+// branding is.
 const REBRAND_RULES: Array<[RegExp, string]> = [
-  [/Loan Factory Coaching/g, "Legends Mortgage Academy"],
-  [/Loan Factory coaching/g, "Legends Mortgage Academy"],
-  [/Loan Factory Alliance/g, "Legends Mortgage Academy"],
-  [/LO Mastery/g, "Legends Mortgage Academy"],
-  [/\bAlliance\b/g, "Academy"],
+  [/loan[ _-]*factory[ _-]*paid[ _-]*coaching([ _-]*platform)?/gi, "Legends Mortgage Academy"],
+  [/loan[ _-]*factory[ _-]*coaching([ _-]*platform)?/gi, "Legends Mortgage Academy"],
+  [/loan[ _-]*factory[ _-]*alliance/gi, "Legends Mortgage Academy"],
+  [/lo[ _-]+mastery/gi, "Legends Mortgage Academy"],
+  [/apex[ _-]+advisor([ _-]+pro)?/gi, "Legends Mortgage Academy"],
+  [/\bapex\b/gi, "Academy"],
+  [/\balliance\b/gi, "Academy"],
   // Group coaching model — no one-on-one coaching language in surfaced text.
-  [/\bone-on-one\b/gi, "group"],
+  [/one[-_ ]on[-_ ]one(s)?/gi, "group"],
   [/\bprivate coaching\b/gi, "group coaching"],
-  [/\b1:1\b/g, "coach review"],
-  [/\bcoaching session\b/g, "group coaching call"],
-  [/\bCoaching Session\b/g, "Group Coaching Call"],
+  [/\b1:1s?\b/g, "coach review"],
+  [/coaching[ _-]sessions?/gi, "group coaching call"],
+  [/Coaching[ _-]Sessions?/g, "Group Coaching Call"],
 ];
+
+// Internal/dev URLs must never render as member-facing "Source" links.
+function isPublicSourceUrl(url: string): boolean {
+  return !/^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:|\/)/i.test(url);
+}
 
 function rebrandText(value: string): string {
   return REBRAND_RULES.reduce(
@@ -100,6 +112,7 @@ function rebrandAsset(asset: LocalTrainingAsset): LocalTrainingAsset {
     sourceGroup: rebrandText(asset.sourceGroup),
     summary: rebrandText(asset.summary),
     tags: asset.tags.map(rebrandText),
+    sourceUrls: asset.sourceUrls.filter(isPublicSourceUrl),
   };
 }
 

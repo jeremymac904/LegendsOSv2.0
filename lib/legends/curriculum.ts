@@ -38,6 +38,8 @@ export interface CurriculumTrack {
   tagline: string;
   description: string;
   audience: string;
+  /** Internal-only commentary — never rendered in member UI. */
+  internalNotes?: string;
   modules: CurriculumModule[];
 }
 
@@ -352,7 +354,9 @@ export const ACADEMY_TRACKS: CurriculumTrack[] = [
     displayName: "Mastery Track",
     tagline: "Senior Legends execution — depth, not noise.",
     description:
-      "Deeper-track modules for producing Legends LOs and team leads. Internal — replaces the prior \"Apex Advisor\" framing. No paid tier inside LegendsOS.",
+      "Deeper-track modules for producing Legends LOs and team leads.",
+    internalNotes:
+      "Internal — replaces the prior legacy framing. No paid tier inside LegendsOS.",
     audience:
       "Producing Legends loan officers, team leads, and anyone Jeremy invites into the mastery cadence.",
     modules: [
