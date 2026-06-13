@@ -22,6 +22,12 @@ const PUBLIC_PATHS = [
   // session cookie — it authenticates via the x-cron-secret header (the route
   // returns 503 when CRON_SECRET is unset and 401 on mismatch, failing closed).
   "/api/cron",
+  // GOAT Architect Command API: called by a Custom GPT Action with NO session
+  // cookie — every route authenticates via `Authorization: Bearer
+  // <GOAT_COMMAND_API_KEY>` in lib/goat/api.ts (503 when unset, 401 on
+  // mismatch, failing closed). Only /api/goat/health and /api/goat/openapi
+  // respond without a token, and neither exposes data.
+  "/api/goat",
   "/_next",
   "/favicon.ico",
   "/icon.svg",

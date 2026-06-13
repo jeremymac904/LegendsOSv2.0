@@ -62,6 +62,20 @@ npm run start        # next start (after build)
 npm run test:e2e     # playwright (after install)
 ```
 
+## GOAT Architect Command API (Custom GPT Action)
+
+Backend for the GOAT Architect Custom GPT, served from this app.
+
+- **API base URL:** `https://legendsos.app`
+- **Health check:** `https://legendsos.app/api/goat/health`
+- **OpenAPI schema for GPT Builder:** `https://legendsos.app/api/goat/openapi`
+- **API key env var (exact name):** `GOAT_COMMAND_API_KEY` — Bearer token for
+  every `/api/goat/*` endpoint except health/schema. Set locally in
+  `.env.local` and in the Netlify site environment. Routes fail closed
+  (503 unset / 401 mismatch).
+- **Smoke test:** `GOAT_COMMAND_API_KEY=... ./scripts/goat-smoke.sh [base_url]`
+- Full docs: `docs/GOAT_COMMAND_API.md` · key handling: `OPEN_ME_ADD_KEYS.txt`
+
 ## Documentation
 
 - `docs/SETUP.md` — full setup walkthrough
