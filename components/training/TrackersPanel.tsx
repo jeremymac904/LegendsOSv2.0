@@ -1,9 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ClipboardCopy, ClipboardList, Download, Plus, X } from "lucide-react";
 
 import { EmptyState } from "@/components/ui/EmptyState";
+import {
+  loadTrackersRemote,
+  saveTrackerRemote,
+  type TrackerRowsMap,
+} from "@/lib/legends/academyApi";
 import {
   trackerStorageKey,
   trackers,
@@ -125,23 +130,53 @@ export default function TrackersPanel() {
   const [activeKey, setActiveKey] = useState<string>(trackers[0]?.key ?? "");
   const [rows, setRows] = useState<TrackerRow[]>([]);
   const [hydrated, setHydrated] = useState(false);
-  const [status, setStatus] = useState("Saved in this browser.");
+  const [status, setStatus] = useState("Saved to your account.");
   const [copied, setCopied] = useState(false);
 
   const config = trackers.find((t) => t.key === activeKey) ?? trackers[0];
 
-  // Load the active tracker's rows after mount (and on every switch) so the
-  // server render and first client render match.
+  // Cloud cache + reachability + debounce timer for write-through to Supabase.
+  const remoteRef = useRef<TrackerRowsMap | null>(null);
+  const cloudRef = useRef(false);
+  const [remoteReady, setRemoteReady] = useState(false);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Load all cloud trackers once on mount (null if offline/unauth).
+  useEffect(() => {
+    let alive = true;
+    void loadTrackersRemote().then((map) => {
+      if (!alive) return;
+      remoteRef.current = map;
+      cloudRef.current = map !== null;
+      setRemoteReady(true);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // Load the active tracker's rows — cloud cache if available, else localStorage.
   useEffect(() => {
     if (!config) return;
-    setRows(readRows(trackerStorageKey(config.key)));
+    const cloud = remoteRef.current?.[config.key];
+    setRows(cloud ?? readRows(trackerStorageKey(config.key)));
     setHydrated(true);
-    setStatus("Saved in this browser.");
-  }, [config]);
+    setStatus(cloudRef.current ? "Saved to your account." : "Saved in this browser.");
+  }, [config, remoteReady]);
 
+  // Persist edits: localStorage immediately + debounced Supabase upsert.
   useEffect(() => {
     if (!hydrated || !config) return;
     writeRows(trackerStorageKey(config.key), rows);
+    if (remoteRef.current) remoteRef.current[config.key] = rows;
+    const key = config.key;
+    const snapshot = rows;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      void saveTrackerRemote(key, snapshot).then((ok) => {
+        if (ok) cloudRef.current = true;
+      });
+    }, 600);
   }, [hydrated, rows, config]);
 
   if (!config) return null;
@@ -149,19 +184,19 @@ export default function TrackersPanel() {
   function addRow() {
     if (!config) return;
     setRows((current) => [...current, emptyRow(config.columns)]);
-    setStatus("Row added — saved in this browser.");
+    setStatus("Row added.");
   }
 
   function updateCell(index: number, key: string, value: string) {
     setRows((current) =>
       current.map((row, i) => (i === index ? { ...row, [key]: value } : row)),
     );
-    setStatus("Saved in this browser.");
+    setStatus(cloudRef.current ? "Saved to your account." : "Saved in this browser.");
   }
 
   function removeRow(index: number) {
     setRows((current) => current.filter((_, i) => i !== index));
-    setStatus("Row removed — saved in this browser.");
+    setStatus("Row removed.");
   }
 
   function exportCsv() {
@@ -246,7 +281,7 @@ export default function TrackersPanel() {
             <EmptyState
               icon={ClipboardList}
               title="Nothing tracked yet"
-              description={`Add your first entry to start the ${config.title}. Rows save automatically in this browser.`}
+              description={`Add your first entry to start the ${config.title}. Rows save automatically to your account.`}
               action={
                 <button type="button" onClick={addRow} className="btn-primary">
                   <Plus size={15} />

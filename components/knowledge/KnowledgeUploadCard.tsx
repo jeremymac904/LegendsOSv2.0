@@ -296,11 +296,8 @@ export function KnowledgeUploadCard({ collectionId, userId, organizationId }: Pr
       </button>
 
       <p className="text-[11px] text-ink-700 dark:text-ink-300">
-        Atlas retrieval is keyword-only today (plain-text/Markdown/CSV/JSON
-        body plus every file name); there are no embeddings or semantic /
-        vector search yet. Atlas only pulls from a collection once that
-        collection is connected to an assistant in Settings — uploads alone do
-        not reach a chat.
+        Atlas uses keyword matching across file names and content. Connect a
+        collection to an assistant in Settings for it to appear in chat.
       </p>
     </div>
   );

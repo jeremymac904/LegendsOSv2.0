@@ -168,3 +168,37 @@ export async function deletePostRemote(postId: string): Promise<boolean> {
   const json = await postFeed({ action: "delete", postId });
   return json !== null;
 }
+
+// ── Trackers ─────────────────────────────────────────────────────────────────
+// Cloud trackers client. Same soft-fail contract — null/false on any failure so
+// TrackersPanel falls back to localStorage.
+
+export type TrackerRowsMap = Record<string, Record<string, string>[]>;
+
+export async function loadTrackersRemote(): Promise<TrackerRowsMap | null> {
+  try {
+    const res = await fetch("/api/academy/trackers", { cache: "no-store" });
+    if (!res.ok) return null;
+    const json = await res.json();
+    if (!json?.ok || typeof json.trackers !== "object") return null;
+    return json.trackers as TrackerRowsMap;
+  } catch {
+    return null;
+  }
+}
+
+export async function saveTrackerRemote(
+  trackerKey: string,
+  rows: Record<string, string>[],
+): Promise<boolean> {
+  try {
+    const res = await fetch("/api/academy/trackers", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ trackerKey, rows }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}

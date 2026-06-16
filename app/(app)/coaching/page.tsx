@@ -7,6 +7,7 @@ import {
   Megaphone,
   MessageCircle,
   Trophy,
+  Users,
 } from "lucide-react";
 
 import { AcademyNav } from "@/components/training/AcademyNav";
@@ -15,6 +16,7 @@ import { DailyCoaching } from "@/components/training/DailyCoaching";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { getEffectiveProfile } from "@/lib/impersonation";
+import { isOwner } from "@/lib/permissions";
 import { welcomeVideo } from "@/lib/legends/coachingVideos";
 
 export const dynamic = "force-dynamic";
@@ -82,6 +84,19 @@ export default async function CoachingPage() {
       />
 
       <AcademyNav />
+
+      {isOwner(profile) && (
+        <Link
+          href="/training/team"
+          className="flex items-center justify-between gap-3 rounded-xl border border-accent-gold/30 bg-accent-gold/5 px-4 py-3 transition hover:border-accent-gold/50"
+        >
+          <span className="flex items-center gap-2 text-sm font-medium text-ink-900 dark:text-ink-100">
+            <Users size={15} className="text-accent-gold" />
+            Team activity — who&apos;s active, who needs a coaching follow-up
+          </span>
+          <ArrowRight size={16} className="text-accent-champagne" />
+        </Link>
+      )}
 
       {/* Welcome (Jeremy) */}
       <section className="glass-card-padded overflow-hidden">

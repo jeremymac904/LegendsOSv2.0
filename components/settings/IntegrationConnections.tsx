@@ -477,6 +477,8 @@ export function IntegrationConnections() {
   const provisioned = data?.provisioned ?? false;
   const isOwnerOrAdmin = data?.isOwnerOrAdmin ?? false;
 
+  const STUB_PROVIDERS = new Set<ProviderId>(["facebook", "google_social", "google", "google_drive", "google_calendar"]);
+
   return (
     <section className="card-padded">
       <div className="section-title">
@@ -546,18 +548,24 @@ export function IntegrationConnections() {
               </p>
 
               <div className="mt-4 flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => void connect(connection.provider)}
-                  disabled={busyKey === `connect:${connection.provider}`}
-                  className="btn-secondary h-8 px-3 text-xs disabled:opacity-40"
-                >
-                  {busyKey === `connect:${connection.provider}`
-                    ? "Starting…"
-                    : connection.status === "connected"
-                      ? "Reconnect"
-                      : "Connect"}
-                </button>
+                {STUB_PROVIDERS.has(connection.provider) ? (
+                  <span className="inline-flex h-8 items-center rounded-lg border border-ink-200 bg-ink-100/50 px-3 text-xs font-medium text-ink-500 dark:border-ink-700 dark:bg-ink-900/30 dark:text-ink-400">
+                    Coming soon
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => void connect(connection.provider)}
+                    disabled={busyKey === `connect:${connection.provider}`}
+                    className="btn-secondary h-8 px-3 text-xs disabled:opacity-40"
+                  >
+                    {busyKey === `connect:${connection.provider}`
+                      ? "Starting…"
+                      : connection.status === "connected"
+                        ? "Reconnect"
+                        : "Connect"}
+                  </button>
+                )}
                 {connection.updated_at && (
                   <span className="text-[10px] text-ink-600 dark:text-ink-400">
                     updated {new Date(connection.updated_at).toLocaleDateString()}

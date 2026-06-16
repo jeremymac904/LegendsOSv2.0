@@ -6,7 +6,6 @@ import { PUBLIC_ENV, isSupabaseConfigured } from "@/lib/env";
 
 const PUBLIC_PATHS = [
   "/login",
-  "/signup",
   "/auth",
   "/api/health",
   "/api/auth",
@@ -117,7 +116,7 @@ export async function updateSession(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
   // Logged in but on /login → bounce to dashboard.
-  if (user && (pathname === "/login" || pathname === "/signup")) {
+  if (user && pathname === "/login") {
     const url = request.nextUrl.clone();
     url.pathname = signedInLandingPath(
       request.headers.get("x-forwarded-host") ?? request.headers.get("host")

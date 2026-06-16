@@ -1,12 +1,9 @@
 import {
-  Bell,
   BookOpen,
-  Bot,
-  Brain,
   Briefcase,
   Calendar,
-  ChartLine,
   ClipboardList,
+  Compass,
   Factory,
   FileStack,
   FolderTree,
@@ -16,20 +13,11 @@ import {
   LayoutDashboard,
   Mail,
   MessageCircle,
-  Puzzle,
-  Rocket,
   Settings,
-  ShieldAlert,
-  ShieldCheck,
-  PlayCircle,
-  Plug,
   Share2,
+  ShieldCheck,
   Sparkles,
-  Trophy,
   UserCheck,
-  UserPlus,
-  Users,
-  Workflow,
   Wrench,
   type LucideIcon,
 } from "lucide-react";
@@ -46,19 +34,20 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
+  // ── Core ──────────────────────────────────────────────────────────
+  {
+    section: "core",
+    href: "/chief-of-staff",
+    label: "Chief of Staff",
+    description: "What matters today — your daily AI briefing",
+    icon: Compass,
+  },
   {
     section: "core",
     href: "/dashboard",
     label: "Command Center",
     description: "Home, alerts, recent activity",
     icon: LayoutDashboard,
-  },
-  {
-    section: "core",
-    href: "/onboarding",
-    label: "Onboarding",
-    description: "Your role, integrations, and next steps",
-    icon: Rocket,
   },
   {
     section: "core",
@@ -74,13 +63,8 @@ export const NAV_ITEMS: NavItem[] = [
     description: "Collections and retrieval",
     icon: BookOpen,
   },
-  {
-    section: "core",
-    href: "/browser-companion",
-    label: "Browser Companion",
-    description: "Chrome extension — capture portal context into Atlas/FLO",
-    icon: Puzzle,
-  },
+
+  // ── Mortgage (role-gated) ─────────────────────────────────────────
   {
     section: "mortgage",
     href: "/loan-brain",
@@ -93,16 +77,8 @@ export const NAV_ITEMS: NavItem[] = [
     section: "mortgage",
     href: "/flo-processing",
     label: "Flo Processing",
-    description: "Ashley's processor cockpit",
+    description: "Ashley's processor cockpit with FLO assistant",
     icon: ClipboardList,
-    gate: { roles: ["processor"] },
-  },
-  {
-    section: "mortgage",
-    href: "/flo",
-    label: "FLO Assistant",
-    description: "Ashley's real processing AI — conditions, docs, CTC",
-    icon: Bot,
     gate: { roles: ["processor"] },
   },
   {
@@ -121,6 +97,8 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Briefcase,
     gate: { roles: ["loan_officer"] },
   },
+
+  // ── Studios ───────────────────────────────────────────────────────
   {
     section: "studios",
     href: "/social",
@@ -157,33 +135,14 @@ export const NAV_ITEMS: NavItem[] = [
     description: "Content planning",
     icon: Calendar,
   },
+
+  // ── Team ──────────────────────────────────────────────────────────
   {
     section: "team",
     href: "/training",
     label: "Training",
-    description: "Team training and tutorials",
+    description: "Academy, coaching, AI training, and resources",
     icon: GraduationCap,
-  },
-  {
-    section: "team",
-    href: "/training/academy",
-    label: "Legends Academy",
-    description: "Sales · Marketing · AI · Mastery tracks",
-    icon: GraduationCap,
-  },
-  {
-    section: "team",
-    href: "/training/ai-advantage",
-    label: "AI Advantage",
-    description: "Jeremy's AI training video library for loan officers",
-    icon: PlayCircle,
-  },
-  {
-    section: "team",
-    href: "/coaching",
-    label: "Legends Mortgage Academy",
-    description: "Jeremy's daily coaching + 12-week academy roadmap",
-    icon: Trophy,
   },
   {
     section: "team",
@@ -201,30 +160,26 @@ export const NAV_ITEMS: NavItem[] = [
   },
   {
     section: "team",
-    href: "/shared",
-    label: "Shared Resources",
-    description: "Owner-curated assets",
-    icon: Sparkles,
+    href: "/settings",
+    label: "Settings",
+    description: "Profile, integrations, memory, and skills",
+    icon: Settings,
   },
+
+  // ── Owner ─────────────────────────────────────────────────────────
   {
-    section: "team",
-    href: "/vibe-coding",
-    label: "Vibe Coding",
-    description: "Build pages & posts safely with AI",
-    icon: Sparkles,
-  },
-  {
-    section: "team",
-    href: "/automation",
-    label: "Automations",
-    description: "Allowed automations and run history",
-    icon: Workflow,
+    section: "owner",
+    href: "/admin",
+    label: "Admin",
+    description: "Users, connections, usage, assets, security, and agent oversight",
+    icon: ShieldCheck,
+    gate: { ownerOnly: true },
   },
   {
     section: "owner",
     href: "/builder",
     label: "Builder",
-    description: "Jeremy's personal build cockpit — projects, capture, plans, QA",
+    description: "Jeremy's build cockpit — projects, capture, plans, QA",
     icon: Wrench,
     gate: { ownerOnly: true },
   },
@@ -232,102 +187,9 @@ export const NAV_ITEMS: NavItem[] = [
     section: "owner",
     href: "/email-intake",
     label: "Email Intake",
-    description: "Gmail AI intake — review queue, attachments, routing (Phase 1)",
+    description: "Gmail AI intake — review queue, attachments, routing",
     icon: Inbox,
     gate: { adminOrOwner: true },
-  },
-  {
-    section: "owner",
-    href: "/admin/setup",
-    label: "Team Setup",
-    description: "Roster provisioning, invites, integration status",
-    icon: UserPlus,
-    gate: { ownerOnly: true },
-  },
-  {
-    section: "owner",
-    href: "/admin/connections",
-    label: "Connection Center",
-    description: "Owner/admin integration status, destination gating, and reconnect actions",
-    icon: Plug,
-    gate: { adminOrOwner: true },
-  },
-  {
-    section: "owner",
-    href: "/admin/security",
-    label: "Security",
-    description: "Borrower data protections, RLS, OAuth, webhooks, audit coverage",
-    icon: ShieldAlert,
-    gate: { ownerOnly: true },
-  },
-  {
-    section: "owner",
-    href: "/admin",
-    label: "Admin Center",
-    description: "Users, usage, audit logs",
-    icon: ShieldCheck,
-    gate: { ownerOnly: true },
-  },
-  {
-    section: "owner",
-    href: "/admin/usage",
-    label: "Usage & Activity",
-    description: "Team-wide rollups",
-    icon: ChartLine,
-    gate: { ownerOnly: true },
-  },
-  {
-    section: "owner",
-    href: "/admin/users",
-    label: "Users & Roles",
-    description: "Manage team access",
-    icon: Users,
-    gate: { ownerOnly: true },
-  },
-  {
-    section: "owner",
-    href: "/admin/assets",
-    label: "Asset Library",
-    description: "Local logos, backgrounds, team photos",
-    icon: ImageIcon,
-    gate: { ownerOnly: true },
-  },
-  {
-    section: "team",
-    href: "/settings/assistant-memory",
-    label: "Assistant Memory",
-    description: "What your agents remember about you (private)",
-    icon: Brain,
-  },
-  {
-    section: "team",
-    href: "/settings/skills",
-    label: "My Skills",
-    description: "Your reusable agent workflows",
-    icon: Puzzle,
-  },
-  {
-    section: "team",
-    href: "/settings",
-    label: "Settings",
-    description: "Profile and integrations",
-    icon: Settings,
-  },
-  {
-    section: "owner",
-    href: "/admin/assistant-memory",
-    label: "Agent Memory (Admin)",
-    description: "Audit agent memory across the team",
-    icon: Brain,
-    gate: { ownerOnly: true },
-  },
-  {
-    section: "owner",
-    href: "/admin/skills",
-    label: "Agent Skills (Admin)",
-    description: "Review, promote, and deactivate agent skills",
-    icon: Puzzle,
-    gate: { ownerOnly: true },
   },
 ];
 
@@ -338,5 +200,3 @@ export const NAV_SECTIONS: { key: NavItem["section"]; label: string }[] = [
   { key: "team", label: "Team" },
   { key: "owner", label: "Owner only" },
 ];
-
-export { Bell };
