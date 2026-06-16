@@ -11,7 +11,6 @@
 // empty state — never a 500 and never a fake production claim.
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
-import type { Profile } from "@/types/database";
 
 import type {
   BriefingSection,
@@ -487,13 +486,10 @@ async function buildBrokenAutomations(): Promise<BriefingSection> {
 // ---------------------------------------------------------------------------
 // Orchestrator — build the whole briefing. All sections run in parallel and
 // each is independently fault-tolerant, so one missing table cannot break the
-// page. `profile` is accepted for future per-role tuning; RLS already scopes
-// every read to the signed-in user.
+// page. RLS already scopes every read to the signed-in user, so no profile
+// argument is needed here in v1 (per-role tuning can thread it in later).
 // ---------------------------------------------------------------------------
-export async function buildChiefOfStaffBriefing(
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  profile: Profile
-): Promise<ChiefOfStaffBriefing> {
+export async function buildChiefOfStaffBriefing(): Promise<ChiefOfStaffBriefing> {
   const sections = await Promise.all([
     buildPeopleToContact(),
     buildLoansNeedingAttention(),

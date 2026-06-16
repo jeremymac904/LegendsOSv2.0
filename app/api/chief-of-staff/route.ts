@@ -19,7 +19,7 @@ export async function GET() {
   }
 
   try {
-    const briefing = await buildChiefOfStaffBriefing(profile);
+    const briefing = await buildChiefOfStaffBriefing();
     return NextResponse.json({ ok: true, briefing });
   } catch (error) {
     // The builder is already fault-tolerant per section; this is a last-resort

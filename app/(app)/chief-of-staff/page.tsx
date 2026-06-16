@@ -88,7 +88,7 @@ export default async function ChiefOfStaffPage() {
     );
   }
 
-  const briefing = await buildChiefOfStaffBriefing(profile);
+  const briefing = await buildChiefOfStaffBriefing();
   const firstName = profile.full_name?.trim().split(/\s+/)[0] ?? "there";
   const hasAnything = briefing.totalCount > 0;
 
