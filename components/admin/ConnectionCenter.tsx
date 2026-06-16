@@ -767,22 +767,30 @@ export function ConnectionCenter({ recentActivity, ownerEmail }: Props) {
                 )}
 
                 <div className="mt-auto flex flex-wrap items-center gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => googleAction(cfg.provider, "connect")}
-                    disabled={connectBusy}
-                    className="btn-secondary h-8 px-3 text-xs disabled:opacity-40"
-                  >
-                    {connectBusy ? "Starting…" : isConnected ? "Reconnect" : "Connect"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => googleAction(cfg.provider, "test")}
-                    disabled={testBusy}
-                    className="btn-ghost h-8 px-3 text-xs disabled:opacity-40"
-                  >
-                    {testBusy ? "Testing…" : "Test"}
-                  </button>
+                  {!oauthConfigured ? (
+                    <span className="inline-flex h-8 items-center rounded-lg border border-ink-200 bg-ink-100/50 px-3 text-xs font-medium text-ink-500 dark:border-ink-700 dark:bg-ink-900/30 dark:text-ink-400">
+                      Coming soon — configure OAuth first
+                    </span>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => googleAction(cfg.provider, "connect")}
+                        disabled={connectBusy}
+                        className="btn-secondary h-8 px-3 text-xs disabled:opacity-40"
+                      >
+                        {connectBusy ? "Starting…" : isConnected ? "Reconnect" : "Connect"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => googleAction(cfg.provider, "test")}
+                        disabled={testBusy}
+                        className="btn-ghost h-8 px-3 text-xs disabled:opacity-40"
+                      >
+                        {testBusy ? "Testing…" : "Test"}
+                      </button>
+                    </>
+                  )}
                   <button
                     type="button"
                     onClick={() => googleAction(cfg.provider, "revoke")}

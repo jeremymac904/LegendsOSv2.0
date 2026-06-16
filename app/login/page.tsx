@@ -3,7 +3,7 @@ import path from "node:path";
 
 import Link from "next/link";
 import { headers } from "next/headers";
-import { Apple, Download, MonitorDown, PlayCircle } from "lucide-react";
+import { Apple, Download, MonitorDown } from "lucide-react";
 
 import { LoginForm } from "@/components/auth/LoginForm";
 import { PUBLIC_ENV, isSupabaseConfigured } from "@/lib/env";
@@ -132,21 +132,7 @@ export default async function LoginPage({
                     className="h-full w-full"
                   />
                 </div>
-              ) : (
-                <div className="card command-glow flex aspect-video flex-col items-center justify-center gap-2 p-6 text-center text-ink-300">
-                  <PlayCircle size={28} className="text-accent-champagne" />
-                  <p className="text-sm font-medium text-ink-100">
-                    Welcome video coming soon
-                  </p>
-                  <p className="text-xs text-ink-400">
-                    Drop the URL into{" "}
-                    <code className="text-accent-champagne/90">
-                      NEXT_PUBLIC_WELCOME_VIDEO_URL
-                    </code>{" "}
-                    and it embeds here automatically.
-                  </p>
-                </div>
-              )}
+              ) : null}
             </div>
             <DesktopDownloadCard
               macUrl={macDownloadUrl}
