@@ -448,9 +448,131 @@ function LinkCard({ link }: { link: ResourceLink }) {
 
 // ── Tab panels ───────────────────────────────────────────────────────────────
 
+interface GCalEvent {
+  id?: string;
+  summary?: string;
+  start?: { dateTime?: string; date?: string };
+  location?: string;
+}
+
+function GoogleCalendarEvents() {
+  const [loading, setLoading] = useState(true);
+  const [connected, setConnected] = useState(false);
+  const [events, setEvents] = useState<GCalEvent[]>([]);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/integrations/google/calendar", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            action: "list_events",
+            timeMin: new Date().toISOString(),
+          }),
+        });
+        const json = await res.json().catch(() => null);
+        if (!alive) return;
+        if (json?.ok && Array.isArray(json.events)) {
+          setConnected(true);
+          setEvents(json.events as GCalEvent[]);
+        } else {
+          setConnected(false);
+          setMessage(json?.message ?? "Google Calendar is not connected yet.");
+        }
+      } catch {
+        if (alive) {
+          setConnected(false);
+          setMessage("Could not reach Google Calendar right now.");
+        }
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const fmt = (e: GCalEvent): string => {
+    const raw = e.start?.dateTime ?? e.start?.date;
+    if (!raw) return "";
+    const timed = Boolean(e.start?.dateTime);
+    try {
+      return new Date(raw).toLocaleString(undefined, {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        ...(timed ? { hour: "numeric", minute: "2-digit" } : {}),
+      });
+    } catch {
+      return raw;
+    }
+  };
+
+  return (
+    <div className="glass-card-padded">
+      <p className="label flex items-center gap-1.5">
+        <CalendarDays size={12} className="text-accent-champagne" /> Your upcoming
+        events
+      </p>
+      {loading ? (
+        <p className="mt-3 text-[12.5px] text-ink-500 dark:text-ink-400">
+          Checking your Google Calendar…
+        </p>
+      ) : connected ? (
+        events.length === 0 ? (
+          <p className="mt-3 text-[12.5px] text-ink-600 dark:text-ink-300">
+            No upcoming events on your Google Calendar.
+          </p>
+        ) : (
+          <ul className="mt-3 divide-y divide-accent-champagne/10">
+            {events.map((e, i) => (
+              <li
+                key={e.id ?? i}
+                className="flex flex-col gap-0.5 py-2.5 first:pt-0 last:pb-0 sm:flex-row sm:items-baseline sm:gap-4"
+              >
+                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-ink-500 dark:text-ink-400 sm:w-44 sm:shrink-0">
+                  <Clock3 size={11} />
+                  {fmt(e)}
+                </span>
+                <span className="min-w-0 text-sm font-medium text-ink-900 dark:text-ink-100">
+                  {e.summary || "(no title)"}
+                  {e.location ? (
+                    <span className="text-ink-500 dark:text-ink-400"> · {e.location}</span>
+                  ) : null}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )
+      ) : (
+        <div className="mt-3 rounded-xl border border-accent-gold/30 bg-accent-gold/5 px-3 py-3">
+          <p className="text-[12.5px] font-medium text-ink-900 dark:text-ink-100">
+            Google Calendar not connected
+          </p>
+          <p className="mt-1 text-[12px] leading-relaxed text-ink-600 dark:text-ink-300">
+            {message} Next step: connect your Google account to see coaching
+            calls, training sessions, and your own events here.
+          </p>
+          <Link
+            href="/settings"
+            className="btn-secondary mt-2 inline-flex !px-3 !py-1.5 text-[12px]"
+          >
+            Connect in Settings → Integrations
+          </Link>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CalendarPanel() {
   return (
     <div className="space-y-4">
+      <GoogleCalendarEvents />
       <div className="glass-card-padded">
         <p className="label flex items-center gap-1.5">
           <CalendarDays size={12} className="text-accent-champagne" /> Weekly
