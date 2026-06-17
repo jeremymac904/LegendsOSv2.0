@@ -3,7 +3,6 @@ import Link from "next/link";
 import {
   Cpu,
   HardDrive,
-  Link2,
   MonitorCheck,
   Plug,
   Route,
@@ -96,6 +95,7 @@ export default async function SettingsPage() {
   const owner = isOwner(profile);
   const canManageWorkspace = owner;
   const storedProviders = (providerRows ?? []) as ProviderCredentialPublic[];
+  const adminOrOwner = isAdminOrOwner(profile);
   // HARDENING: provider status derivation reads env flags; guard so a bad env
   // can't take the whole page down.
   let liveStatuses: ReturnType<typeof getAIProviderStatuses>;
@@ -384,54 +384,47 @@ export default async function SettingsPage() {
   // Sections are grouped into a collapsible Accordion to cut scrolling. The
   // Profile + External actions row stays pinned above as the primary glance.
   const sections: AccordionItemData[] = [
-    {
-      id: "desktop-app",
-      title: "Desktop app",
-      icon: <MonitorCheck size={16} />,
-      defaultOpen: true,
-      children: (
-        <SectionErrorBoundary title="Desktop app">
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-ink-200 bg-white/70 p-4 dark:border-ink-800 dark:bg-ink-950/40">
-            <div>
-              <p className="text-sm font-semibold text-ink-900 dark:text-ink-100">
-                Mac desktop setup
-              </p>
-              <p className="mt-1 text-xs leading-relaxed text-ink-600 dark:text-ink-300">
-                Install instructions, native shell status, traffic-light spacing,
-                and Windows build path.
-              </p>
-            </div>
-            <Link href="/desktop/setup" className="btn-secondary text-xs">
-              <MonitorCheck size={13} />
-              Open desktop setup
-            </Link>
-          </div>
-        </SectionErrorBoundary>
-      ),
-    },
-    {
-      id: "connections",
-      title: "Connections & setup coaches",
-      meta: `${connectionGuides.filter((g) => g.configured).length}/${connectionGuides.length} keys present`,
-      icon: <Plug size={16} />,
-      defaultOpen: true,
-      children: (
-        <SectionErrorBoundary title="Connections & setup coaches">
-          <SettingsConnectionSetup guides={connectionGuides} />
-        </SectionErrorBoundary>
-      ),
-    },
-    {
-      id: "google-integrations",
-      title: "Google Workspace & publishing",
-      icon: <Link2 size={16} />,
-      defaultOpen: true,
-      children: (
-        <SectionErrorBoundary title="Google Workspace & publishing">
-          <IntegrationConnections />
-        </SectionErrorBoundary>
-      ),
-    },
+    ...(adminOrOwner
+      ? [
+          {
+            id: "desktop-app",
+            title: "Desktop app",
+            icon: <MonitorCheck size={16} />,
+            defaultOpen: true,
+            children: (
+              <SectionErrorBoundary title="Desktop app">
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-ink-200 bg-white/70 p-4 dark:border-ink-800 dark:bg-ink-950/40">
+                  <div>
+                    <p className="text-sm font-semibold text-ink-900 dark:text-ink-100">
+                      Mac desktop setup
+                    </p>
+                    <p className="mt-1 text-xs leading-relaxed text-ink-600 dark:text-ink-300">
+                      Install instructions, native shell status,
+                      traffic-light spacing, and Windows build path.
+                    </p>
+                  </div>
+                  <Link href="/desktop/setup" className="btn-secondary text-xs">
+                    <MonitorCheck size={13} />
+                    Open desktop setup
+                  </Link>
+                </div>
+              </SectionErrorBoundary>
+            ),
+          } satisfies AccordionItemData,
+          {
+            id: "connections",
+            title: "Connections & setup coaches",
+            meta: `${connectionGuides.filter((g) => g.configured).length}/${connectionGuides.length} keys present`,
+            icon: <Plug size={16} />,
+            defaultOpen: true,
+            children: (
+              <SectionErrorBoundary title="Connections & setup coaches">
+                <SettingsConnectionSetup guides={connectionGuides} />
+              </SectionErrorBoundary>
+            ),
+          } satisfies AccordionItemData,
+        ]
+      : []),
     // Owner/admin only: informational route-ownership matrix. Activates nothing.
     ...(owner
       ? [
@@ -448,38 +441,48 @@ export default async function SettingsPage() {
           } satisfies AccordionItemData,
         ]
       : []),
-    {
-      id: "drive-loan-brain",
-      title: "Drive & Loan Brain",
-      icon: <HardDrive size={16} />,
-      children: (
-        <SectionErrorBoundary title="Drive & Loan Brain">
-          <DriveLoanBrainSetup />
-        </SectionErrorBoundary>
-      ),
-    },
-    {
-      id: "tutorials",
-      title: "Setup tutorials",
-      icon: <Video size={16} />,
-      children: (
-        // HONEST: no walkthrough videos are wired up yet. Rather than render
-        // empty video placeholders that imply content exists, collapse to one
-        // truthful line until real tutorial URLs are added.
-        <p className="text-sm text-ink-700 dark:text-ink-300">
-          Tutorials coming soon. Walkthrough videos will appear here once the
-          approved recordings are published.
-        </p>
-      ),
-    },
-    {
-      id: "ai-providers",
-      title: "AI Provider Gateway",
-      meta: `${merged.filter((p) => p.configured).length} keys present`,
-      icon: <Cpu size={16} />,
-      defaultOpen: true,
-      children: (
-        <SectionErrorBoundary title="AI Provider Gateway">
+    ...(adminOrOwner
+      ? [
+          {
+            id: "drive-loan-brain",
+            title: "Drive & Loan Brain",
+            icon: <HardDrive size={16} />,
+            children: (
+              <SectionErrorBoundary title="Drive & Loan Brain">
+                <DriveLoanBrainSetup />
+              </SectionErrorBoundary>
+            ),
+          } satisfies AccordionItemData,
+        ]
+      : []),
+    ...(adminOrOwner
+      ? [
+          {
+            id: "tutorials",
+            title: "Setup tutorials",
+            icon: <Video size={16} />,
+            children: (
+              // HONEST: no walkthrough videos are wired up yet. Rather than render
+              // empty video placeholders that imply content exists, collapse to one
+              // truthful line until real tutorial URLs are added.
+              <p className="text-sm text-ink-700 dark:text-ink-300">
+                Tutorials coming soon. Walkthrough videos will appear here once
+                the approved recordings are published.
+              </p>
+            ),
+          } satisfies AccordionItemData,
+        ]
+      : []),
+    ...(adminOrOwner
+      ? [
+          {
+            id: "ai-providers",
+            title: "AI Provider Gateway",
+            meta: `${merged.filter((p) => p.configured).length} keys present`,
+            icon: <Cpu size={16} />,
+            defaultOpen: true,
+            children: (
+              <SectionErrorBoundary title="AI Provider Gateway">
         <div id="ai-provider-gateway" className="scroll-mt-24">
           <div className="section-title">
             <div>
@@ -606,39 +609,33 @@ export default async function SettingsPage() {
             redeploy — keys never travel through the browser.
           </p>
         </div>
-        </SectionErrorBoundary>
-      ),
-    },
-    {
-      id: "mcp",
-      title: "MCP connections",
-      icon: <Plug size={16} />,
-      children: (
-        <SectionErrorBoundary title="MCP connections">
-          <div id="mcp-connections" className="scroll-mt-24">
-            <MCPConnections />
-          </div>
-        </SectionErrorBoundary>
-      ),
-    },
-    {
-      id: "branding",
-      title: "Branding",
-      icon: <Sparkles size={16} />,
-      children: (
-        <SectionErrorBoundary title="Branding">
-          <div>
-            <p className="text-xs text-ink-700 dark:text-ink-300">
-              Team identity line. Atlas auto-includes this when drafting outbound
-              marketing copy.
-            </p>
-            <pre className="mt-3 whitespace-pre-wrap rounded-xl border border-ink-200 bg-ink-50 p-3 text-xs text-ink-700 dark:border-accent-champagne/10 dark:bg-ink-950/30 dark:text-ink-200">
+              </SectionErrorBoundary>
+            ),
+          } satisfies AccordionItemData,
+        ]
+      : []),
+    ...(adminOrOwner
+      ? [
+          {
+            id: "branding",
+            title: "Branding",
+            icon: <Sparkles size={16} />,
+            children: (
+              <SectionErrorBoundary title="Branding">
+                <div>
+                  <p className="text-xs text-ink-700 dark:text-ink-300">
+                    Team identity line. Atlas auto-includes this when drafting
+                    outbound marketing copy.
+                  </p>
+                  <pre className="mt-3 whitespace-pre-wrap rounded-xl border border-ink-200 bg-ink-50 p-3 text-xs text-ink-700 dark:border-accent-champagne/10 dark:bg-ink-950/30 dark:text-ink-200">
 {PUBLIC_ENV.BRAND_LINE}
-            </pre>
-          </div>
-        </SectionErrorBoundary>
-      ),
-    },
+                  </pre>
+                </div>
+              </SectionErrorBoundary>
+            ),
+          } satisfies AccordionItemData,
+        ]
+      : []),
   ];
 
   return (
@@ -653,7 +650,7 @@ export default async function SettingsPage() {
           </span>
         }
       />
-      {providerTableSetupNeeded && (
+      {adminOrOwner && providerTableSetupNeeded && (
         <section className="card-padded border-status-warn/30 bg-status-warn/10">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -669,87 +666,128 @@ export default async function SettingsPage() {
           </div>
         </section>
       )}
-      <SectionErrorBoundary title="Help coaches">
-        <LegendsOSHelpCoaches />
+      {adminOrOwner && (
+        <SectionErrorBoundary title="Help coaches">
+          <LegendsOSHelpCoaches />
+        </SectionErrorBoundary>
+      )}
+
+      <SectionErrorBoundary title="My Connections">
+        <section className="space-y-4" id="my-connections">
+          <div className="section-title">
+            <div>
+              <h2>My Connections</h2>
+              <p>
+                Connect your own Gmail, Drive, Calendar, and Zapier MCP tools.
+                Owner-only setup and provider controls are separated below.
+              </p>
+            </div>
+          </div>
+          <IntegrationConnections />
+          <div id="mcp-connections" className="scroll-mt-24">
+            <MCPConnections />
+          </div>
+        </section>
       </SectionErrorBoundary>
 
-      <SectionErrorBoundary title="Theme & branding">
-        <ThemeCustomizationPanel
-          profile={profile}
-          initialTheme={initialTheme}
-          workspaceTheme={workspaceTheme}
-          workspace={workspaceBranding}
-          canManageWorkspace={canManageWorkspace}
-        />
-      </SectionErrorBoundary>
+      {adminOrOwner && (
+        <SectionErrorBoundary title="Theme & branding">
+          <ThemeCustomizationPanel
+            profile={profile}
+            initialTheme={initialTheme}
+            workspaceTheme={workspaceTheme}
+            workspace={workspaceBranding}
+            canManageWorkspace={canManageWorkspace}
+          />
+        </SectionErrorBoundary>
+      )}
 
       <SectionErrorBoundary title="Profile & external actions">
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <section className="card-padded">
-          <div className="section-title">
-            <div>
-              <h2>Profile</h2>
-              <p>Your identity in {PUBLIC_ENV.APP_NAME}.</p>
+        <div
+          className={
+            adminOrOwner
+              ? "grid grid-cols-1 gap-5 lg:grid-cols-2"
+              : "grid grid-cols-1 gap-5"
+          }
+        >
+          <section className="card-padded">
+            <div className="section-title">
+              <div>
+                <h2>Profile</h2>
+                <p>Your identity in {PUBLIC_ENV.APP_NAME}.</p>
+              </div>
             </div>
-          </div>
-          <dl className="mt-4 grid grid-cols-3 gap-2 text-xs">
-            <dt className="text-ink-600 dark:text-ink-400">Email</dt>
-            <dd className="col-span-2 text-ink-900 dark:text-ink-100">{profile.email}</dd>
-            <dt className="text-ink-600 dark:text-ink-400">Full name</dt>
-            <dd className="col-span-2 text-ink-900 dark:text-ink-100">
-              {profile.full_name ?? "—"}
-            </dd>
-            <dt className="text-ink-600 dark:text-ink-400">Role</dt>
-            <dd className="col-span-2">
-              <StatusPill status="info" label={profile.role} />
-            </dd>
-            <dt className="text-ink-600 dark:text-ink-400">Organization</dt>
-            <dd className="col-span-2 text-ink-900 dark:text-ink-100">{PUBLIC_ENV.TEAM_NAME}</dd>
-            <dt className="text-ink-600 dark:text-ink-400">Active since</dt>
-            <dd className="col-span-2 text-ink-900 dark:text-ink-100">
-              {formatRelative(profile.created_at)}
-            </dd>
-          </dl>
-        </section>
-        <section className="card-padded">
-          <div className="section-title">
-            <div>
-              <h2>External actions</h2>
-              {/* HONEST: these are read-only status pills derived from
+            <dl className="mt-4 grid grid-cols-3 gap-2 text-xs">
+              <dt className="text-ink-600 dark:text-ink-400">Email</dt>
+              <dd className="col-span-2 text-ink-900 dark:text-ink-100">
+                {profile.email}
+              </dd>
+              <dt className="text-ink-600 dark:text-ink-400">Full name</dt>
+              <dd className="col-span-2 text-ink-900 dark:text-ink-100">
+                {profile.full_name ?? "—"}
+              </dd>
+              <dt className="text-ink-600 dark:text-ink-400">Role</dt>
+              <dd className="col-span-2">
+                <StatusPill status="info" label={profile.role} />
+              </dd>
+              <dt className="text-ink-600 dark:text-ink-400">Organization</dt>
+              <dd className="col-span-2 text-ink-900 dark:text-ink-100">
+                {PUBLIC_ENV.TEAM_NAME}
+              </dd>
+              <dt className="text-ink-600 dark:text-ink-400">Active since</dt>
+              <dd className="col-span-2 text-ink-900 dark:text-ink-100">
+                {formatRelative(profile.created_at)}
+              </dd>
+            </dl>
+          </section>
+          {adminOrOwner && (
+            <section className="card-padded">
+              <div className="section-title">
+                <div>
+                  <h2>External actions</h2>
+                  {/* HONEST: these are read-only status pills derived from
                   environment flags, not interactive toggles. The header must
                   not imply you can flip them here. */}
-              <p>Outbound action status (set via environment).</p>
-            </div>
-          </div>
-          <ul className="mt-4 space-y-2 text-sm">
-            {externalToggles.map((s) => (
-              <li
-                key={s.env_var}
-                className="flex items-center justify-between rounded-lg border border-ink-200 bg-ink-50 px-3 py-2 backdrop-blur-sm dark:border-accent-champagne/10 dark:bg-ink-950/30"
-              >
-                <div>
-                  <p className="text-ink-900 dark:text-ink-100">{s.label}</p>
-                  <p className="text-[11px] text-ink-600 dark:text-ink-400">{s.env_var}</p>
+                  <p>Outbound action status (set via environment).</p>
                 </div>
-                <StatusPill
-                  status={s.on ? "ok" : "off"}
-                  label={s.on ? "enabled" : "disabled until configured"}
-                />
-              </li>
-            ))}
-          </ul>
-          <p className="mt-3 text-[11px] text-ink-600 dark:text-ink-400">
-            Read-only status. These flags are set in the hosting environment, not
-            from this screen. Outbound sending and publishing stay disabled
-            (draft only) until the owner enables the matching environment flag.
-          </p>
-        </section>
-      </div>
+              </div>
+              <ul className="mt-4 space-y-2 text-sm">
+                {externalToggles.map((s) => (
+                  <li
+                    key={s.env_var}
+                    className="flex items-center justify-between rounded-lg border border-ink-200 bg-ink-50 px-3 py-2 backdrop-blur-sm dark:border-accent-champagne/10 dark:bg-ink-950/30"
+                  >
+                    <div>
+                      <p className="text-ink-900 dark:text-ink-100">
+                        {s.label}
+                      </p>
+                      <p className="text-[11px] text-ink-600 dark:text-ink-400">
+                        {s.env_var}
+                      </p>
+                    </div>
+                    <StatusPill
+                      status={s.on ? "ok" : "off"}
+                      label={s.on ? "enabled" : "disabled until configured"}
+                    />
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-3 text-[11px] text-ink-600 dark:text-ink-400">
+                Read-only status. These flags are set in the hosting
+                environment, not from this screen. Outbound sending and
+                publishing stay disabled (draft only) until the owner enables the
+                matching environment flag.
+              </p>
+            </section>
+          )}
+        </div>
       </SectionErrorBoundary>
 
-      <SectionErrorBoundary title="Settings sections">
-        <Accordion items={sections} />
-      </SectionErrorBoundary>
+      {sections.length > 0 && (
+        <SectionErrorBoundary title="Settings sections">
+          <Accordion items={sections} />
+        </SectionErrorBoundary>
+      )}
     </div>
   );
 }

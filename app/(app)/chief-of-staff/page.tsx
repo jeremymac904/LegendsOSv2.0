@@ -15,6 +15,7 @@ import { SectionHeader } from "@/components/ui/SectionHeader";
 import { buildChiefOfStaffBriefing } from "@/lib/chiefOfStaff/recommendations";
 import type { BriefingSection, SectionKey } from "@/lib/chiefOfStaff/types";
 import { getEffectiveProfile } from "@/lib/impersonation";
+import { isAdminOrOwner } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -88,7 +89,25 @@ export default async function ChiefOfStaffPage() {
     );
   }
 
-  const briefing = await buildChiefOfStaffBriefing();
+  const rawBriefing = await buildChiefOfStaffBriefing();
+  const sections = isAdminOrOwner(profile)
+    ? rawBriefing.sections
+    : rawBriefing.sections.filter((section) => section.key !== "broken_automations");
+  const briefing = {
+    ...rawBriefing,
+    sections,
+    totalCount: sections.reduce(
+      (sum, section) => sum + section.recommendations.length,
+      0
+    ),
+    highPriorityCount: sections.reduce(
+      (sum, section) =>
+        sum +
+        section.recommendations.filter((rec) => rec.confidence === "High")
+          .length,
+      0
+    ),
+  };
   const firstName = profile.full_name?.trim().split(/\s+/)[0] ?? "there";
   const hasAnything = briefing.totalCount > 0;
 

@@ -45,8 +45,8 @@ function hexToRgba(hex: string, alpha: number): string {
 }
 
 function brandOverlay(branding: Awaited<ReturnType<typeof resolveWorkspaceBranding>>) {
-  const primary = branding.primaryColor ?? "#2B5D4A";
-  const secondary = branding.secondaryColor ?? "#C98A6A";
+  const primary = branding.primaryColor ?? "#C79635";
+  const secondary = branding.secondaryColor ?? "#9B6828";
   return `linear-gradient(92deg, rgba(5, 6, 10, 0.92) 0%, rgba(5, 6, 10, 0.68) 42%, rgba(5, 6, 10, 0.88) 100%),
     radial-gradient(58% 45% at 30% 18%, ${hexToRgba(primary, 0.26)} 0%, rgba(5, 6, 10, 0) 62%),
     radial-gradient(52% 45% at 82% 24%, ${hexToRgba(secondary, 0.24)} 0%, rgba(5, 6, 10, 0) 64%)`;
@@ -217,8 +217,8 @@ function renderFloProcessingLogin({
   const backgroundSrc =
     branding.backgroundImage.url ??
     "/assets/backgrounds/command-center-elegant.jpg";
-  const primary = branding.primaryColor ?? "#2B5D4A";
-  const secondary = branding.secondaryColor ?? "#C98A6A";
+  const primary = branding.primaryColor ?? "#C79635";
+  const secondary = branding.secondaryColor ?? "#9B6828";
   const accentStyle = {
     backgroundImage: brandOverlay(branding),
   } as React.CSSProperties;

@@ -13,6 +13,7 @@ import {
   LayoutDashboard,
   Mail,
   MessageCircle,
+  Plug,
   Settings,
   Share2,
   ShieldCheck,
@@ -112,7 +113,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Marketing Assistant",
     description: "Real marketing AI — social, email, GBP, YouTube, compliance",
     icon: Sparkles,
-    gate: { roles: ["marketing", "loan_officer"] },
+    gate: { roles: ["marketing"] },
   },
   {
     section: "studios",
@@ -127,6 +128,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Email Studio",
     description: "Newsletters and campaigns",
     icon: Mail,
+    gate: { roles: ["marketing"] },
   },
   {
     section: "studios",
@@ -157,6 +159,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "LF Resources",
     description: "Loan Factory links and guides",
     icon: Factory,
+    gate: { roles: ["processor", "coordinator", "marketing"] },
   },
   {
     section: "team",
@@ -174,6 +177,14 @@ export const NAV_ITEMS: NavItem[] = [
     description: "Users, connections, usage, assets, security, and agent oversight",
     icon: ShieldCheck,
     gate: { ownerOnly: true },
+  },
+  {
+    section: "owner",
+    href: "/admin/connections",
+    label: "Connection Center",
+    description: "Google, Meta, Zapier MCP, n8n, and provider readiness",
+    icon: Plug,
+    gate: { adminOrOwner: true },
   },
   {
     section: "owner",
