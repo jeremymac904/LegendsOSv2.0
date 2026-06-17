@@ -64,10 +64,10 @@ const QUICK_ACTIONS: QuickAction[] = [
     color: "text-accent-orange",
   },
   {
-    id: "trigger_automation",
-    label: "Ask About Automations",
+    id: "follow_up_plan",
+    label: "Follow-Up Plan",
     icon: Zap,
-    prompt: "What automations do I have available in n8n? List them so I can choose one to trigger.",
+    prompt: "Help me build a simple borrower follow-up plan for a new pre-qualification lead. Include call, email, and text touchpoints I can personalize before sending.",
     color: "text-[#EA4B71]",
   },
 ];

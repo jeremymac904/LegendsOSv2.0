@@ -157,13 +157,18 @@ export async function runChat(
   const env = getServerEnv();
   const requested = (request.provider ?? env.AI_DEFAULT_TEXT_PROVIDER) as ProviderId;
   const organizationId = requestOrganizationId(request.metadata);
+  const nvidiaFallbackEnabled =
+    process.env.AI_ENABLE_NVIDIA_FALLBACK === "true" ||
+    process.env.AI_ENABLE_NVIDIA_FALLBACK === "1";
 
   // Resolve a usable provider with fallback. If a provider returns a hard
   // error (timeout, 429, 5xx), we fall through to the next configured one
   // instead of bubbling the failure straight to the UI.
-  const order: ProviderId[] = Array.from(
-    new Set([requested, "minimax", "deepseek", "openrouter", "nvidia"] as ProviderId[])
-  );
+  const fallbackOrder: ProviderId[] = ["deepseek", "openrouter", "minimax"];
+  if (requested === "nvidia" || nvidiaFallbackEnabled) {
+    fallbackOrder.push("nvidia");
+  }
+  const order: ProviderId[] = Array.from(new Set([requested, ...fallbackOrder]));
 
   let lastReason: GatewayError | null = null;
   for (const candidate of order) {
@@ -247,7 +252,7 @@ export async function runChat(
   // Nothing was callable.
   return (
     lastReason ??
-    err("provider_not_configured", "No text provider is configured.", {
+    err("provider_not_configured", "No OpenRouter, DeepSeek, or MiniMax text provider is configured. Add a provider key in Settings -> AI Provider Gateway, or explicitly select NVIDIA if that lane is approved.", {
       provider: requested,
     })
   );

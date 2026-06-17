@@ -32,10 +32,10 @@ const config: Config = {
           bronze: "rgb(var(--accent-bronze, 168 117 43) / <alpha-value>)",
         },
         status: {
-          ok: "#22c55e",
+          ok: "#C79635",
           warn: "#D49A3A",
           err: "#ef4444",
-          info: "#38bdf8",
+          info: "#64748b",
           off: "#6b7280",
         },
       },

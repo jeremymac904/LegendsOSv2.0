@@ -4,16 +4,9 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   CalendarPlus,
-  Check,
-  ClipboardCopy,
   CloudUpload,
-  Download,
   ImageIcon,
-  ImagePlus,
-  Lock,
-  PlayCircle,
   Save,
-  Send,
   Share2,
   Sparkles,
   X,
@@ -243,7 +236,13 @@ export function SocialComposer({
         });
         const data = await res.json();
         if (data.ok) {
-          setInfo(action === "draft" ? "Saved draft." : "Scheduled.");
+          setInfo(
+            action === "draft"
+              ? "Saved draft."
+              : selectedRoute === "manual"
+                ? "Saved manual posting reminder."
+                : "Saved schedule draft. Live publishing stays off until Jeremy verifies the route."
+          );
           if (!editing) { setTitle(""); setBody(""); setYoutubeTitle(""); setSelected(["facebook"]); setScheduledAt(""); setSelectedMediaIds([]); }
           router.refresh();
         } else { setError(data.message); }
@@ -266,6 +265,12 @@ export function SocialComposer({
         : "Direct Platform API requires a selected destination in Connection Center."
       : null;
   const activeRoute = publishingRoutes.find((route) => route.id === selectedRoute);
+  const scheduleLabel =
+    selectedRoute === "zapier"
+      ? "Save Zapier draft"
+      : selectedRoute === "direct_api"
+        ? "Save API draft"
+        : "Save posting reminder";
 
   return (
     <section className="card-padded space-y-4">
@@ -356,6 +361,9 @@ export function SocialComposer({
                       {activeRoute && (
                         <p className="mt-2 text-[11px] leading-relaxed text-ink-600 dark:text-ink-300">
                           {activeRoute.detail}
+                          {activeRoute.external
+                            ? " Draft-only for onboarding until Jeremy verifies and enables live publishing."
+                            : ""}
                         </p>
                       )}
                       {selectedRoute === "manual" && (
@@ -382,7 +390,7 @@ export function SocialComposer({
       <div className="flex items-center justify-between border-t border-ink-100 dark:border-ink-800 pt-4">
         <div className="flex gap-2">
            <button className="btn text-xs py-1.5" onClick={() => submit("draft")} disabled={isPending || !body.trim()}><Save size={14} /> Save Draft</button>
-           <button className="btn-primary text-xs py-1.5" onClick={() => submit("schedule")} disabled={isPending || !body.trim() || !scheduledAt || scheduleBlocked}><CalendarPlus size={14} /> Schedule</button>
+           <button className="btn-primary text-xs py-1.5" onClick={() => submit("schedule")} disabled={isPending || !body.trim() || !scheduledAt || scheduleBlocked}><CalendarPlus size={14} /> {scheduleLabel}</button>
         </div>
         {info && <p className="text-xs text-status-ok font-medium">{info}</p>}
         {scheduleHelp && <p className="text-xs text-status-warn font-medium">{scheduleHelp}</p>}

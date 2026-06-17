@@ -22,7 +22,10 @@ import type {
 } from "@/components/admin/RosterStatusTable";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatusPill } from "@/components/ui/StatusPill";
-import { isZapierMcpConfigured } from "@/lib/automation/zapier-mcp";
+import {
+  getUserZapierMcpConnection,
+  isZapierMcpConfigured,
+} from "@/lib/automation/zapier-mcp";
 import { getN8nConfigState } from "@/lib/automation/n8n";
 import { isWebhookSecretConfigured } from "@/lib/emailIntake/webhook";
 import { PUBLIC_ENV } from "@/lib/env";
@@ -47,11 +50,12 @@ export const dynamic = "force-dynamic";
 // ---------------------------------------------------------------------------
 // Allowed honest status labels only. Never "ready" on env presence alone.
 //   "connected/verified" | "key present (not verified)" | "setup needed"
-//   | "disabled" | "unknown" | "not connected"
+//   | "saved (not verified)" | "disabled" | "unknown" | "not connected"
 // ---------------------------------------------------------------------------
 type HonestLabel =
   | "connected/verified"
   | "key present (not verified)"
+  | "saved (not verified)"
   | "setup needed"
   | "disabled"
   | "unknown"
@@ -62,6 +66,7 @@ function pillFor(label: HonestLabel): "ok" | "warn" | "off" | "info" {
     case "connected/verified":
       return "ok";
     case "key present (not verified)":
+    case "saved (not verified)":
       return "info";
     case "disabled":
       return "off";
@@ -271,7 +276,13 @@ export default async function TeamSetupPage() {
   // ---------------------------------------------------------------------
   const drive = getDriveConnectionStatus();
   const n8n = getN8nConfigState();
-  const zapier = isZapierMcpConfigured();
+  const userZapierMcpConnection = await getUserZapierMcpConnection(profile.id);
+  const zapier = Boolean(userZapierMcpConnection) || isZapierMcpConfigured();
+  const zapierLabel: HonestLabel = zapier
+    ? userZapierMcpConnection
+      ? "saved (not verified)"
+      : "key present (not verified)"
+    : "not connected";
   const gmailSecret = isWebhookSecretConfigured();
   const meta = detectMetaConfig();
   const googleOAuthPresent = Boolean(
@@ -361,9 +372,11 @@ export default async function TeamSetupPage() {
     {
       title: "Zapier Publishing",
       detail: zapier
-        ? "Zapier MCP key present (not verified). Recommended social path: Zapier -> Facebook, Instagram, YouTube, TikTok, Google Business Profile, and LinkedIn."
+        ? userZapierMcpConnection
+          ? "Zapier MCP endpoint saved for this user (not verified). Recommended social path: Zapier -> Facebook, Instagram, YouTube, TikTok, Google Business Profile, and LinkedIn."
+          : "Zapier MCP env key present (not verified). Recommended social path: Zapier -> Facebook, Instagram, YouTube, TikTok, Google Business Profile, and LinkedIn."
         : "Connect Zapier MCP in Settings. Recommended: Connect social accounts through Zapier for the fastest setup and highest reliability.",
-      label: zapier ? "key present (not verified)" : "not connected",
+      label: zapierLabel,
       icon: PlugZap,
       href: "/settings",
     },

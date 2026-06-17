@@ -13,7 +13,10 @@ import {
   loadSocialAssetUsageCounts,
 } from "@/lib/admin/orgAssets";
 import { getServerEnv, PUBLIC_ENV } from "@/lib/env";
-import { isZapierMcpConfigured } from "@/lib/automation/zapier-mcp";
+import {
+  getUserZapierMcpConnection,
+  isZapierMcpConfigured,
+} from "@/lib/automation/zapier-mcp";
 import { detectMetaConfig } from "@/lib/integrations/meta";
 import { isOwner } from "@/lib/permissions";
 import { buildSocialPublishGate } from "@/lib/social/destinationReadiness";
@@ -123,7 +126,13 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
   const supabase = getSupabaseServerClient();
   const env = getServerEnv();
 
-  const [{ data: postRows }, { data: mediaRows }, uploadedImageAssets, usageCounts] =
+  const [
+    { data: postRows },
+    { data: mediaRows },
+    uploadedImageAssets,
+    usageCounts,
+    userZapierMcpConnection,
+  ] =
     await Promise.all([
       supabase
         .from("social_posts")
@@ -138,6 +147,7 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
         .limit(48),
       loadOrgUploadedImageAssets(),
       loadSocialAssetUsageCounts(),
+      getUserZapierMcpConnection(profile.id),
     ]);
   const { data: destinationRows } = await supabase
     .from("social_account_connections")
@@ -223,7 +233,13 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
   // composer. NOTHING here dispatches or publishes — every external route is
   // "disabled until configured + approved". Only Manual export is usable now.
   // ---------------------------------------------------------------------------
-  const zapierConfigured = isZapierMcpConfigured();
+  const zapierConfigured =
+    Boolean(userZapierMcpConnection) || isZapierMcpConfigured();
+  const zapierStatusLabel = userZapierMcpConnection
+    ? "Zapier MCP saved"
+    : zapierConfigured
+      ? "Zapier env present"
+      : "connect Zapier MCP";
   const metaState = detectMetaConfig();
 
   const publishingRoutes: PublishingRoute[] = [
@@ -233,9 +249,7 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
       detail:
         "Recommended: Connect your social accounts through Zapier for the fastest setup and highest reliability. Use Zapier to publish to Facebook, Instagram, YouTube, TikTok, Google Business Profile, and LinkedIn.",
       status: zapierConfigured ? "key_present" : "setup_needed",
-      statusLabel: zapierConfigured
-        ? "key present (not verified)"
-        : "connect Zapier MCP",
+      statusLabel: zapierConfigured ? `${zapierStatusLabel} (not verified)` : zapierStatusLabel,
       external: true,
     },
     {
@@ -320,14 +334,14 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
               label={
                 publishEnabled
                   ? "live publishing on"
-                  : "live publishing off"
+                  : "draft only"
               }
             />
             <StatusPill
               status={zapierConfigured ? "info" : "warn"}
               label={
                 zapierConfigured
-                  ? "Zapier MCP present"
+                  ? zapierStatusLabel
                   : "connect Zapier MCP"
               }
             />
@@ -343,16 +357,16 @@ export default async function SocialStudioPage({ searchParams }: PageProps) {
         </span>
         <span className="text-ink-500 dark:text-ink-400">·</span>
         <span className="text-ink-600 dark:text-ink-300">
-          Live publishing is{" "}
+          Publishing mode is{" "}
           {publishEnabled ? (
             <span className="text-status-ok">enabled</span>
           ) : (
-            <span className="text-status-warn">disabled</span>
+            <span className="text-status-warn">draft only</span>
           )}
         </span>
         <span className="text-ink-500 dark:text-ink-400">·</span>
         <span className="text-ink-600 dark:text-ink-300">
-          Zapier {zapierConfigured ? "MCP present" : "recommended setup"}
+          Zapier {zapierConfigured ? "MCP saved" : "recommended setup"}
         </span>
         <Link href="/settings" className="btn-ghost ml-auto text-[11px]">
           <ExternalLink size={12} />

@@ -295,6 +295,11 @@ export function AtlasShell({
             friendly = data.message;
           } else if (data.error === "provider_disabled") {
             friendly = data.message;
+          } else if (data.error === "provider_not_configured") {
+            friendly = data.message;
+          } else if (data.error === "provider_error" || data.error === "internal_error") {
+            friendly =
+              "Atlas could not reach the selected AI provider. Try OpenRouter or DeepSeek from the provider selector, then ask the owner to check Settings -> AI Provider Gateway.";
           }
           setError(friendly);
           setMessages((m) => [

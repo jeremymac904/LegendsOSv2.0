@@ -902,7 +902,15 @@ export function AtlasWorkspace({
         if (!data.ok) {
           let msg = `${data.error}: ${data.message}`;
           if (data.error === "unauthenticated") msg = "Your session expired. Refresh and sign in again.";
-          else if (data.error === "cap_exceeded" || data.error === "provider_disabled") msg = data.message;
+          else if (
+            data.error === "cap_exceeded" ||
+            data.error === "provider_disabled" ||
+            data.error === "provider_not_configured"
+          ) msg = data.message;
+          else if (data.error === "provider_error" || data.error === "internal_error") {
+            msg =
+              "Atlas could not reach the selected AI provider. Try OpenRouter or DeepSeek from the provider selector, then ask the owner to check Settings -> AI Provider Gateway.";
+          }
           setError(msg);
           setMessages((m) => [...m, { ...tempMsg, id: `local-sys-${Date.now()}`, role: "system", content: data.message ?? "Atlas could not complete that request." }]);
           return;

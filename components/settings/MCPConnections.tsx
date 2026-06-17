@@ -59,7 +59,7 @@ export function MCPConnections() {
         setNewLabel("");
         setNewUrl("");
         setNewToken("");
-        setSaveStatus("connected");
+        setSaveStatus("saved");
         await loadConnections();
       } else {
         setSaveStatus(data.error ?? "failed");
@@ -82,8 +82,8 @@ export function MCPConnections() {
 
   function providerBadge(provider: string) {
     const styles: Record<string, string> = {
-      zapier: "bg-blue-500/10 text-blue-400 border-blue-500/30",
-      composio: "bg-purple-500/10 text-purple-400 border-purple-500/30",
+      zapier: "bg-accent-gold/10 text-accent-gold border-accent-gold/35",
+      composio: "bg-ink-100 text-ink-700 border-ink-300 dark:bg-ink-800 dark:text-ink-200 dark:border-ink-700",
       custom: "bg-ink-100 text-ink-700 border-ink-300 dark:bg-ink-700 dark:text-ink-200 dark:border-ink-600",
     };
     return (
@@ -103,8 +103,10 @@ export function MCPConnections() {
         <div>
           <h2>MCP Connections</h2>
           <p>
-            Connect your AI to real apps. Each MCP server gives Atlas access to
-            your tools — Gmail, Calendar, Sheets, CRM, and more.
+            Recommended for publishing: save your Zapier MCP endpoint, then use
+            Zapier to connect Facebook, Instagram, YouTube, TikTok, Google
+            Business Profile, and LinkedIn. Saved endpoints are not marked live
+            until you verify them.
           </p>
         </div>
         <button
@@ -169,7 +171,7 @@ export function MCPConnections() {
           </div>
           <div>
             <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-ink-600 dark:text-ink-300">
-              Auth Token{" "}
+            Auth Token{" "}
               <span className="text-ink-500">(optional — for Bearer auth)</span>
             </label>
             <input
@@ -187,12 +189,14 @@ export function MCPConnections() {
               disabled={!newLabel.trim() || !newUrl.trim()}
               className="btn-primary text-xs disabled:opacity-40"
             >
-              Connect
+              Save endpoint
             </button>
-            {saveStatus === "connected" && (
-              <span className="text-[11px] text-status-ok">✓ Connected</span>
+            {saveStatus === "saved" && (
+              <span className="text-[11px] text-accent-gold">
+                Saved. Verify before publishing.
+              </span>
             )}
-            {saveStatus && saveStatus !== "connected" && (
+            {saveStatus && saveStatus !== "saved" && (
               <span className="text-[11px] text-status-err">{saveStatus}</span>
             )}
           </div>
@@ -207,11 +211,10 @@ export function MCPConnections() {
         ) : connections.length === 0 ? (
           <div className="rounded-xl border border-dashed border-ink-300 py-8 text-center dark:border-ink-700">
             <p className="text-sm text-ink-700 dark:text-ink-400">
-              No MCP servers connected yet.
+              No MCP servers saved yet.
             </p>
             <p className="mt-1 text-[11px] text-ink-600 dark:text-ink-500">
-              Add a Zapier MCP or Composio server to give Atlas access to your
-              tools.
+              Add Zapier MCP first for the recommended social publishing path.
             </p>
           </div>
         ) : (
@@ -227,6 +230,9 @@ export function MCPConnections() {
                       {c.label}
                     </span>
                     {providerBadge(c.provider)}
+                    <span className="rounded-full border border-status-warn/30 bg-status-warn/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-status-warn">
+                      saved · not verified
+                    </span>
                   </div>
                   <span className="font-mono text-[11px] text-ink-600 dark:text-ink-400">
                     {c.url.length > 60

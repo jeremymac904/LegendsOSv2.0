@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Briefcase, ChevronDown, ExternalLink, MessageCircle } from "lucide-react";
 
+import { LoanIntakePanel } from "@/components/loanbrain/LoanIntakePanel";
 import { PriorityPill, StageStatusPill } from "@/components/loanbrain/statusPill";
 import { SampleModeBanner } from "@/components/loanbrain/SampleModeBanner";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -63,6 +64,8 @@ export default async function MyLoansPage() {
       {usingSample && (
         <SampleModeBanner note="Demo loans until your real files are assigned · no borrower data · nothing here is sent or written to Drive." />
       )}
+
+      <LoanIntakePanel />
 
       {rows.length === 0 ? (
         <EmptyState

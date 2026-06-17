@@ -113,7 +113,7 @@ interface ConnectionsResponse {
 }
 
 const PROVIDER_LABELS: Record<ProviderId, string> = {
-  facebook: "Meta / Instagram Direct API",
+  facebook: "Meta / Instagram Direct API (Advanced)",
   google_social: "Google Social APIs",
   google: "Google Workspace account",
   gmail: "Gmail",
@@ -157,6 +157,32 @@ const ZAPIER_PLATFORMS = [
   "Google Business Profile",
   "LinkedIn",
 ] as const;
+
+const GOOGLE_WORKSPACE_SERVICES: Array<{
+  provider: "gmail" | "google_drive" | "google_calendar";
+  label: string;
+  description: string;
+  Icon: typeof Mail;
+}> = [
+  {
+    provider: "gmail",
+    label: "Gmail",
+    description: "List recent messages, create drafts, and use gated sends.",
+    Icon: Mail,
+  },
+  {
+    provider: "google_drive",
+    label: "Google Drive",
+    description: "List folders and use gated folder, upload, move, and edit actions.",
+    Icon: HardDrive,
+  },
+  {
+    provider: "google_calendar",
+    label: "Google Calendar",
+    description: "Read, create, update, and delete calendar events.",
+    Icon: CalendarDays,
+  },
+];
 
 function pillFor(status: ConnectionStatus, provider?: ProviderId): {
   tone: "ok" | "info" | "warn" | "err" | "off";
@@ -476,8 +502,9 @@ export function IntegrationConnections() {
   const connections = data?.connections ?? [];
   const provisioned = data?.provisioned ?? false;
   const isOwnerOrAdmin = data?.isOwnerOrAdmin ?? false;
+  const connectionByProvider = new Map(connections.map((connection) => [connection.provider, connection]));
 
-  const STUB_PROVIDERS = new Set<ProviderId>(["facebook", "google_social", "google", "google_drive", "google_calendar"]);
+  const OPTIONAL_DIRECT_PROVIDERS = new Set<ProviderId>(["google_social"]);
 
   return (
     <section className="card-padded">
@@ -514,12 +541,67 @@ export function IntegrationConnections() {
         </p>
       )}
 
+      <section className="mt-4 rounded-2xl border border-ink-200 bg-ink-50 p-4 dark:border-accent-champagne/10 dark:bg-ink-950/30">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-ink-900 dark:text-ink-100">
+              Google Workspace
+            </h3>
+            <p className="mt-1 text-xs leading-relaxed text-ink-700 dark:text-ink-300">
+              One signed-in Google account powers Gmail, Drive, and Calendar.
+              Connect only the services you want LegendsOS to use.
+            </p>
+          </div>
+          <StatusPill status="info" label="per user" />
+        </div>
+        <div className="mt-4 grid gap-3 lg:grid-cols-3">
+          {GOOGLE_WORKSPACE_SERVICES.map(({ provider, label, description, Icon }) => {
+            const connection = connectionByProvider.get(provider);
+            const providerPill = pillFor(connection?.status ?? "not_connected", provider);
+            const connectBusy = busyKey === `connect:${provider}`;
+            return (
+              <article
+                key={provider}
+                className="rounded-xl border border-ink-200 bg-white/70 p-3 dark:border-ink-800 dark:bg-ink-950/40"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <span className="grid h-8 w-8 place-items-center rounded-lg border border-accent-champagne/20 bg-accent-gold/10 text-accent-champagne">
+                    <Icon size={14} />
+                  </span>
+                  <StatusPill status={providerPill.tone} label={providerPill.label} />
+                </div>
+                <p className="mt-3 text-sm font-medium text-ink-900 dark:text-ink-100">
+                  {label}
+                </p>
+                <p className="mt-1 min-h-[44px] text-xs leading-relaxed text-ink-700 dark:text-ink-300">
+                  {description}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void connect(provider)}
+                  disabled={connectBusy}
+                  className="btn-secondary mt-3 h-8 px-3 text-xs disabled:opacity-40"
+                >
+                  {connectBusy
+                    ? "Starting..."
+                    : connection?.status === "connected"
+                      ? "Reconnect"
+                      : "Connect"}
+                </button>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+
       <div className="mt-4">
         <ZapierConnectionWizard />
       </div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
-        {(loading ? [] : connections).filter((connection) => connection.provider !== "google").map((connection) => {
+        {(loading ? [] : connections).filter((connection) =>
+          !["google", "gmail", "google_drive", "google_calendar"].includes(connection.provider)
+        ).map((connection) => {
           const Icon = PROVIDER_ICONS[connection.provider];
           const providerPill = pillFor(connection.status, connection.provider);
           const selected = connection.selected_destinations ?? [];
@@ -548,9 +630,9 @@ export function IntegrationConnections() {
               </p>
 
               <div className="mt-4 flex flex-wrap items-center gap-2">
-                {STUB_PROVIDERS.has(connection.provider) ? (
+                {OPTIONAL_DIRECT_PROVIDERS.has(connection.provider) ? (
                   <span className="inline-flex h-8 items-center rounded-lg border border-ink-200 bg-ink-100/50 px-3 text-xs font-medium text-ink-500 dark:border-ink-700 dark:bg-ink-900/30 dark:text-ink-400">
-                    Coming soon
+                    Optional Direct Integration
                   </span>
                 ) : (
                   <button
