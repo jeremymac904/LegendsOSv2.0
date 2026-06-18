@@ -1,111 +1,114 @@
 # LegendsOS Walkthrough Fix Ship Report
 
-Date: 2026-06-17
+Date: 2026-06-18
 
 ## Status
 
-Implemented locally on branch `fix/walkthrough-lo-onboarding`.
+The safe, high-impact walkthrough fixes are merged and deployed to production.
 
-Not pushed, merged, or deployed because the required validation gates did not complete locally. `npm run lint`, `npm run typecheck`, and `npm run build` all started, printed their command headers, then stayed silent/idle for multiple minutes until interrupted. Per the ship rule, production deploy is blocked until those gates pass.
+- Production URL: https://legendsos.app
+- PR 41: https://github.com/jeremymac904/LegendsOSv2.0/pull/41
+- PR 42: https://github.com/jeremymac904/LegendsOSv2.0/pull/42
+- Current deployed app commit: `370396a9bc855fb8ecd804db5666b12909784088`
+- Netlify production deploy: `6a334409ef7851000848b265`
+- Netlify deploy URL: https://main--legndsosv20.netlify.app
 
 ## What Was Fixed
 
 1. Login/onboarding branding
-   - Replaced the green/beige fallback brand colors with Legends gold/black/silver direction.
-   - Improved fallback login shell contrast by moving status color tokens away from green.
+   - Replaced the green/beige platform feel with the Legends black, gold, silver, and white direction.
+   - Improved fallback login shell contrast and brand balance.
 
-2. Global light-mode/readability tokens
-   - Adjusted shared Tailwind status colors so “ok/info” states no longer reinforce the old green platform feel.
-   - Preserved dark mode while improving the default Legends visual language.
+2. Global light-mode readability
+   - Improved shared status colors, card surfaces, border contrast, and readable text states.
+   - Preserved dark mode while making light mode safer for onboarding.
 
-3. Settings for loan officers
-   - Added a clear “My Connections” section for Gmail, Google Drive, Google Calendar, and Zapier MCP.
-   - Hid owner/admin setup noise from non-admin users.
-   - Kept provider gateway, theme/branding, external action flags, and help coach setup behind owner/admin scope.
+3. Settings and My Connections
+   - Added a clear loan-officer-friendly My Connections area for Gmail, Google Drive, Google Calendar, and Zapier MCP.
+   - Hid owner/team-only setup noise from non-admin users.
+   - Kept provider gateway, team branding, external action flags, and advanced setup behind owner/admin scope.
 
 4. Zapier MCP truth
-   - Changed saved MCP endpoints from implied “connected” language to “saved / not verified”.
-   - Kept Zapier as the recommended publishing path while avoiding fake live-connected status.
-   - Updated Social/Admin setup status language to distinguish saved MCP endpoint, env key presence, and missing setup.
+   - Changed saved MCP endpoint language from implied connected status to saved/not verified.
+   - Kept Zapier as the recommended social publishing path.
+   - Removed confusing setup-needed language around optional direct Google social APIs.
 
-5. Google Workspace cleanup
-   - Consolidated Gmail, Drive, and Calendar under one Google Workspace area.
-   - Moved Google Social APIs into optional advanced/direct integration language.
-   - Removed setup-needed confusion around direct YouTube/GBP paths for onboarding.
+5. Social publishing truth
+   - Reframed social publishing as draft-only unless Jeremy verifies and enables an external route.
+   - Kept Zapier recommended and direct platform APIs clearly advanced.
 
-6. Social Studio truth
-   - Reframed publishing as draft-only unless Jeremy verifies and enables the external route.
-   - Changed schedule actions to save Zapier/API/manual posting drafts instead of implying live publishing.
+6. Atlas provider reliability
+   - Reordered provider fallback toward DeepSeek/OpenRouter/MiniMax.
+   - Made NVIDIA fallback opt-in instead of surprising users.
+   - Added more actionable provider setup messaging.
 
-7. Atlas provider reliability
-   - Reordered provider fallback to prefer DeepSeek/OpenRouter/MiniMax.
-   - NVIDIA fallback is now opt-in via explicit request or `AI_ENABLE_NVIDIA_FALLBACK`.
-   - Added friendlier provider setup messaging instead of raw provider failure copy.
-
-8. Loan officer navigation and role scope
-   - Removed Marketing Assistant, Email Studio, and LF Resources from default loan officer nav.
+7. Loan officer navigation and role scope
+   - Removed Marketing Assistant, Email Studio, and LF Resources from default LO navigation.
    - Added Connection Center to owner/admin navigation.
-   - Hid admin automation noise from Chief of Staff for non-admin users.
+   - Reduced admin automation noise for loan officers.
 
-9. My Loans intake
-   - Added a manual borrower/loan draft form.
-   - Added CSV import preview, validation, and a downloadable sample CSV template.
-   - Added a local `/api/loans/intake` endpoint that writes borrower/loan/task draft records with audit logging.
-   - Kept this intentionally local and non-LOS/non-CRM: no external writes.
+8. My Loans intake
+   - Added manual borrower/loan draft intake.
+   - Added CSV preview/import validation and a downloadable sample CSV template.
+   - Added local audit logging.
+   - Kept this intentionally non-LOS and non-CRM: no external writes.
+
+9. Atlas workflow polish
+   - Made Atlas projects visible by default.
+   - Added mortgage-specific project starters.
+   - Replaced generic LO shortcuts with borrower, realtor, pipeline, and social draft workflows.
+
+10. Knowledge, Training, and Resources polish
+    - Added clearer Knowledge source trust, provenance, indexed/stored labels, and light-mode-safe cards.
+    - Simplified Training navigation to Feed, Today, Scorecard, and Resources.
+    - Tightened Training Today and Scorecard layouts.
+    - Refocused Marketing Materials as an LO Asset Library.
+    - Hid owner/source project folders from non-owner users.
 
 ## What Was Intentionally Hidden Or Labeled
 
 - Zapier MCP: saved/not verified until a real endpoint is verified.
-- Social publishing: draft-only language unless live publishing flags and routes are verified.
+- Social publishing: draft-only unless live routes are explicitly verified.
 - Google Social APIs: optional advanced direct integration.
-- Loan Brain/live data: no claim added that Drive intelligence or LOS sync is live.
+- Loan Brain/live intelligence: no new claim that Drive intelligence or LOS sync is live.
 - Loan officers: owner/team-only setup controls are hidden from the main Settings experience.
 
 ## What Was Not Safe To Fix Today
 
 - Full AI runtime unification.
 - Live social publishing.
-- Direct Google Business Profile / YouTube destination productionization.
+- Direct Google Business Profile and YouTube destination productionization.
 - LOS-level My Loans complexity.
-- Production smoke/deploy, because required validation did not pass locally.
+- Production database migrations.
+- External CRM, LOS, or social writes.
 
 ## Validation Results
 
-Passed:
+Passed locally in a clean clone:
 
-- TypeScript parser check passed for 17 touched TS/TSX files using `typescript.transpileModule`.
-
-Attempted but blocked:
-
+- `npm ci`
 - `npm run lint`
-  - Started `next lint`.
-  - No diagnostics printed.
-  - Process stayed silent/idle until interrupted.
-
-- Direct ESLint on touched files
-  - Started with the 17 touched files.
-  - No diagnostics printed.
-  - Process stayed silent/idle until interrupted.
-
 - `npm run typecheck`
-  - Started `tsc --noEmit`.
-  - No diagnostics printed.
-  - Process stayed silent/idle for several minutes until interrupted.
+- `npm run build`
 
-- `NEXT_TELEMETRY_DISABLED=1 npm run build`
-  - Started `next build`.
-  - No diagnostics printed.
-  - Process stayed silent/idle until interrupted.
+Passed in GitHub/Netlify:
 
-Not run:
+- PR 42 GitHub Action: `Lint, Typecheck, Build` passed.
+- PR 42 Netlify deploy preview passed.
+- Production Netlify deploy is ready.
 
-- CI checks
-- Netlify preview
-- Production deploy
-- Authenticated production smoke
-- Screenshot proof of the new local UI
+Passed against production:
 
-## Files Changed
+- `PLAYWRIGHT_BASE_URL=https://legendsos.app npx playwright test tests/e2e/smoke.spec.ts tests/e2e/loan-brain-smoke.spec.ts`
+- Result: 27 passed.
+
+Known infrastructure caveat:
+
+- The main-branch Supabase Preview check reported remote/local migration drift: `Remote migration versions not found in local migrations directory.`
+- This was not caused by the walkthrough UI changes; PR 42 did not change `supabase/`.
+- This should be handled as a separate Supabase migration reconciliation task before future schema work.
+
+## Files Changed In PR 41
 
 - `app/(app)/admin/setup/page.tsx`
 - `app/(app)/chief-of-staff/page.tsx`
@@ -126,27 +129,45 @@ Not run:
 - `tailwind.config.ts`
 - `LEGENDSOS_WALKTHROUGH_FIX_SHIP_REPORT.md`
 
-## Screenshots / Proof Paths
+## Files Changed In PR 42
 
-No new screenshots were captured because the local dev/build server did not start successfully; the Next tooling hung before the app could be smoke-tested.
+- `app/(app)/knowledge/[collectionId]/page.tsx`
+- `app/(app)/marketing-materials/[materialId]/page.tsx`
+- `app/(app)/marketing-materials/page.tsx`
+- `app/(app)/training/resources/page.tsx`
+- `app/(app)/training/scorecard/page.tsx`
+- `app/(app)/training/today/page.tsx`
+- `components/atlas/AtlasProjectsPanel.tsx`
+- `components/atlas/AtlasWorkspace.tsx`
+- `components/atlas/LOWorkspace.tsx`
+- `components/resources/ResourceDetail.tsx`
+- `components/resources/ResourceLibrary.tsx`
+- `components/training/AcademyNav.tsx`
+- `components/training/AcademyResources.tsx`
+- `components/training/AcademyScorecard.tsx`
+- `components/training/AcademyToday.tsx`
+- `lib/legends/academyContent.ts`
 
-## Exact Things Jeremy Should Test Before Onboarding
+## Manual Owner Click Testing
 
-After validation gates pass and this branch is deployed:
+Before team onboarding, Jeremy should manually verify:
 
-1. Log in as owner and loan officer.
-2. Open Dashboard.
-3. Open Chief of Staff as owner and as loan officer; confirm loan officer does not see admin automation noise.
-4. Open Atlas; confirm provider errors are actionable and no NVIDIA fallback surprise appears.
-5. Open Settings; confirm “My Connections” is clear and loan officers do not see owner-only setup clutter.
-6. Open Zapier MCP Settings; confirm saved endpoints say saved/not verified until actually verified.
-7. Open My Loans; add one manual borrower/loan draft.
-8. Download the sample CSV and import one valid CSV row.
-9. Open Social Studio; confirm it reads draft-only and Zapier recommended.
-10. Confirm Training and Knowledge still render.
+1. Log in as owner.
+2. Log in as at least one loan officer.
+3. Open Dashboard, Chief of Staff, Atlas, Settings, My Connections, My Loans, Training, Knowledge, and LO Asset Library.
+4. Confirm LO Settings does not show owner-only setup clutter.
+5. Confirm Atlas project starters feel useful for LO workflows.
+6. Add one manual My Loans draft.
+7. Download the sample CSV and preview one valid import.
+8. Confirm Zapier MCP says saved/not verified unless a real MCP connection has been verified.
+9. Confirm Social Studio reads as draft-only and does not imply live publishing.
+10. Confirm Training resource playback and Knowledge source cards feel clear.
 
 ## Go / No-Go Recommendation
 
-NO-GO for shipping this fix set until `npm run lint`, `npm run typecheck`, and `npm run build` complete successfully.
+GO for guided team onboarding, with clear talking points:
 
-GO for continued local repair from this branch once the local toolchain hang is resolved or CI validates the branch in GitHub.
+- Atlas, Training, Knowledge, My Loans draft intake, Settings/My Connections, and the LO Asset Library are safe to demo.
+- Social publishing should be described as draft-first with Zapier recommended.
+- Loan Brain and automations should not be presented as live LOS/Drive intelligence unless Jeremy has verified the connected data path.
+- Direct Google social destination discovery should not be demoed as a required setup path.
