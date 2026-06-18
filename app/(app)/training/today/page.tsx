@@ -20,11 +20,11 @@ export default async function Page() {
   const firstName = profile.full_name?.trim().split(/\s+/)[0] ?? "";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <SectionHeader
         eyebrow="Legends Mortgage Academy"
         title="Today"
-        description="Your daily theme-day workspace. Protect your block, log the day's activity, and watch Jeremy's daily coaching video. Numeric fields roll straight into your weekly Scorecard."
+        description="Daily coaching video, time block, tasks, scorecard rollup, and resources in one focused workspace."
         action={<span className="chip-active">Academy · Today</span>}
       />
       <AcademyNav />

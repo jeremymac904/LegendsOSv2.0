@@ -135,7 +135,7 @@ export function AcademyToday({ firstName }: { firstName: string }) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Day tabs */}
       <nav className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 scrollbar-thin">
         {todayDays.map((d) => {
@@ -162,24 +162,24 @@ export function AcademyToday({ firstName }: { firstName: string }) {
         })}
       </nav>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
         {/* Main: theme, video, fields, save */}
-        <section className="space-y-5">
+        <section className="space-y-4">
           <div className="glass-card-padded">
             <p className="label flex items-center gap-1.5">
               <Sparkles size={12} className="text-accent-champagne" />
               {day.day} · {day.theme}
             </p>
-            <h2 className="mt-1.5 text-2xl font-semibold text-ink-900 dark:text-ink-100">
+            <h2 className="mt-1 text-xl font-semibold text-ink-900 dark:text-ink-100">
               {day.theme}
             </h2>
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-600 dark:text-ink-300">
+            <p className="mt-1.5 max-w-2xl text-[13px] leading-relaxed text-ink-600 dark:text-ink-300">
               {day.instruction}
             </p>
 
             {/* Jeremy's daily coaching video (HeyGen) */}
             {video && (
-              <div className="mt-4 aspect-video w-full overflow-hidden rounded-2xl border border-accent-champagne/20 bg-black">
+              <div className="mt-3 aspect-video w-full overflow-hidden rounded-xl border border-accent-champagne/20 bg-black">
                 <iframe
                   key={video.embedUrl}
                   src={video.embedUrl}
@@ -192,7 +192,7 @@ export function AcademyToday({ firstName }: { firstName: string }) {
             )}
 
             {/* Log fields */}
-            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
               {day.fields.map((field) => {
                 const isLong = field.kind === "long";
                 return (
@@ -213,8 +213,8 @@ export function AcademyToday({ firstName }: { firstName: string }) {
                         aria-label={field.label}
                         value={form[field.key] ?? ""}
                         onChange={(e) => updateField(field.key, e.target.value)}
-                        rows={3}
-                        className="input mt-1.5 min-h-24 resize-y"
+                        rows={2}
+                        className="input mt-1.5 min-h-20 resize-y"
                       />
                     ) : (
                       <input
@@ -233,7 +233,7 @@ export function AcademyToday({ firstName }: { firstName: string }) {
             </div>
 
             {/* Save row */}
-            <div className="mt-5 flex flex-col gap-3 border-t border-accent-champagne/15 pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="mt-4 flex flex-col gap-3 border-t border-accent-champagne/15 pt-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <p className="text-[12px] font-medium text-ink-600 dark:text-ink-300">
                   {filled} of {day.fields.length} fields filled
@@ -266,7 +266,7 @@ export function AcademyToday({ firstName }: { firstName: string }) {
                 point at the Scorecard submit; every other day points at the
                 day's Feed question. */}
             {(justSaved || saved) && (
-              <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-accent-gold/25 bg-accent-gold/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="mt-3 flex flex-col gap-3 rounded-xl border border-accent-gold/25 bg-accent-gold/10 p-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   <p className="label flex items-center gap-1.5">
                     <ArrowRight size={12} className="text-accent-gold" />
@@ -291,7 +291,7 @@ export function AcademyToday({ firstName }: { firstName: string }) {
         </section>
 
         {/* Sidebar: tools + accountability + community */}
-        <aside className="space-y-4 lg:sticky lg:top-4 lg:self-start">
+        <aside className="space-y-3 lg:sticky lg:top-4 lg:self-start">
           <div className="glass-card-padded">
             <p className="label flex items-center gap-1.5">
               <Wrench size={12} className="text-accent-champagne" />
@@ -364,7 +364,7 @@ export function AcademyToday({ firstName }: { firstName: string }) {
             </label>
           </div>
 
-          <div className="rounded-2xl border border-accent-champagne/15 bg-ink-950/30 p-5">
+          <div className="rounded-xl border border-ink-200 bg-white/65 p-4 dark:border-accent-champagne/15 dark:bg-ink-950/30">
             <p className="label">Community prompt</p>
             <p className="mt-2 text-[12.5px] leading-relaxed text-ink-600 dark:text-ink-300">
               {day.communityPrompt}

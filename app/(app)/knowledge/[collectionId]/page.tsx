@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, FileText, Pencil } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Database, FileText, Pencil } from "lucide-react";
 
 import { CreateKnowledgeItem } from "@/components/knowledge/CreateKnowledgeItem";
 import { KnowledgeUploadCard } from "@/components/knowledge/KnowledgeUploadCard";
@@ -99,23 +99,53 @@ export default async function CollectionPage({
               description="Upload a PDF, DOCX, image, or any reference file using the card above."
             />
           ) : (
-            fileItems.map((it) => (
-              <div
-                key={it.id}
-                className="flex items-start justify-between gap-3 rounded-xl border border-ink-800 bg-ink-900/40 p-3"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-ink-100">
-                    {it.title}
-                  </p>
-                  <p className="text-[11px] text-ink-300">
-                    {(it.metadata as { mime_type?: string })?.mime_type ?? "file"} ·{" "}
-                    {formatRelative(it.created_at)}
-                  </p>
+            fileItems.map((it) => {
+              const metadata = (it.metadata ?? {}) as {
+                mime_type?: string;
+                extracted_text?: boolean;
+                storage_bucket?: string;
+                storage_path?: string;
+                size_bytes?: number;
+              };
+              const indexed = Boolean(metadata.extracted_text);
+              return (
+                <div
+                  key={it.id}
+                  className="rounded-xl border border-ink-200 bg-white/65 p-3 dark:border-ink-800 dark:bg-ink-900/40"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-ink-900 dark:text-ink-100">
+                        {it.title}
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-ink-600 dark:text-ink-300">
+                        {metadata.mime_type ?? "file"} · added {formatRelative(it.created_at)}
+                      </p>
+                    </div>
+                    <span className={indexed ? "chip-ok text-[10px]" : "chip text-[10px]"}>
+                      {indexed ? "indexed" : "stored"}
+                    </span>
+                  </div>
+                  <div className="mt-2 grid gap-1.5 text-[10.5px] text-ink-600 dark:text-ink-300">
+                    <p className="flex items-center gap-1.5">
+                      {indexed ? (
+                        <CheckCircle2 size={11} className="text-status-ok" />
+                      ) : (
+                        <Database size={11} className="text-status-warn" />
+                      )}
+                      {indexed
+                        ? "Atlas can keyword-search this file's text."
+                        : "Stored as a source file. Atlas can match the title until text extraction is added."}
+                    </p>
+                    {metadata.storage_path && (
+                      <p className="truncate">
+                        Source: {metadata.storage_bucket ?? "knowledge"}/{metadata.storage_path}
+                      </p>
+                    )}
+                  </div>
                 </div>
-                <span className="chip text-[10px]">file</span>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </section>
@@ -138,21 +168,21 @@ export default async function CollectionPage({
             noteItems.map((it) => (
               <div
                 key={it.id}
-                className="rounded-xl border border-ink-800 bg-ink-900/40 p-3"
+                className="rounded-xl border border-ink-200 bg-white/65 p-3 dark:border-ink-800 dark:bg-ink-900/40"
               >
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-medium text-ink-100">{it.title}</p>
-                  <span className="chip text-[10px]">
+                  <p className="text-sm font-medium text-ink-900 dark:text-ink-100">{it.title}</p>
+                  <span className="chip-ok text-[10px]">
                     {it.source_type ?? "note"}
                   </span>
                 </div>
                 {it.content && (
-                  <p className="mt-2 line-clamp-3 text-xs text-ink-300">
+                  <p className="mt-2 line-clamp-3 text-xs text-ink-700 dark:text-ink-300">
                     {it.content}
                   </p>
                 )}
-                <p className="mt-2 text-[10px] uppercase tracking-[0.18em] text-ink-400">
-                  Added {formatDate(it.created_at)}
+                <p className="mt-2 text-[10px] uppercase tracking-[0.18em] text-ink-500 dark:text-ink-400">
+                  Indexed text · Added {formatDate(it.created_at)}
                 </p>
               </div>
             ))
@@ -162,4 +192,3 @@ export default async function CollectionPage({
     </div>
   );
 }
-

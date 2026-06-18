@@ -188,7 +188,7 @@ export function ResourceLibrary({
               <Filter size={12} />
               Library filters
             </p>
-            <p className="mt-1 text-xs text-ink-300">
+            <p className="mt-1 text-xs text-ink-600 dark:text-ink-300">
               Search title, tags, category, audience, department, or usage notes.
             </p>
           </div>
@@ -290,12 +290,12 @@ export function ResourceLibrary({
       <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
         {filtered.length === 0 ? (
           <div className="card-padded md:col-span-2 2xl:col-span-3">
-            <div className="rounded-2xl border border-dashed border-accent-champagne/20 bg-ink-950/30 p-6 text-center">
+            <div className="rounded-2xl border border-dashed border-ink-300 bg-white/65 p-6 text-center dark:border-accent-champagne/20 dark:bg-ink-950/30">
               <FileText className="mx-auto text-accent-gold" size={26} />
-              <h2 className="mt-3 text-base font-semibold text-ink-100">
+              <h2 className="mt-3 text-base font-semibold text-ink-900 dark:text-ink-100">
                 {emptyTitle}
               </h2>
-              <p className="mx-auto mt-1 max-w-xl text-sm text-ink-300">
+              <p className="mx-auto mt-1 max-w-xl text-sm text-ink-600 dark:text-ink-300">
                 {emptyDescription}
               </p>
             </div>
@@ -312,14 +312,20 @@ export function ResourceLibrary({
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="chip-active">{item.category}</span>
-                      <span className="chip">{item.format ?? item.resourceType}</span>
-                      {item.source === "shared" && <span className="chip">team shared</span>}
+                      <button
+                        type="button"
+                        onClick={() => setCategory(item.category)}
+                        className="chip-active hover:bg-accent-gold/20"
+                        title={`Filter ${item.category}`}
+                      >
+                        {item.category}
+                      </button>
+                      {item.source === "shared" && <span className="chip-ok">team shared</span>}
                     </div>
-                    <h2 className="mt-3 text-base font-semibold text-ink-100">
+                    <h2 className="mt-3 text-base font-semibold text-ink-900 dark:text-ink-100">
                       {item.title}
                     </h2>
-                    <p className="mt-1 text-sm leading-relaxed text-ink-300">
+                    <p className="mt-1 text-sm leading-relaxed text-ink-700 dark:text-ink-300">
                       {item.description}
                     </p>
                   </div>
@@ -328,22 +334,17 @@ export function ResourceLibrary({
                       <PlayCircle size={18} />
                     </span>
                   ) : (
-                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-accent-champagne/10 bg-ink-950/40 text-ink-300">
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-ink-200 bg-ink-50 text-ink-600 dark:border-accent-champagne/10 dark:bg-ink-950/40 dark:text-ink-300">
                       <FileText size={18} />
                     </span>
                   )}
                 </div>
 
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  {item.audience && <span className="chip">Audience: {item.audience}</span>}
-                  {item.department && <span className="chip">{item.department}</span>}
-                  {item.durationMinutes && <span className="chip">{item.durationMinutes} min</span>}
-                  {item.tags.slice(0, 4).map((tag) => (
-                    <span key={tag} className="chip">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
+                <p className="mt-3 line-clamp-2 text-[11px] leading-relaxed text-ink-600 dark:text-ink-400">
+                  {[item.format ?? item.resourceType, item.audience, item.department, item.durationMinutes ? `${item.durationMinutes} min` : null, ...item.tags.slice(0, 3)]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
 
                 <div className="mt-4 flex flex-wrap items-center gap-2">
                   <Link href={detailHref} className="btn-primary h-9 px-3 text-xs">
@@ -352,7 +353,7 @@ export function ResourceLibrary({
                   <Link href={detailHref} className="btn-secondary h-9 px-3 text-xs">
                     {labels.secondary}
                   </Link>
-                  {item.url && (
+                  {owner && item.url && (
                     <a
                       href={item.url}
                       target="_blank"

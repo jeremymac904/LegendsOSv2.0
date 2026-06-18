@@ -140,10 +140,10 @@ export function AcademyScorecard({ firstName }: { firstName: string }) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Summary strip */}
       <section className="glass-card-padded">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <p className="label flex items-center gap-1.5">
@@ -155,16 +155,16 @@ export function AcademyScorecard({ firstName }: { firstName: string }) {
                 </span>
               )}
             </div>
-            <h2 className="mt-1 text-2xl font-semibold text-ink-900 dark:text-ink-100">
+            <h2 className="mt-1 text-xl font-semibold text-ink-900 dark:text-ink-100">
               {firstName ? `${firstName}, ` : ""}you&apos;re at {overall}% of goal
             </h2>
-            <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-ink-600 dark:text-ink-300">
+            <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-ink-600 dark:text-ink-300">
               Overall completion is the average of every metric&apos;s pace, capped
               at goal. Keep the conversations moving and the rest follows.
             </p>
           </div>
           {conversations && (
-            <div className="shrink-0 rounded-2xl border border-accent-champagne/20 bg-ink-50 px-5 py-4 text-center dark:bg-ink-950/40">
+            <div className="shrink-0 rounded-xl border border-accent-champagne/20 bg-ink-50 px-4 py-3 text-center dark:bg-ink-950/40">
               <p className="label">Real conversations</p>
               <p className="mt-1 text-3xl font-bold tabular-nums text-accent-champagne">
                 {conversations.total}
@@ -180,8 +180,8 @@ export function AcademyScorecard({ firstName }: { firstName: string }) {
           )}
         </div>
 
-        <div className="mt-5 flex items-center gap-3">
-          <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-ink-200/70 dark:bg-ink-800/70">
+        <div className="mt-4 flex items-center gap-3">
+          <div className="h-2 flex-1 overflow-hidden rounded-full bg-ink-200/70 dark:bg-ink-800/70">
             <div
               className={
                 "h-full rounded-full transition-all duration-500 " +
@@ -210,8 +210,8 @@ export function AcademyScorecard({ firstName }: { firstName: string }) {
           Daily numbers you log in Today roll in here automatically.
         </p>
 
-        <div className="-mx-1 mt-4 overflow-x-auto px-1 scrollbar-thin">
-          <table className="w-full min-w-[760px] border-collapse text-left text-sm">
+        <div className="-mx-1 mt-3 overflow-x-auto px-1 scrollbar-thin">
+          <table className="w-full min-w-[720px] border-collapse text-left text-xs">
             <thead>
               <tr className="border-b border-accent-champagne/20">
                 <th className="py-2.5 pr-3 text-left">
@@ -239,11 +239,11 @@ export function AcademyScorecard({ firstName }: { firstName: string }) {
                   key={metric.key}
                   className="border-b border-ink-200/70 last:border-b-0 dark:border-accent-champagne/10"
                 >
-                  <td className="py-2.5 pr-3 font-medium text-ink-900 dark:text-ink-100">
+                  <td className="py-2 pr-3 font-medium text-ink-900 dark:text-ink-100">
                     {metric.metric}
                   </td>
                   {scorecardDays.map((day, dayIdx) => (
-                    <td key={`${metric.key}-${day}`} className="px-2 py-2.5 text-center">
+                    <td key={`${metric.key}-${day}`} className="px-1.5 py-2 text-center">
                       <input
                         aria-label={`${metric.metric} ${day}`}
                         type="number"
@@ -253,17 +253,17 @@ export function AcademyScorecard({ firstName }: { firstName: string }) {
                         onChange={(e) =>
                           setCell(metric.key, dayIdx, Number(e.target.value))
                         }
-                        className="h-9 w-14 rounded-lg border border-ink-700/80 bg-ink-950/50 px-2 text-center text-sm font-semibold tabular-nums text-ink-100 backdrop-blur-sm focus:border-accent-champagne/60 focus:outline-none focus:ring-2 focus:ring-accent-gold/20"
+                        className="h-8 w-12 rounded-lg border border-ink-300 bg-white px-2 text-center text-xs font-semibold tabular-nums text-ink-900 backdrop-blur-sm focus:border-accent-champagne/60 focus:outline-none focus:ring-2 focus:ring-accent-gold/20 dark:border-ink-700/80 dark:bg-ink-950/50 dark:text-ink-100"
                       />
                     </td>
                   ))}
-                  <td className="px-2 py-2.5 text-center font-bold tabular-nums text-ink-900 dark:text-ink-100">
+                  <td className="px-2 py-2 text-center font-bold tabular-nums text-ink-900 dark:text-ink-100">
                     {metric.total}
                   </td>
-                  <td className="px-2 py-2.5 text-center tabular-nums text-ink-600 dark:text-ink-400">
+                  <td className="px-2 py-2 text-center tabular-nums text-ink-600 dark:text-ink-400">
                     {metric.goal}
                   </td>
-                  <td className="px-2 py-2.5">
+                  <td className="px-2 py-2">
                     <div className="flex items-center gap-2">
                       <div className="h-1.5 w-16 overflow-hidden rounded-full bg-ink-200/70 dark:bg-ink-800/70">
                         <div
@@ -298,7 +298,7 @@ export function AcademyScorecard({ firstName }: { firstName: string }) {
           <p>Close the loop before next week.</p>
         </div>
 
-        <div className="mt-4 grid gap-4 lg:grid-cols-3">
+        <div className="mt-3 grid gap-3 lg:grid-cols-3">
           {REFLECTION_FIELDS.map((field) => (
             <label key={field.key} className="block space-y-2">
               <span className="field-label block">{field.label}</span>
@@ -306,7 +306,7 @@ export function AcademyScorecard({ firstName }: { firstName: string }) {
                 value={reflection[field.key]}
                 onChange={(e) => setReflection(field.key, e.target.value)}
                 placeholder={field.placeholder}
-                className="textarea min-h-28"
+                className="textarea min-h-20"
               />
             </label>
           ))}

@@ -26,7 +26,7 @@ interface ResourceDetailProps {
 }
 
 function libraryHref(mode: TeamResourceMode): string {
-  if (mode === "training") return "/training";
+  if (mode === "training") return "/training/resources";
   if (mode === "marketing") return "/marketing-materials";
   return "/lf-resources";
 }
@@ -144,42 +144,36 @@ export function ResourceDetail({
               <Sparkles size={12} />
               {labels.eyebrow}
             </p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-ink-100">
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-ink-900 dark:text-ink-100">
               {item.title}
             </h1>
-            <p className="mt-3 max-w-3xl text-sm leading-relaxed text-ink-300">
+            <p className="mt-3 max-w-3xl text-sm leading-relaxed text-ink-700 dark:text-ink-300">
               {item.detail?.summary ?? item.description}
             </p>
-            <div className="mt-4 flex flex-wrap gap-1.5">
+            <div className="mt-4 flex flex-wrap gap-1.5" aria-label="Resource metadata">
               <span className="chip-active">{item.category}</span>
               <span className="chip">{item.format ?? item.resourceType}</span>
               {item.audience && <span className="chip">Audience: {item.audience}</span>}
-              {item.department && <span className="chip">{item.department}</span>}
-              {item.tags.slice(0, 5).map((tag) => (
-                <span key={tag} className="chip">
-                  {tag}
-                </span>
-              ))}
             </div>
           </div>
-          <aside className="rounded-2xl border border-accent-champagne/10 bg-ink-950/30 p-4 backdrop-blur-sm">
+          <aside className="rounded-2xl border border-ink-200 bg-white/65 p-4 backdrop-blur-sm dark:border-accent-champagne/10 dark:bg-ink-950/30">
             <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent-champagne">
               {labels.primary}
             </p>
             <dl className="mt-3 space-y-3 text-xs">
               <div>
-                <dt className="text-ink-400">Use case</dt>
-                <dd className="mt-1 text-ink-100">
+                <dt className="text-ink-500 dark:text-ink-400">Use case</dt>
+                <dd className="mt-1 text-ink-900 dark:text-ink-100">
                   {item.detail?.useCase ?? item.intendedUse ?? "Use this as a guided team resource."}
                 </dd>
               </div>
               <div>
-                <dt className="text-ink-400">Format</dt>
-                <dd className="mt-1 text-ink-100">{item.format ?? item.resourceType}</dd>
+                <dt className="text-ink-500 dark:text-ink-400">Format</dt>
+                <dd className="mt-1 text-ink-900 dark:text-ink-100">{item.format ?? item.resourceType}</dd>
               </div>
               <div>
-                <dt className="text-ink-400">Primary action</dt>
-                <dd className="mt-1 text-ink-100">
+                <dt className="text-ink-500 dark:text-ink-400">Primary action</dt>
+                <dd className="mt-1 text-ink-900 dark:text-ink-100">
                   Start with this internal guide. Open the source link only when you need the raw file.
                 </dd>
               </div>
@@ -248,10 +242,10 @@ export function ResourceDetail({
             {item.detail.copyBlocks.map((block) => (
               <article
                 key={block.title}
-                className="rounded-2xl border border-accent-champagne/10 bg-ink-950/30 p-4 backdrop-blur-sm"
+                className="rounded-2xl border border-ink-200 bg-white/65 p-4 backdrop-blur-sm dark:border-accent-champagne/10 dark:bg-ink-950/30"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <h3 className="text-sm font-semibold text-ink-100">{block.title}</h3>
+                  <h3 className="text-sm font-semibold text-ink-900 dark:text-ink-100">{block.title}</h3>
                   <button
                     type="button"
                     className="btn-ghost h-8 px-2 text-[11px]"
@@ -261,7 +255,7 @@ export function ResourceDetail({
                     {copied === block.title ? "Copied" : "Copy"}
                   </button>
                 </div>
-                <p className="mt-3 whitespace-pre-wrap text-xs leading-relaxed text-ink-300">
+                <p className="mt-3 whitespace-pre-wrap text-xs leading-relaxed text-ink-700 dark:text-ink-300">
                   {block.body}
                 </p>
               </article>
@@ -298,13 +292,13 @@ export function ResourceDetail({
               <Link
                 key={related.id}
                 href={routeForResource(mode, related.id)}
-                className="rounded-2xl border border-accent-champagne/10 bg-ink-950/30 p-4 transition hover:border-accent-champagne/30"
+                className="rounded-2xl border border-ink-200 bg-white/65 p-4 transition hover:border-accent-champagne/30 dark:border-accent-champagne/10 dark:bg-ink-950/30"
               >
                 <FileText size={16} className="text-accent-champagne" />
-                <p className="mt-3 text-sm font-semibold text-ink-100">
+                <p className="mt-3 text-sm font-semibold text-ink-900 dark:text-ink-100">
                   {related.title}
                 </p>
-                <p className="mt-1 line-clamp-2 text-xs text-ink-300">
+                <p className="mt-1 line-clamp-2 text-xs text-ink-600 dark:text-ink-300">
                   {related.description}
                 </p>
               </Link>
@@ -334,12 +328,12 @@ function DetailPanel({
         tone === "warn" && "border-status-warn/25 bg-status-warn/5"
       )}
     >
-      <h2 className="text-sm font-semibold text-ink-100">{title}</h2>
-      {body && <p className="mt-2 text-sm leading-relaxed text-ink-300">{body}</p>}
+      <h2 className="text-sm font-semibold text-ink-900 dark:text-ink-100">{title}</h2>
+      {body && <p className="mt-2 text-sm leading-relaxed text-ink-700 dark:text-ink-300">{body}</p>}
       {items && items.length > 0 && (
         <ul className="mt-3 space-y-2">
           {items.map((entry) => (
-            <li key={entry} className="flex gap-2 text-sm leading-relaxed text-ink-300">
+            <li key={entry} className="flex gap-2 text-sm leading-relaxed text-ink-700 dark:text-ink-300">
               <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-accent-champagne" />
               <span>{entry}</span>
             </li>

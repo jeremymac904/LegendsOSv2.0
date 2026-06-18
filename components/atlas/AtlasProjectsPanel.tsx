@@ -73,6 +73,69 @@ const VISIBILITY_OPTIONS: { value: AssistantVisibility; label: string }[] = [
   { value: "owner_only", label: "Owner only" },
 ];
 
+const PROJECT_STARTERS = [
+  {
+    name: "Buyer Consult Prep",
+    description: "Prepare buyer calls, document asks, questions, and follow-up.",
+    tasks: [
+      "Summarize buyer goals and timeline",
+      "Create consult agenda",
+      "Draft document request",
+      "Write follow-up email and text",
+    ],
+    instructions:
+      "Act as a mortgage loan officer prep partner. Keep advice educational, avoid rate or approval promises, and produce clear borrower-facing next steps.",
+  },
+  {
+    name: "Realtor Outreach",
+    description: "Plan realtor partner touches, value-add messages, and event ideas.",
+    tasks: [
+      "Draft partner outreach",
+      "Create local education angle",
+      "Plan co-branded buyer event",
+      "Write follow-up cadence",
+    ],
+    instructions:
+      "Help a loan officer build useful realtor partner communication. Keep copy professional, local, specific, and compliant.",
+  },
+  {
+    name: "Preapproval Checklist",
+    description: "Keep preapproval tasks, borrower questions, and doc gaps together.",
+    tasks: [
+      "Explain preapproval steps",
+      "Create borrower checklist",
+      "Identify missing docs",
+      "Draft status update",
+    ],
+    instructions:
+      "Organize preapproval work into simple checklists and borrower-safe explanations. Do not imply approval or underwriting certainty.",
+  },
+  {
+    name: "Pipeline Review",
+    description: "Review next actions, stuck files, follow-up, and weekly focus.",
+    tasks: [
+      "Prioritize hot leads",
+      "Find stalled follow-ups",
+      "Create weekly call list",
+      "Draft next-action plan",
+    ],
+    instructions:
+      "Act as a loan officer pipeline coach. Focus on next actions, borrower communication, and practical weekly execution.",
+  },
+  {
+    name: "Social Drafts",
+    description: "Create draft-only social posts, captions, scripts, and content ideas.",
+    tasks: [
+      "Draft compliant educational posts",
+      "Create short video scripts",
+      "Repurpose market education",
+      "Plan follow-up CTA",
+    ],
+    instructions:
+      "Draft mortgage-safe educational marketing copy. No live publishing, rate quotes, payment claims, guarantees, or approval promises.",
+  },
+];
+
 function taskLines(metadata: Record<string, unknown> | null | undefined): string[] {
   const raw = metadata?.tasks;
   if (!Array.isArray(raw)) return [];
@@ -146,6 +209,20 @@ export function AtlasProjectsPanel({
 
   function startNew() {
     setDraft(newDraft());
+    setSelectedKnowledgeIds([]);
+    setError(null);
+    setInfo(null);
+    setEditorOpen(true);
+  }
+
+  function startFromTemplate(template: (typeof PROJECT_STARTERS)[number]) {
+    setDraft({
+      ...newDraft(),
+      name: template.name,
+      description: template.description,
+      instructions: template.instructions,
+      tasksText: template.tasks.join("\n"),
+    });
     setSelectedKnowledgeIds([]);
     setError(null);
     setInfo(null);
@@ -310,8 +387,13 @@ export function AtlasProjectsPanel({
 
       <div className="space-y-2 p-3">
         {visibleProjects.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-ink-200 dark:border-ink-700 bg-white/30 dark:bg-ink-900/30 p-3 text-[11px] text-ink-600 dark:text-ink-300">
-            Create a project to bind instructions, up to 40 knowledge collections, and project chats.
+          <div className="rounded-xl border border-dashed border-ink-200 bg-white/50 p-3 text-[11px] text-ink-700 dark:border-ink-700 dark:bg-ink-900/30 dark:text-ink-300">
+            <p className="font-semibold text-ink-900 dark:text-ink-100">
+              Create your first Atlas project.
+            </p>
+            <p className="mt-1 leading-relaxed">
+              Projects bind instructions, selected knowledge, and scoped chats so borrower, realtor, and campaign work stays organized.
+            </p>
           </div>
         ) : (
           visibleProjects.map((project) => {
@@ -375,6 +457,26 @@ export function AtlasProjectsPanel({
             );
           })
         )}
+        <div className="rounded-xl border border-ink-200 bg-white/45 p-2.5 dark:border-ink-800 dark:bg-ink-900/30">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-600 dark:text-ink-300">
+            LO project starters
+          </p>
+          <div className="mt-2 grid gap-1.5">
+            {PROJECT_STARTERS.map((starter) => (
+              <button
+                key={starter.name}
+                type="button"
+                onClick={() => startFromTemplate(starter)}
+                className="rounded-lg border border-ink-200 bg-white/60 px-2 py-1.5 text-left text-[10.5px] text-ink-800 transition hover:border-accent-gold/40 hover:bg-accent-gold/10 hover:text-ink-950 dark:border-ink-800 dark:bg-ink-950/40 dark:text-ink-200 dark:hover:text-ink-100"
+              >
+                <span className="block font-medium">{starter.name}</span>
+                <span className="mt-0.5 block truncate text-ink-500 dark:text-ink-400">
+                  {starter.description}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       <div className="border-t border-ink-200 dark:border-ink-800 p-3">
