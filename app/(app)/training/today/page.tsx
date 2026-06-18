@@ -1,6 +1,5 @@
 import { AcademyNav } from "@/components/training/AcademyNav";
 import { AcademyToday } from "@/components/training/AcademyToday";
-import { SectionHeader } from "@/components/ui/SectionHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { getEffectiveProfile } from "@/lib/impersonation";
 
@@ -20,14 +19,21 @@ export default async function Page() {
   const firstName = profile.full_name?.trim().split(/\s+/)[0] ?? "";
 
   return (
-    <div className="space-y-4">
-      <SectionHeader
-        eyebrow="Legends Mortgage Academy"
-        title="Today"
-        description="Daily coaching video, time block, tasks, scorecard rollup, and resources in one focused workspace."
-        action={<span className="chip-active">Academy · Today</span>}
-      />
-      <AcademyNav />
+    <div className="flex h-[calc(100dvh-7rem)] min-h-[650px] flex-col gap-3 overflow-hidden">
+      <div className="flex shrink-0 flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+        <div className="min-w-0">
+          <p className="label">Legends Mortgage Academy</p>
+          <h1 className="mt-1 text-2xl font-semibold text-ink-900 dark:text-ink-50">
+            Today
+          </h1>
+          <p className="mt-1 max-w-2xl text-[12.5px] leading-relaxed text-ink-600 dark:text-ink-300">
+            Daily execution dashboard: coaching, scorecard, accountability, and next actions.
+          </p>
+        </div>
+        <div className="shrink-0">
+          <AcademyNav />
+        </div>
+      </div>
       <AcademyToday firstName={firstName} />
     </div>
   );
