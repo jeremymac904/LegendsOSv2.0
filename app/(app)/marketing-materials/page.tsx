@@ -17,23 +17,6 @@ import { EmptyState } from "@/components/ui/EmptyState";
 
 export const dynamic = "force-dynamic";
 
-const MATERIAL_GROUPS = [
-  "Webinar templates",
-  "First time homebuyer guides",
-  "Real estate agent guides",
-  "YouTube and podcast topic templates",
-  "First time homebuyer seminar materials",
-  "Real estate AI seminar materials",
-  "Buyer education handouts",
-  "Realtor co-branded campaign templates",
-  "Email newsletter templates",
-  "Social campaign packs",
-  "Open house materials",
-  "Listing marketing support",
-  "Presentation outlines",
-  "Script templates",
-];
-
 export default async function MarketingMaterialsPage() {
   const { profile } = await getEffectiveProfile();
   if (!profile) {
@@ -55,14 +38,19 @@ export default async function MarketingMaterialsPage() {
     .order("updated_at", { ascending: false });
 
   const sharedItems = ((data ?? []) as SharedResource[]).map(resourceFromShared);
-  const items = [...sharedItems, ...DEFAULT_MARKETING_MATERIALS];
+  const items = [
+    ...sharedItems,
+    ...DEFAULT_MARKETING_MATERIALS.filter((item) =>
+      owner ? true : item.id !== "marketing-project-folder"
+    ),
+  ];
 
   return (
     <div className="space-y-6">
       <SectionHeader
         eyebrow="Marketing Materials"
-        title="Mortgage campaign asset library"
-        description="Templates, scripts, guides, seminar outlines, and campaign packs loan officers can customize without starting from scratch."
+        title="LO Asset Library"
+        description="Guides, slide-deck outlines, scripts, handouts, social captions, and compliance-safe campaign starters loan officers can use inside LegendsOS."
         action={
           <span className="chip-active">
             {owner ? "Owner upload ready" : "Team templates"}
@@ -75,15 +63,15 @@ export default async function MarketingMaterialsPage() {
           <div>
             <p className="label flex items-center gap-2">
               <Megaphone size={13} />
-              Campaign kits
+              Ready-to-use materials
             </p>
-            <h2 className="mt-2 text-2xl font-semibold text-ink-100">
-              Give every LO a polished starting point.
+            <h2 className="mt-2 text-2xl font-semibold text-ink-900 dark:text-ink-100">
+              Start from a guide, deck outline, script, or copy block.
             </h2>
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-300">
-              Find webinar outlines, buyer education handouts, realtor
-              co-branded campaigns, social packs, newsletter starters, open
-              house materials, presentation structures, and scripts.
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-700 dark:text-ink-300">
+              This library hides raw source folders from loan officers and opens
+              usable internal detail pages first. Source links stay secondary
+              for owners or when the original file is truly needed.
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
@@ -91,22 +79,6 @@ export default async function MarketingMaterialsPage() {
             <HeroStat icon={Palette} label="Brand" value="Mortgage safe" />
             <HeroStat icon={Presentation} label="Use" value="Customize or copy" />
           </div>
-        </div>
-      </section>
-
-      <section className="card-padded">
-        <div className="section-title">
-          <div>
-            <h2>Material types</h2>
-            <p>Coverage areas for the team library.</p>
-          </div>
-        </div>
-        <div className="mt-4 flex flex-wrap gap-2">
-          {MATERIAL_GROUPS.map((group) => (
-            <span key={group} className="chip">
-              {group}
-            </span>
-          ))}
         </div>
       </section>
 
@@ -144,16 +116,16 @@ function HeroStat({
   value: string;
 }) {
   return (
-    <div className="rounded-xl border border-accent-champagne/10 bg-ink-950/30 p-3 backdrop-blur-sm">
+    <div className="rounded-xl border border-ink-200 bg-white/65 p-3 backdrop-blur-sm dark:border-accent-champagne/10 dark:bg-ink-950/30">
       <div className="flex items-center gap-2">
         <span className="grid h-8 w-8 place-items-center rounded-lg border border-accent-champagne/20 bg-accent-gold/10 text-accent-champagne">
           <Icon size={15} />
         </span>
-        <p className="text-[10px] uppercase tracking-[0.18em] text-ink-400">
+        <p className="text-[10px] uppercase tracking-[0.18em] text-ink-500 dark:text-ink-400">
           {label}
         </p>
       </div>
-      <p className="mt-3 text-sm font-semibold text-ink-100">{value}</p>
+      <p className="mt-3 text-sm font-semibold text-ink-900 dark:text-ink-100">{value}</p>
     </div>
   );
 }

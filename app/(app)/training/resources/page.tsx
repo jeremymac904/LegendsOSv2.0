@@ -17,11 +17,11 @@ export default async function Page() {
     );
   const firstName = profile.full_name?.trim().split(/\s+/)[0] ?? "";
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <SectionHeader
         eyebrow="Legends Mortgage Academy"
         title="Resources"
-        description="Scripts, tools, training, podcast, the weekly calendar, and downloads — every Legends resource in one place."
+        description="Scripts, playbooks, training, podcasts, and downloads that open inside LegendsOS first."
       />
       <AcademyNav />
       <AcademyResources firstName={firstName} />

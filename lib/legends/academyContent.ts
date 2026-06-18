@@ -333,6 +333,8 @@ export const resourceTabs: ResourceTab[] = [
     links: [
       { title: "Training Library", description: "AI Advantage, Elite Sales & Marketing, and the Academy.", href: "/training" },
       { title: "Academy roadmap", description: "The 12-week Legends Mortgage Academy path.", href: "/training/academy" },
+      { title: "Elite Sales & Marketing", description: "Sales and marketing levels, including completed advanced modules.", href: "/training/elite" },
+      { title: "AI Advantage", description: "Jeremy's AI lessons for loan officers, playable in LegendsOS.", href: "/training/ai-advantage" },
     ],
   },
   {

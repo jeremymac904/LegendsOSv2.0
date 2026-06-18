@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { ResourceDetail } from "@/components/resources/ResourceDetail";
 import { getEffectiveProfile } from "@/lib/impersonation";
+import { isOwner } from "@/lib/permissions";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import {
   MARKETING_RESOURCE_TYPE,
@@ -39,6 +40,7 @@ export default async function MarketingMaterialDetailPage({ params }: PageProps)
   const sharedItems = ((data ?? []) as SharedResource[]).map(resourceFromShared);
   const item = findTeamResource("marketing", params.materialId, sharedItems);
   if (!item) notFound();
+  if (!isOwner(profile) && item.id === "marketing-project-folder") notFound();
 
   return (
     <ResourceDetail

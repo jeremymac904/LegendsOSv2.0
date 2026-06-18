@@ -900,15 +900,26 @@ function ElitePanel() {
 // Tab state syncs with the ?tab= search param so other surfaces can deep-link
 // (e.g. /training/resources?tab=elite). The page is force-dynamic, so
 // useSearchParams is safe here.
+const VISIBLE_RESOURCE_TABS = new Set([
+  "scripts",
+  "playbooks",
+  "training",
+  "podcasts",
+  "downloads",
+]);
 
 export function AcademyResources({ firstName }: { firstName: string }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
+  const visibleTabs = useMemo(
+    () => resourceTabs.filter((tab) => VISIBLE_RESOURCE_TABS.has(tab.key)),
+    []
+  );
   const paramKey = searchParams.get("tab");
-  const fallbackKey = resourceTabs[0]?.key ?? "";
-  const initialKey = resourceTabs.some((t) => t.key === paramKey)
+  const fallbackKey = visibleTabs[0]?.key ?? "";
+  const initialKey = visibleTabs.some((t) => t.key === paramKey)
     ? (paramKey as string)
     : fallbackKey;
 
@@ -916,13 +927,13 @@ export function AcademyResources({ firstName }: { firstName: string }) {
 
   // Keep state in sync when the param changes (back/forward, external links).
   useEffect(() => {
-    if (paramKey && resourceTabs.some((t) => t.key === paramKey)) {
+    if (paramKey && visibleTabs.some((t) => t.key === paramKey)) {
       setActiveKey(paramKey);
     }
-  }, [paramKey]);
+  }, [paramKey, visibleTabs]);
 
   const activeTab =
-    resourceTabs.find((tab) => tab.key === activeKey) ?? resourceTabs[0];
+    visibleTabs.find((tab) => tab.key === activeKey) ?? visibleTabs[0];
 
   if (!activeTab) return null;
 
@@ -935,7 +946,7 @@ export function AcademyResources({ firstName }: { firstName: string }) {
     <div className="space-y-5">
       {/* Tab rail */}
       <nav className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 scrollbar-thin">
-        {resourceTabs.map((tab) => (
+        {visibleTabs.map((tab) => (
           <button
             key={tab.key}
             type="button"

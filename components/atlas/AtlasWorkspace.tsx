@@ -729,7 +729,7 @@ export function AtlasWorkspace({
     is_pinned: Boolean((currentThread as (ChatThread & { is_pinned?: boolean }) | null)?.is_pinned),
     is_saved: Boolean((currentThread as (ChatThread & { is_saved?: boolean }) | null)?.is_saved),
   });
-  const [leftOpen, setLeftOpen] = useState(false);
+  const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(false);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
