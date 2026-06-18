@@ -56,10 +56,10 @@ const TOOL_LINKS: {
     icon: ClipboardList,
   },
   {
-    href: "/training/scorecard",
-    label: "Scorecard",
-    description: "Your weekly numbers and pace",
-    icon: BarChart3,
+    href: "/training/resources",
+    label: "Resources",
+    description: "Templates, playbooks, and downloads",
+    icon: FileText,
   },
   {
     href: "/training/feed",
@@ -123,6 +123,7 @@ export function AcademyToday({ firstName }: { firstName: string }) {
   const filled = day.fields.filter(
     (f) => (form[f.key] ?? "").trim().length > 0,
   ).length;
+  const scorecardFieldCount = day.fields.filter((field) => field.metric).length;
 
   function updateField(key: string, value: string) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -135,9 +136,9 @@ export function AcademyToday({ firstName }: { firstName: string }) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto xl:overflow-hidden">
       {/* Day tabs */}
-      <nav className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 scrollbar-thin">
+      <nav className="-mx-1 flex shrink-0 gap-1.5 overflow-x-auto px-1 pb-1 scrollbar-thin">
         {todayDays.map((d) => {
           const isActive = d.key === day.key;
           const hasSaved = hydrated && Boolean(getDay(d.key));
@@ -147,7 +148,7 @@ export function AcademyToday({ firstName }: { firstName: string }) {
               type="button"
               onClick={() => setActiveKey(d.key)}
               className={
-                "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[12px] font-medium transition " +
+                "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[11px] font-medium transition " +
                 (isActive
                   ? "border-accent-gold/50 bg-accent-gold/15 text-accent-gold"
                   : "border-ink-200 bg-ink-50 text-ink-600 hover:border-accent-champagne/40 hover:text-accent-champagne dark:border-accent-champagne/12 dark:bg-ink-950/40 dark:text-ink-300")
@@ -162,24 +163,20 @@ export function AcademyToday({ firstName }: { firstName: string }) {
         })}
       </nav>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-        {/* Main: theme, video, fields, save */}
-        <section className="space-y-4">
-          <div className="glass-card-padded">
+      <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[minmax(240px,0.78fr)_minmax(430px,1.18fr)_minmax(270px,0.78fr)] xl:overflow-hidden">
+        {/* Left: coaching is visible, but secondary to daily execution. */}
+        <section className="grid min-h-0 gap-3 xl:grid-rows-[auto_1fr] xl:overflow-hidden">
+          <div className="glass-card p-3">
             <p className="label flex items-center gap-1.5">
               <Sparkles size={12} className="text-accent-champagne" />
-              {day.day} · {day.theme}
+              {day.day} coaching
             </p>
-            <h2 className="mt-1 text-xl font-semibold text-ink-900 dark:text-ink-100">
+            <h2 className="mt-1 text-base font-semibold text-ink-900 dark:text-ink-100">
               {day.theme}
             </h2>
-            <p className="mt-1.5 max-w-2xl text-[13px] leading-relaxed text-ink-600 dark:text-ink-300">
-              {day.instruction}
-            </p>
 
-            {/* Jeremy's daily coaching video (HeyGen) */}
             {video && (
-              <div className="mt-3 aspect-video w-full overflow-hidden rounded-xl border border-accent-champagne/20 bg-black">
+              <div className="mt-2 aspect-video max-h-[180px] min-h-[120px] w-full overflow-hidden rounded-lg border border-accent-champagne/20 bg-black">
                 <iframe
                   key={video.embedUrl}
                   src={video.embedUrl}
@@ -190,133 +187,173 @@ export function AcademyToday({ firstName }: { firstName: string }) {
                 />
               </div>
             )}
+          </div>
 
-            {/* Log fields */}
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              {day.fields.map((field) => {
-                const isLong = field.kind === "long";
-                return (
-                  <label
-                    key={field.key}
-                    className={
-                      "block " + (isLong ? "sm:col-span-2" : "")
-                    }
-                  >
-                    <span className="label flex items-center gap-1.5">
-                      {field.label}
-                      {field.metric && (
-                        <span className="chip text-[9px]">scorecard</span>
-                      )}
-                    </span>
-                    {isLong ? (
-                      <textarea
-                        aria-label={field.label}
-                        value={form[field.key] ?? ""}
-                        onChange={(e) => updateField(field.key, e.target.value)}
-                        rows={2}
-                        className="input mt-1.5 min-h-20 resize-y"
-                      />
-                    ) : (
-                      <input
-                        aria-label={field.label}
-                        type={field.kind === "number" ? "number" : "text"}
-                        inputMode={field.kind === "number" ? "numeric" : undefined}
-                        min={field.kind === "number" ? 0 : undefined}
-                        value={form[field.key] ?? ""}
-                        onChange={(e) => updateField(field.key, e.target.value)}
-                        className="input mt-1.5"
-                      />
-                    )}
-                  </label>
-                );
-              })}
-            </div>
-
-            {/* Save row */}
-            <div className="mt-4 flex flex-col gap-3 border-t border-accent-champagne/15 pt-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
-                <p className="text-[12px] font-medium text-ink-600 dark:text-ink-300">
-                  {filled} of {day.fields.length} fields filled
+          <div className="glass-card min-h-0 p-3">
+            <p className="label">Daily coaching summary</p>
+            <p className="mt-2 text-[12.5px] leading-relaxed text-ink-700 dark:text-ink-200">
+              {day.instruction}
+            </p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <div className="rounded-lg border border-accent-champagne/15 bg-white/55 p-2 dark:bg-ink-950/30">
+                <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-ink-500 dark:text-ink-400">
+                  Fields
                 </p>
-                {(justSaved || saved) && (
-                  <p className="mt-0.5 flex items-center gap-1 text-[11px] text-status-ok">
-                    <CheckCircle2 size={12} className="shrink-0" />
-                    Saved{" "}
-                    {justSaved
-                      ? "just now"
-                      : saved
-                        ? relativeSaved(saved.savedAt)
-                        : ""}{" "}
-                    — rolled into your scorecard
-                  </p>
-                )}
+                <p className="mt-1 text-lg font-semibold text-ink-900 dark:text-ink-100">
+                  {filled}/{day.fields.length}
+                </p>
               </div>
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={!hydrated}
-                className="btn-primary shrink-0 disabled:opacity-50"
-              >
-                <Save size={15} />
-                Save day
-              </button>
+              <div className="rounded-lg border border-accent-champagne/15 bg-white/55 p-2 dark:bg-ink-950/30">
+                <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-ink-500 dark:text-ink-400">
+                  Scorecard
+                </p>
+                <p className="mt-1 text-lg font-semibold text-ink-900 dark:text-ink-100">
+                  {scorecardFieldCount}
+                </p>
+              </div>
             </div>
-
-            {/* What do I do next — appears once the day is logged. Fridays
-                point at the Scorecard submit; every other day points at the
-                day's Feed question. */}
+            {firstName && (
+              <p className="mt-3 text-[11.5px] leading-relaxed text-ink-500 dark:text-ink-400">
+                {firstName}, log the numbers before the day gets away from you.
+              </p>
+            )}
             {(justSaved || saved) && (
-              <div className="mt-3 flex flex-col gap-3 rounded-xl border border-accent-gold/25 bg-accent-gold/10 p-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <p className="label flex items-center gap-1.5">
-                    <ArrowRight size={12} className="text-accent-gold" />
-                    What&apos;s next
-                  </p>
-                  <p className="mt-1.5 text-[12.5px] leading-relaxed text-ink-700 dark:text-ink-200">
-                    {day.key === "friday"
-                      ? "Your numbers are rolled in. Review the week and submit your scorecard to your coach before the weekly group coaching call."
-                      : day.communityPrompt}
-                  </p>
-                </div>
-                <Link
-                  href={day.key === "friday" ? "/training/scorecard" : "/training/feed"}
-                  className="btn-ghost shrink-0"
-                >
-                  {day.key === "friday" ? "Open Scorecard" : "Answer in the Feed"}
-                  <ArrowRight size={14} />
-                </Link>
-              </div>
+              <p className="mt-2 flex items-center gap-1 text-[11px] text-status-ok">
+                <CheckCircle2 size={12} className="shrink-0" />
+                Saved{" "}
+                {justSaved
+                  ? "just now"
+                  : saved
+                    ? relativeSaved(saved.savedAt)
+                    : ""}{" "}
+                and rolled into Scorecard.
+              </p>
             )}
           </div>
         </section>
 
-        {/* Sidebar: tools + accountability + community */}
-        <aside className="space-y-3 lg:sticky lg:top-4 lg:self-start">
-          <div className="glass-card-padded">
+        {/* Center: the operating scorecard and pipeline/accountability fields. */}
+        <section className="glass-card flex min-h-0 flex-col overflow-hidden p-3">
+          <div className="flex shrink-0 items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="label flex items-center gap-1.5">
+                <BarChart3 size={12} className="text-accent-champagne" />
+                Scorecard + pipeline
+              </p>
+              <h3 className="mt-1 text-base font-semibold text-ink-900 dark:text-ink-100">
+                Today&apos;s operating numbers
+              </h3>
+            </div>
+            <span className="chip h-5 px-2 text-[9px]">
+              {filled}/{day.fields.length}
+            </span>
+          </div>
+
+          <div className="mt-2 grid min-h-0 flex-1 content-start grid-cols-1 gap-2 overflow-hidden sm:grid-cols-2">
+            {day.fields.map((field) => {
+              const isLong = field.kind === "long";
+              return (
+                <label
+                  key={field.key}
+                  className={"block min-w-0 " + (isLong ? "sm:col-span-2" : "")}
+                >
+                  <span className="flex min-w-0 items-center gap-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-ink-500 dark:text-ink-400">
+                    <span className="truncate">{field.label}</span>
+                    {field.metric && (
+                      <span className="rounded-full border border-accent-gold/25 px-1.5 py-0.5 text-[8px] tracking-[0.08em] text-accent-gold">
+                        scorecard
+                      </span>
+                    )}
+                  </span>
+                  {isLong ? (
+                    <textarea
+                      aria-label={field.label}
+                      value={form[field.key] ?? ""}
+                      onChange={(e) => updateField(field.key, e.target.value)}
+                      rows={2}
+                      className="input mt-1 h-14 resize-none rounded-lg px-2 py-1.5 text-[12px] leading-snug"
+                    />
+                  ) : (
+                    <input
+                      aria-label={field.label}
+                      type={field.kind === "number" ? "number" : "text"}
+                      inputMode={field.kind === "number" ? "numeric" : undefined}
+                      min={field.kind === "number" ? 0 : undefined}
+                      value={form[field.key] ?? ""}
+                      onChange={(e) => updateField(field.key, e.target.value)}
+                      className="input mt-1 h-8 rounded-lg px-2 py-1 text-[12px]"
+                    />
+                  )}
+                </label>
+              );
+            })}
+          </div>
+
+          <div className="mt-3 flex shrink-0 items-center justify-between gap-3 border-t border-accent-champagne/15 pt-3">
+            <div className="min-w-0">
+              <p className="text-[11px] font-medium text-ink-600 dark:text-ink-300">
+                {filled} of {day.fields.length} daily fields logged
+              </p>
+              <p className="mt-0.5 text-[10.5px] text-ink-500 dark:text-ink-400">
+                Scorecard fields roll up when saved.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={!hydrated}
+              className="btn-primary h-9 shrink-0 px-3 text-[12px] disabled:opacity-50"
+            >
+              <Save size={14} />
+              Save day
+            </button>
+          </div>
+
+          {(justSaved || saved) && (
+            <div className="mt-2 flex shrink-0 items-center justify-between gap-2 rounded-lg border border-accent-gold/25 bg-accent-gold/10 p-2">
+              <p className="min-w-0 truncate text-[11.5px] text-ink-700 dark:text-ink-200">
+                {day.key === "friday"
+                  ? "Review the week and submit your scorecard."
+                  : day.communityPrompt}
+              </p>
+              <Link
+                href={day.key === "friday" ? "/training/scorecard" : "/training/feed"}
+                className="inline-flex shrink-0 items-center gap-1 text-[11px] font-semibold text-accent-gold"
+              >
+                {day.key === "friday" ? "Open Scorecard" : "Answer"}
+                <ArrowRight size={12} />
+              </Link>
+            </div>
+          )}
+        </section>
+
+        {/* Right: tools, accountability, action prompt. */}
+        <aside className="grid min-h-0 gap-3 xl:grid-rows-[auto_1fr_auto] xl:overflow-hidden">
+          <div className="glass-card p-3">
             <p className="label flex items-center gap-1.5">
               <Wrench size={12} className="text-accent-champagne" />
               Tools rail
             </p>
-            <nav className="mt-3 space-y-1.5">
+            <nav className="mt-2 grid gap-1.5">
               {TOOL_LINKS.map((tool) => (
                 <Link
                   key={tool.href}
                   href={tool.href}
-                  className="group flex items-center gap-3 rounded-xl border border-transparent px-2.5 py-2 transition hover:border-accent-champagne/25 hover:bg-ink-100/60 dark:hover:bg-ink-950/40"
+                  className="group flex items-center gap-2 rounded-lg border border-transparent px-2 py-1.5 transition hover:border-accent-champagne/25 hover:bg-ink-100/60 dark:hover:bg-ink-950/40"
                 >
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-accent-champagne/20 bg-ink-50 text-accent-champagne dark:bg-ink-950/40">
-                    <tool.icon size={15} />
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-accent-champagne/20 bg-ink-50 text-accent-champagne dark:bg-ink-950/40">
+                    <tool.icon size={13} />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[12.5px] font-semibold text-ink-900 dark:text-ink-100">
+                    <span className="block text-[12px] font-semibold text-ink-900 dark:text-ink-100">
                       {tool.label}
                     </span>
-                    <span className="block truncate text-[11px] text-ink-500 dark:text-ink-400">
+                    <span className="block truncate text-[10.5px] text-ink-500 dark:text-ink-400">
                       {tool.description}
                     </span>
                   </span>
                   <ArrowRight
-                    size={14}
+                    size={13}
                     className="shrink-0 text-ink-400 transition group-hover:translate-x-0.5 group-hover:text-accent-champagne"
                   />
                 </Link>
@@ -324,19 +361,19 @@ export function AcademyToday({ firstName }: { firstName: string }) {
             </nav>
           </div>
 
-          <div className="glass-card-padded">
+          <div className="glass-card min-h-0 p-3">
             <p className="label flex items-center gap-1.5">
               <ListChecks size={12} className="text-accent-champagne" />
-              This day&apos;s accountability
+              Accountability
             </p>
-            <ul className="mt-3 space-y-2.5">
+            <ul className="mt-2 space-y-1.5">
               {day.accountability.map((item) => (
                 <li
                   key={item}
-                  className="flex items-start gap-2 text-[12.5px] leading-relaxed text-ink-700 dark:text-ink-200"
+                  className="flex items-start gap-2 text-[12px] leading-snug text-ink-700 dark:text-ink-200"
                 >
                   <CircleDashed
-                    size={14}
+                    size={12}
                     className="mt-0.5 shrink-0 text-accent-gold"
                   />
                   {item}
@@ -344,9 +381,8 @@ export function AcademyToday({ firstName }: { firstName: string }) {
               ))}
             </ul>
 
-            {/* Free-form accountability note — saved with the day log. */}
-            <label className="mt-4 block border-t border-accent-champagne/10 pt-4">
-              <span className="field-label flex items-center gap-1.5">
+            <label className="mt-3 block border-t border-accent-champagne/10 pt-3">
+              <span className="field-label flex items-center gap-1.5 text-[10px]">
                 <NotebookPen size={12} className="text-accent-champagne" />
                 Accountability note
               </span>
@@ -354,33 +390,29 @@ export function AcademyToday({ firstName }: { firstName: string }) {
                 aria-label="Accountability note"
                 value={form[ACCOUNTABILITY_NOTE_KEY] ?? ""}
                 onChange={(e) => updateField(ACCOUNTABILITY_NOTE_KEY, e.target.value)}
-                placeholder="Answer the checks above — what you'll own from today."
+                placeholder="Own the next decision, stuck file, or follow-up."
                 rows={3}
-                className="textarea mt-1.5 min-h-20"
+                className="input mt-1 h-20 resize-none rounded-lg px-2 py-1.5 text-[12px] leading-snug"
               />
-              <span className="mt-1 block text-[10.5px] text-ink-500 dark:text-ink-400">
-                Saves with your day log when you hit Save day.
+              <span className="mt-1 block text-[10px] text-ink-500 dark:text-ink-400">
+                Saves with this day.
               </span>
             </label>
           </div>
 
-          <div className="rounded-xl border border-ink-200 bg-white/65 p-4 dark:border-accent-champagne/15 dark:bg-ink-950/30">
-            <p className="label">Community prompt</p>
-            <p className="mt-2 text-[12.5px] leading-relaxed text-ink-600 dark:text-ink-300">
+          <div className="rounded-xl border border-ink-200 bg-white/65 p-3 dark:border-accent-champagne/15 dark:bg-ink-950/30">
+            <p className="label">Coaching prompt</p>
+            <p className="mt-2 text-[12px] leading-snug text-ink-600 dark:text-ink-300">
               {day.communityPrompt}
             </p>
-            <Link href="/training/feed" className="btn-ghost mt-4 w-full">
+            <Link
+              href="/training/feed"
+              className="mt-2 inline-flex items-center gap-1 text-[12px] font-semibold text-accent-gold"
+            >
               Post in the feed
-              <ArrowRight size={14} />
+              <ArrowRight size={13} />
             </Link>
           </div>
-
-          {firstName && (
-            <p className="px-1 text-[11px] leading-relaxed text-ink-500 dark:text-ink-400">
-              {firstName}, log it daily — the week only counts when it&apos;s
-              written down.
-            </p>
-          )}
         </aside>
       </div>
     </div>
